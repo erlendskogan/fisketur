@@ -4,7 +4,7 @@ import './style.css'
 import { canvas, mix, toURL } from './art/pixel'
 import { ambientAt, skyAt } from './art/fjord'
 import { nightness } from './art/scenery'
-import { initAudio, setRain, setSound, sfx } from './audio'
+import { initAudio, setMusic, setRain, setSound, sfx } from './audio'
 import {
   BOOK,
   BOOK_REWARDS,
@@ -22,7 +22,7 @@ import {
   type WorldId,
 } from './game/data'
 import { Harbor, type SpotId } from './game/harbor'
-import { artFor, Sea, type SeaHost } from './game/sea'
+import { artFor, LETTER_DEPTHS, Sea, type SeaHost } from './game/sea'
 import { activeQuests, bookCount, bucketValue, fresh, gearValue, load, needsMet, persist, questsOpen, switchWorld, wipe, type Save } from './game/state'
 import {
   AFTER_AK_ENDING,
@@ -306,6 +306,7 @@ class Game implements SeaHost {
   private watchWeather() {
     const rain = weatherAt(this.s.day, this.s.time).rain
     setRain(rain)
+    setMusic(this.s.world)
     if (!this.raining && rain > 0.3 && this.started && !this.ui.busy) {
       this.raining = true
       this.ui.toast('Det begynner å regne. Fisken biter bedre nå!', 'rain')
@@ -351,7 +352,9 @@ class Game implements SeaHost {
       snag: 'Haler inn ...',
     }
     const hintText = !sea
-      ? ''
+      ? this.started && !this.ui.busy
+        ? `Neste: ${this.nextGoal()}`
+        : ''
       : mode === 'reel'
         ? 'Hold inne for å løfte det grønne feltet'
         : mode === 'wait'
@@ -377,6 +380,7 @@ class Game implements SeaHost {
       act.classList.toggle('hot', mode === 'bite')
       act.classList.toggle('green', mode === 'wait' || mode === 'sink')
       hint.textContent = hintText
+      hint.classList.toggle('goal', !sea)
     }
     if (navKey === this.navKey) return
     this.navKey = navKey
@@ -435,6 +439,54 @@ class Game implements SeaHost {
     v('--sign-grain', lit('#3e2a1e'))
     v('--sign-ink', lit('#2a1d2e'))
     v('--sign-text', mix(lit('#fff8e8'), lit('#c8b8a0'), night * 0.6))
+  }
+
+  /** One line on what to do next, so you never have to guess */
+  nextGoal(): string {
+    const s = this.s
+    const f = s.flags
+    if (this.ak) {
+      const h = s.hydro
+      if (!f.ak_sold1) return 'Fang en fisk og selg den til Astrid på Bakke Fisk.'
+      if (!f.ak_metRay) return 'Hils på Ray på havnekontoret.'
+      if (!f.ak_selma) return `Finn fem ulike arter, så kommer Selma (${Math.min(5, bookCount(s))}/5).`
+      if (!f.ak_metSelma) return 'Selma har landet. Besøk hytta hennes.'
+      if (h.placed > h.heard) return 'Lytt til hydrofonen sammen med Selma.'
+      if (f.ak_askCreek && !f.ak_confessed) return 'Spør Astrid om Bakke-elva.'
+      if (f.ak_confessed && !f.ak_dam) return `Betal for å rive demningen hos Astrid (${kr(1500)}).`
+      if (h.placed < HYDRO_DEPTHS.length) return `Sett ut neste hydrofon på ${HYDRO_DEPTHS[h.placed]} meter.`
+      if (f.ak_finale && !f.ak_king) return 'Fisk i det grunne vannet. Kongelaksen er på vei hjem.'
+      if (f.ak_king && !f.ak_ending) return 'Gå til Astrid på Bakke Fisk.'
+      if (!f.hi_invite) return 'Selma vil snakke med deg i hytta.'
+      if (!f.hi_moved) return 'Fly til Hawaii fra sjøflyet.'
+      return 'Fyll Fiskeboka og klar Rays liste.'
+    }
+    if (this.hi) {
+      const b = s.buoys
+      if (!f.hi_sold1) return 'Fang en fisk og selg den til Leilani i fiskeboden.'
+      if (!f.hi_metKimo) return 'Hils på Kimo i havna.'
+      if (!f.hi_metSelma) return 'Besøk Selma på hvalstasjonen.'
+      if (b.placed > b.heard) return 'Lytt til sangbøya sammen med Selma.'
+      if (f.hi_askPond && !f.hi_pondTold) return 'Snakk med Leilani om fiskedammen.'
+      if (f.hi_pondTold && !f.hi_wall) return `Betal for å bygge opp muren hos Leilani (${kr(1500)}).`
+      if (f.hi_wall && s.pond < POND_NEED) return `Slipp multe, manini eller papegøyefisk i Tūtūs dam (${s.pond}/${POND_NEED}).`
+      if (f.hi_wall && !f.hi_pondFull) return 'Gå til Leilani i fiskeboden.'
+      if (b.placed < BUOY_DEPTHS.length) return `Sett ut neste sangbøye på ${BUOY_DEPTHS[b.placed]} meter, om natta.`
+      if (f.hi_finale && !f.hi_calf) return 'Ligg stille med Koholā ved overflaten.'
+      if (f.hi_calf && !f.hi_ending) return 'Gå til Leilani og Tūtū.'
+      return 'Fyll Fiskeboka og klar Kimos liste.'
+    }
+    if (!f.sold1) return 'Fang en fisk og selg den til Marit i Krambua.'
+    if (!f.metHalvor) return 'Hils på Halvor i Havnebua.'
+    if (!f.metKnut) return 'Besøk bestefar i fyret.'
+    if (s.letters.found > s.letters.delivered) return 'Ta brevet med til bestefar i fyret.'
+    if (s.letters.delivered < 4) return `Finn neste brev i en blikkboks, rundt ${LETTER_DEPTHS[s.letters.delivered]} meter ned.`
+    if (f.finale && !f.scale) return 'Senk lyset helt ned i Grøfta. Den gamle venter.'
+    if (f.scale && !f.ending) return 'Ta lysskjellet med til bestefar.'
+    if (!f.akLetter) return 'Marit har post til deg i Krambua.'
+    if (!f.akRead) return 'Ta brevet med til bestefar i fyret.'
+    if (!f.ak_moved) return 'Reis til Alaska fra fyret.'
+    return 'Fisk, fullfør Halvors oppdrag og fyll Fiskeboka.'
   }
 
   /** Places with something new waiting */
@@ -1417,9 +1469,21 @@ class Game implements SeaHost {
 
   openSettings() {
     const s = this.s
+    const f = s.flags
+    const chapters: [string, string, boolean, boolean][] = [
+      ['Første kapittel', 'Skjærvik: Fyret tennes', true, !!f.ending],
+      ['Andre kapittel', 'Petersburg: Laksen kommer hjem', !!f.ak_moved, !!f.ak_ending],
+      ['Tredje kapittel', 'Hilo: Sangen rundt havet', !!f.hi_moved, !!f.hi_ending],
+    ]
+    const journal = chapters
+      .filter(([, , open]) => open)
+      .map(([n, t, , done]) => `<div class="row"><div class="info"><b>${n}</b><small>${t}</small></div><span class="${done ? 'stamp gold' : 'muted'}">${done ? 'FERDIG' : 'Pågår'}</span></div>`)
+      .join('')
     const b = this.ui.sheet(
-      'Innstillinger',
-      `<div class="stack">
+      'Dagbok og innstillinger',
+      `<p><b>Du er i ${WORLDS[s.world].place}.</b> ${esc(this.nextGoal())}</p>
+      ${journal}
+      <div class="stack" style="margin-top:12px">
         <button class="btn plain" data-a="sound">Lyd: ${s.sound ? 'på' : 'av'}</button>
         <button class="btn red" data-a="reset">Start et nytt spill</button>
       </div>

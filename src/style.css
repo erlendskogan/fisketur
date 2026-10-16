@@ -912,3 +912,9 @@ body.intro #dock {
   padding: 6px 4px;
   min-height: 40px;
 }
+
+#hint.goal {
+  font-size: 19px;
+  max-width: 92%;
+  opacity: 0.92;
+}

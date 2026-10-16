@@ -180,31 +180,37 @@ export function setRain(amount: number) {
   rainGain.gain.setTargetAtTime(a * 0.05, ctx.currentTime, 0.8)
 }
 
-/** A slow pentatonic music box that never quite repeats */
+/** Each place has its own tune: a music box at home, something slower and darker in Alaska, a ukulele in Hawaii */
+const STYLES: Record<string, { base: number; beat: number; scale: number[]; chords: number[][]; pluck: boolean }> = {
+  norge: { base: 261.63, beat: 0.62, scale: [0, 2, 4, 7, 9, 12, 14, 16, 19, 21], chords: [[0, 4, 7], [-3, 0, 4], [5, 9, 12], [-5, -1, 2]], pluck: false },
+  alaska: { base: 220, beat: 0.78, scale: [0, 3, 5, 7, 10, 12, 15, 17, 19, 22], chords: [[0, 3, 7], [-4, 0, 3], [-9, -5, -2], [-2, 2, 5]], pluck: false },
+  hawaii: { base: 293.66, beat: 0.46, scale: [0, 2, 4, 7, 9, 12, 14, 16, 19, 21], chords: [[0, 4, 7], [5, 9, 12], [7, 11, 14], [-3, 0, 4]], pluck: true },
+}
+let style = 'norge'
+export const setMusic = (s: string) => (style = STYLES[s] ? s : 'norge')
+
+/** A slow pentatonic tune that never quite repeats */
 function startMusic() {
   if (!ctx || !musicGain) return
-  const scale = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21]
-  const chords = [
-    [0, 4, 7],
-    [-3, 0, 4],
-    [5, 9, 12],
-    [-5, -1, 2],
-  ]
   let step = 0
   let note = 4
-  const base = 261.63
-  const hz = (semi: number) => base * Math.pow(2, semi / 12)
-  const beat = 0.62
   const tick = () => {
     if (!ctx || !musicGain) return
-    const chord = chords[Math.floor(step / 8) % chords.length]
-    if (step % 8 === 0) for (const s of chord) tone(hz(s - 12), beat * 7, 'sine', 0.05, 0, 0, musicGain)
-    if (Math.random() < 0.72) {
-      note = Math.max(0, Math.min(scale.length - 1, note + Math.round((Math.random() - 0.5) * 4)))
-      tone(hz(scale[note]), beat * 2.2, 'triangle', 0.07, 0, 0, musicGain)
-      if (Math.random() < 0.2) tone(hz(scale[note] + 12), beat * 1.2, 'sine', 0.03, beat / 2, 0, musicGain)
+    const st = STYLES[style]
+    const hz = (semi: number) => st.base * Math.pow(2, semi / 12)
+    const beat = st.beat
+    const chord = st.chords[Math.floor(step / 8) % st.chords.length]
+    if (st.pluck) {
+      // a ukulele strum on every other beat
+      if (step % 2 === 0) chord.forEach((n, i) => tone(hz(n), beat * 0.9, 'triangle', 0.035, i * 0.03, 0, musicGain!))
+    } else if (step % 8 === 0) for (const n of chord) tone(hz(n - 12), beat * 7, 'sine', 0.05, 0, 0, musicGain)
+    if (Math.random() < (st.pluck ? 0.6 : 0.72)) {
+      note = Math.max(0, Math.min(st.scale.length - 1, note + Math.round((Math.random() - 0.5) * 4)))
+      tone(hz(st.scale[note]), beat * (st.pluck ? 1.1 : 2.2), 'triangle', 0.07, 0, 0, musicGain)
+      if (Math.random() < 0.2) tone(hz(st.scale[note] + 12), beat * 1.2, 'sine', 0.03, beat / 2, 0, musicGain)
     }
     step++
+    setTimeout(tick, beat * 1000)
   }
-  setInterval(tick, beat * 1000)
+  tick()
 }
