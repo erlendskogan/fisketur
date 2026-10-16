@@ -64,6 +64,7 @@ export interface SeaHost {
   escaped(): void
   letterFound(): void
   hydroPlaced(): void
+  hint(text: string): void
   calfVisit(): void
   gamleVisit(): void
   gamleCaught(): void
@@ -119,6 +120,7 @@ export class Sea {
   private gamleT = 0
   private calf: { t0: number; told: boolean } | null = null
   private calfT = 0
+  private dayHint = false
   private flyers: { x: number; t0: number; y: number }[] = []
   private nextWhale = 6
   private net: { x: number; t0: number } | null = null
@@ -644,6 +646,16 @@ export class Sea {
         this.host.modeChanged()
       }
       return
+    }
+    // a song buoy taken down in daylight: tell the player why nothing happens
+    if (WORLD === 'hawaii' && !this.dayHint) {
+      const b = this.s.buoys
+      if (this.s.flags.hi_buoys && b.placed === b.heard && b.placed < BUOY_DEPTHS.length && nightness(this.s.time) < 0.5 && (b.placed !== 1 || this.s.flags.hi_pondFull)) {
+        if (Math.abs(this.lure.y - depthToY(BUOY_DEPTHS[b.placed])) < 14) {
+          this.dayHint = true
+          this.host.hint('Sangbøyene hører bare hvalene om natta. Kom tilbake når det er mørkt.')
+        }
+      }
     }
     const item = this.letterItem()
     if (item && Math.abs(this.lure.y - item.y) < 22) {

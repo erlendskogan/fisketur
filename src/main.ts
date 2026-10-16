@@ -606,10 +606,14 @@ class Game implements SeaHost {
     this.ui.toast('Gå til Astrid på kaia.', 'house')
   }
 
+  hint(text: string) {
+    this.ui.toast(text, 'moon')
+  }
+
   hydroPlaced() {
     sfx.chest()
     this.save()
-    this.ui.toast('Hydrofonen sitter! Gå til Selma og lytt.', 'sea')
+    this.ui.toast(this.hi ? 'Sangbøya er ute! Gå til Selma og lytt.' : 'Hydrofonen sitter! Gå til Selma og lytt.', 'sea')
   }
 
   escaped() {
@@ -697,6 +701,7 @@ class Game implements SeaHost {
       }
       return
     }
+    if (s.world !== 'norge') return
     if (!s.flags.selma && bookCount(s) >= 5) {
       s.flags.selma = true
       this.ui.toast('En forskningsbåt har lagt til ved Havstasjonen.', 'house')
@@ -1637,9 +1642,17 @@ class Game implements SeaHost {
       .filter(([, , open]) => open)
       .map(([n, t, , done]) => `<div class="row"><div class="info"><b>${n}</b><small>${t}</small></div><span class="${done ? 'stamp gold' : 'muted'}">${done ? 'FERDIG' : 'Pågår'}</span></div>`)
       .join('')
+    const all = Object.keys(s.book).filter((id) => SPECIES_BY_ID[id] && !SPECIES_BY_ID[id].special).length
+    const total = Object.values(WORLDS).reduce((n, w) => n + w.species.filter((sp) => !sp.special).length, 0)
+    const best = Object.entries(s.book)
+      .filter(([id]) => SPECIES_BY_ID[id] && !SPECIES_BY_ID[id].special)
+      .sort((a, b) => b[1].best - a[1].best)[0]
+    const stats = `<div class="facts"><span><small>Fisk fanget</small>${s.stats.caught}</span><span><small>Arter</small>${all} av ${total}</span><span><small>Perfekte</small>${s.stats.perfect}</span></div>
+      ${best ? `<p class="muted">Lengste fisk: ${esc(SPECIES_BY_ID[best[0]].name)}, ${best[1].best} cm. Sluppet ut: ${s.stats.released}. Skattekister: ${s.stats.treasure}.</p>` : ''}`
     const b = this.ui.sheet(
       'Dagbok og innstillinger',
       `<p><b>Du er i ${WORLDS[s.world].place}.</b> ${esc(this.nextGoal())}</p>
+      ${stats}
       ${journal}
       <div class="stack" style="margin-top:12px">
         <button class="btn plain" data-a="sound">Lyd: ${s.sound ? 'på' : 'av'}</button>
