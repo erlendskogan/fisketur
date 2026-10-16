@@ -1,13 +1,32 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Fisketur",
+    "slug": "fisketur",
+    "platforms": [
+      "ios"
+    ],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#141642",
     "ios": {
-      "supportsTablet": true
-    }
+      "bundleIdentifier": "com.gesk.fisketur",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#141642"
+        }
+      ]
+    ]
   }
 }
