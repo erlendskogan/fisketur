@@ -27,6 +27,12 @@
           "backgroundColor": "#141642"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1215dc50-92cf-4126-99a1-4d936c975948"
+      }
+    },
+    "owner": "egeiran"
   }
 }
