@@ -256,12 +256,12 @@ class Game implements SeaHost {
     this.hudKey = key
     const night = nightness(s.time) > 0.5
     $('#hud').innerHTML = `
-      <span class="chip">${iconImg('coin')}${kr(s.money)}</span>
+      <span class="chip money">${iconImg('coin')}${kr(s.money)}</span>
       <button class="chip" data-hud="bucket">${iconImg('bucket')}${s.bucket.length}/${gearValue(s, 'bucket')}</button>
       <span class="grow"></span>
       ${depth >= 0 ? `<span class="chip depth">${depth} m<small>/ ${gearValue(s, 'line')}</small></span>` : ''}
       <span class="chip">${iconImg(wet ? 'rain' : night ? 'moon' : 'sun')}${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}</span>
-      <button class="chip icon-only" data-hud="settings" aria-label="Innstillinger">${iconImg('gear')}</button>`
+      <button class="chip icon-only" data-hud="settings" aria-label="Innstillinger">${iconImg('wheel')}</button>`
   }
 
   private renderDock() {
@@ -314,10 +314,10 @@ class Game implements SeaHost {
     const harborBadge = this.badges().length > 0
     const claim = this.claimable()
     $('#nav').innerHTML = `
-      <button data-tab="sea" class="${this.view === 'sea' ? 'on' : ''}"><img class="px" src="${icon('sea')}" alt="">Sjøen</button>
-      <button data-tab="harbor" class="${this.view === 'harbor' ? 'on' : ''}"><img class="px" src="${icon('house')}" alt="">Bryggen${harborBadge ? '<span class="badge">!</span>' : ''}</button>
-      <button data-tab="book"><img class="px" src="${icon('book')}" alt="">Fiskebok</button>
-      <button data-tab="quests" ${s.flags.metHalvor ? '' : 'disabled'}><img class="px" src="${icon(s.flags.metHalvor ? 'scroll' : 'lock')}" alt="">Oppdrag${claim ? `<span class="badge">${claim}</span>` : ''}</button>`
+      <button data-tab="sea" class="${this.view === 'sea' ? 'on' : ''}"><img class="px" src="${icon('sea', 36)}" alt="">Sjøen</button>
+      <button data-tab="harbor" class="${this.view === 'harbor' ? 'on' : ''}"><img class="px" src="${icon('house', 36)}" alt="">Bryggen${harborBadge ? '<span class="badge">!</span>' : ''}</button>
+      <button data-tab="book"><img class="px" src="${icon('book', 36)}" alt="">Fiskebok</button>
+      <button data-tab="quests" ${s.flags.metHalvor ? '' : 'disabled'}><img class="px" src="${icon(s.flags.metHalvor ? 'scroll' : 'lock', 36)}" alt="">Oppdrag${claim ? `<span class="badge">${claim}</span>` : ''}</button>`
   }
 
   private renderLabels() {
@@ -341,8 +341,9 @@ class Game implements SeaHost {
     el.innerHTML = this.harbor.spots
       .map((p) => {
         const x = Math.max(56, Math.min(innerWidth - 50, (p.x + p.w / 2) * this.px))
-        const y = (p.id === 'baten' ? p.y + p.h + 14 : p.y) * this.px
-        return `<span class="label" style="left:${x}px;top:${y}px">${names[p.id]}${badges.includes(p.id) ? '<span class="badge">!</span>' : ''}</span>`
+        const below = p.id === 'baten'
+        const y = (below ? p.y + p.h : p.y) * this.px
+        return `<span class="label${below ? ' below' : ''}" style="left:${x}px;top:${y}px">${names[p.id]}${badges.includes(p.id) ? '<span class="badge">!</span>' : ''}</span>`
       })
       .join('')
   }

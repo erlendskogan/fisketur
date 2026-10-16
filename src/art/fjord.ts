@@ -521,16 +521,23 @@ export class Backdrop {
       const img = sg.createImageData(W, h)
       const dark = hex2rgb(mix('#4a5268', '#141830', night))
       const lit = hex2rgb(mix('#8a94a8', '#2a3050', night))
+      // a flat deck with round puffs hanging from its underside
+      const r = rng(5)
+      const puffs = Array.from({ length: Math.ceil(W / 7) + 2 }, (_, i) => ({ x: i * 7 - 6 + r() * 5, y: h * (0.28 + r() * 0.22), rad: 5 + r() * 8 }))
+      const cover = (x: number, y: number) => {
+        let best = h * 0.3 - y
+        for (const p of puffs) best = Math.max(best, p.rad - Math.hypot(x - p.x, (y - p.y) * 1.3))
+        return best
+      }
       for (let y = 0; y < h; y++)
         for (let x = 0; x < W; x++) {
-          // puffy bumps along the underside of the deck
-          const lump = 0.45 + 0.3 * Math.abs(Math.sin(x * 0.055)) + 0.15 * Math.abs(Math.sin(x * 0.16 + 1)) + 0.05 * Math.sin(y * 0.3)
-          const k = y / h - lump * 0.6
-          const a = Math.max(0, Math.min(1, 0.6 - k * 5))
-          const q = Math.floor(a * 4 + bayer(x, y)) / 4
-          if (q <= 0) continue
-          const edge = q < 0.75
-          img.data.set([...(edge ? lit : dark), Math.round(q * 255)], (y * W + x) * 4)
+          const v = cover(x, y)
+          if (v < -1.5) continue
+          // a dithered fringe, and a paler rim along the bottom of each puff
+          if (v < 0 && bayer(x, y) > (v + 1.5) / 1.5) continue
+          const below = cover(x, y + 2)
+          const col = below < 0 ? lit : dark
+          img.data.set([...col, v < 0 ? 200 : 255], (y * W + x) * 4)
         }
       sg.putImageData(img, 0, 0)
       this.storm = { c, key }

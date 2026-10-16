@@ -10,12 +10,17 @@ export const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: Parent
 export const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 
 const iconCache = new Map<string, string>()
-export const icon = (name: string, scale = 4) => {
+/**
+ * An icon as a data URL, drawn so each of its 12×12 pixels covers a whole number of screen
+ * pixels when shown `css` pixels wide; that keeps it crisp on every screen.
+ */
+export const icon = (name: string, css = 24) => {
+  const scale = Math.max(1, Math.round((css / 12) * (window.devicePixelRatio || 1)))
   const k = name + scale
   if (!iconCache.has(k)) iconCache.set(k, toURL(iconCanvas(name), scale))
   return iconCache.get(k)!
 }
-export const iconImg = (name: string) => `<img class="px" src="${icon(name)}" alt="">`
+export const iconImg = (name: string, css = 24) => `<img class="px" src="${icon(name, css)}" width="${css}" height="${css}" alt="">`
 
 const faceCache = new Map<string, string>()
 export const face = (id: string) => {

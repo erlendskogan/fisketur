@@ -164,36 +164,225 @@ export const jellySprites = () => {
 
 const ICON_PAL = {
   k: INK,
+  w: '#fff8e8',
   y: '#ffd84a',
   Y: '#d8962e',
-  w: '#fff8e8',
+  o: '#a8641e',
   b: '#c9823e',
   B: '#8a5a2e',
+  d: '#5a3a22',
   r: '#d8433a',
   R: '#a52e34',
   p: '#f2e2b8',
-  g: '#a8b0c0',
+  P: '#d8be88',
+  g: '#c8d0dc',
+  G: '#7a8298',
   s: '#4cb8e8',
   S: '#2a7ab0',
-  m: '#f2e6b0',
+  n: '#1e4a7a',
+  f: '#9ad8ea',
+  F: '#4a8aa8',
+  c: '#eef2fa',
+  C: '#a8b4cc',
+  h: '#ffd36a',
 }
 
+/** 12×12 icons for the HTML interface */
 export const ICONS: Record<string, string[]> = {
-  coin: ['..kkkk..', '.kyyyyk.', 'kyywyyYk', 'kywyyyYk', 'kyyyyyYk', 'kyyyyYYk', '.kYYYYk.', '..kkkk..'],
-  bucket: ['..kkkkk..', '.k.....k.', 'kkkkkkkkk', 'kbbbbbbbk', 'kBbbbbbBk', '.kbbbbbk.', '.kBbbbBk.', '.kbbbbbk.', '..kkkkk..'],
-  book: ['kkkkkkkk.', 'krrrrrrwk', 'krrrwrrwk', 'krrwwwrwk', 'krrrwrrwk', 'krrrrrrwk', 'krrrrrrwk', 'kRRRRRRwk', 'kkkkkkkk.'],
-  scroll: ['.kkkkkkk.', 'kwwwwwwwk', '.kpppppk.', '.kpkkkpk.', '.kpppppk.', '.kpkkppk.', '.kpppppk.', 'kwwwwwwwk', '.kkkkkkk.'],
-  sea: ['.........', '.........', '..kk...kk', '.ksskskss', 'kssSsssSs', 'kSSSSSSSS', 'kssskssss', 'kSSSSSSSS', '.........'],
-  house: ['....k....', '...krk...', '..krrrk..', '.krrrrrk.', 'kkkkkkkkk', '.kwwwwwk.', '.kwykwwk.', '.kwwkwwk.', '.kkkkkkk.'],
-  gear: ['...k.k...', '.kkkkkkk.', '.kgggggk.', 'kkgkkkgkk', '.kgk.kgk.', 'kkgkkkgkk', '.kgggggk.', '.kkkkkkk.', '...k.k...'],
-  sun: ['....y....', '.y..y..y.', '..yyyyy..', '..yywyy..', 'yyywyyyyy', '..yyyyy..', '..yyyyy..', '.y..y..y.', '....y....'],
-  moon: ['..kkk....', '.kmmk....', 'kmmk.....', 'kmmk.....', 'kmmk.....', 'kmmmk....', '.kmmmkkk.', '..kmmmmk.', '...kkkk..'],
-  rain: ['...kkk...', '..kwwwkk.', '.kwwwwwwk', 'kwwgwwwwk', 'kgggggggk', '.kkkkkkk.', '..s..s...', '.s..s..s.', '...s..s..'],
-  letter: ['kkkkkkkkk', 'kpkpppkpk', 'kppkpkppk', 'kpppkpppk', 'kpppppppk', 'kpppprrpk', 'kpppprrpk', 'kkkkkkkkk'],
-  lock: ['..kkkk..', '.kgggk..', '.kg..gk.', 'kkkkkkkk', 'kyyyyyyk', 'kyyYyyyk', 'kyyYyyyk', 'kkkkkkkk'],
+  coin: [
+    '...kkkkkk...',
+    '..kyyyyyyk..',
+    '.kywwyyyyYk.',
+    'kywyyyyyyyYk',
+    'kyyyoooyoyYk',
+    'kyyoyooooyYk',
+    'kyyyoooyoyYk',
+    'kyyyyyyyyyYk',
+    'kYyyyyyyyYYk',
+    '.kYYyyyyYYk.',
+    '..kYYYYYYk..',
+    '...kkkkkk...',
+  ],
+  bucket: [
+    '.........kk.',
+    '..kkkkk.kfFk',
+    '.k.....kkfFk',
+    'k.......kfk.',
+    'kkkkkkkkkkkk',
+    'kwbbbbbbbbBk',
+    'kgggggggggGk',
+    '.kbbbbbbbBk.',
+    '.kwbbbbbbBk.',
+    '.kgggggggGk.',
+    '.kbbbbbbBBk.',
+    '..kkkkkkkk..',
+  ],
+  book: [
+    '.kkkkkkkkkk.',
+    'kSssssssssPk',
+    'kSsssssssspk',
+    'kSssssssssPk',
+    'kSssfffsfspk',
+    'kSsfwffffsPk',
+    'kSssfffsfspk',
+    'kSssssssssPk',
+    'kSsyyyyyyspk',
+    'kSnnnnnnnnPk',
+    'kkkkkkkkkkpk',
+    '.kpPpPpPpPk.',
+  ],
+  scroll: [
+    'kkkkkkkkkkk.',
+    'kPppppppppPk',
+    'kkkkkkkkkkk.',
+    '.kpppppppk..',
+    '.kpGGGGppk..',
+    '.kpppppppk..',
+    '.kpGGGGGpk..',
+    '.kpppppppk..',
+    '.kpGGGpkkk..',
+    'kkkkkkkRrRk.',
+    'kPpppkRrwrRk',
+    'kkkkkkkRRRk.',
+  ],
+  sea: [
+    '.....kkk....',
+    '....kfffk.k.',
+    '...kfwfffkFk',
+    '...kffffFFk.',
+    '....kkFFk.k.',
+    '......kk....',
+    '.kk.....kk..',
+    'kssk...kssk.',
+    'sswsk.kswssk',
+    'SsssskssssSS',
+    'SSSsSSSSsSSS',
+    'nSnnnSnnnSnn',
+  ],
+  house: [
+    '.....kk.....',
+    '....kwwk....',
+    '...kwrrwk...',
+    '..kwrhhrwk..',
+    '.kwrrhhrrwk.',
+    'kwrrrrrrrrwk',
+    '.krrrrrrrrk.',
+    '.krhhrrkkrk.',
+    '.krhhrrkbrk.',
+    '.kRRRRRkbRk.',
+    'kdbdbdbdbdbk',
+    '.k.k...k.k..',
+  ],
+  gear: [
+    '..........kk',
+    '.........kwk',
+    '........kBk.',
+    '.......kbk.w',
+    '......kbk..w',
+    '.....kbk...w',
+    '..kkkbk....k',
+    '.kgggk....kh',
+    'kgGkgGk....k',
+    'kgkkkgk.....',
+    'dkgGgk......',
+    'dd.kk.......',
+  ],
+  rain: [
+    '....kkkk....',
+    '..kkcccckk..',
+    '.kcccwccccC.',
+    'kccwccccccCk',
+    'kcccccccCCCk',
+    '.kCCCCCCCCk.',
+    '..kkkkkkkk..',
+    '..s...s...s.',
+    '.s...s...s..',
+    '...s...s....',
+    '..s...s...s.',
+    '............',
+  ],
+  lock: [
+    '....kkkk....',
+    '...kGggGk...',
+    '..kGk..kGk..',
+    '..kgk..kgk..',
+    '.kkkkkkkkkk.',
+    '.kyyyyyyyYk.',
+    '.kywyyyyyYk.',
+    '.kyyykkyyYk.',
+    '.kyyykkyyYk.',
+    '.kyyyykyyYk.',
+    '.kYYYYYYYYk.',
+    '.kkkkkkkkkk.',
+  ],
+  letter: [
+    '............',
+    'kkkkkkkkkkkk',
+    'kpkppppppkpk',
+    'kppkppppkppk',
+    'kpppkppkpppk',
+    'kppppkkppppk',
+    'kpppppppppPk',
+    'kppppppRRpPk',
+    'kppppppRRpPk',
+    'kPPPPPPPPPPk',
+    'kkkkkkkkkkkk',
+    '............',
+  ],
 }
 
-export const iconCanvas = (name: string) => grid(ICONS[name], ICON_PAL)
+/** Round things are easier to draw than to type */
+function roundIcon(name: string) {
+  const p = new Pix(12, 12)
+  const c = 5.5
+  const at = (x: number, y: number) => Math.hypot(x - c, y - c)
+  if (name === 'sun') {
+    for (let y = 0; y < 12; y++)
+      for (let x = 0; x < 12; x++) {
+        const d = at(x, y)
+        const a = Math.atan2(y - c, x - c)
+        const ray = d > 4.2 && d < 6.2 && Math.abs(Math.sin(a * 4)) < 0.3
+        if (d < 3.6) p.set(x, y, d < 1.6 && x < c && y < c ? '#fff8e8' : x + y > 13 ? '#f2a83a' : '#ffd84a')
+        else if (ray) p.set(x, y, '#ffb84a')
+      }
+    p.outline(0.55)
+  } else if (name === 'moon') {
+    for (let y = 0; y < 12; y++)
+      for (let x = 0; x < 12; x++) {
+        if (at(x, y) > 5 || Math.hypot(x - 8, y - 3.5) < 4) continue
+        p.set(x, y, x + y > 12 ? '#c8b880' : '#f2e6b0')
+      }
+    p.outline(0.55)
+    p.set(3, 6, '#c8b880')
+    p.set(5, 9, '#c8b880')
+  } else if (name === 'wheel') {
+    // a ship's wheel, for the settings
+    for (let y = 0; y < 12; y++)
+      for (let x = 0; x < 12; x++) {
+        const d = at(x, y)
+        const a = Math.atan2(y - c, x - c)
+        const spoke = Math.abs(Math.sin(a * 4)) < 0.22
+        if (d < 1.5) p.set(x, y, '#ffd84a')
+        else if (d > 2.6 && d < 4.2) p.set(x, y, d < 3.3 ? '#f2e2b8' : x + y > 11 ? '#c8a878' : '#e8d0a0')
+        else if (spoke && d < 5.6) p.set(x, y, d > 4.6 ? '#ffd84a' : '#f2e2b8')
+      }
+    // the parts are too thin to darken their own edges, so ring them in ink instead
+    const filled = p.d.slice()
+    for (let y = 0; y < 12; y++)
+      for (let x = 0; x < 12; x++) {
+        if (filled[y * 12 + x]) continue
+        const near = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+          const X = x + dx
+          const Y = y + dy
+          return X >= 0 && Y >= 0 && X < 12 && Y < 12 && filled[Y * 12 + X]
+        })
+        if (near && at(x, y) > 1.5) p.set(x, y, INK)
+      }
+  }
+  return p.toCanvas()
+}
+
+export const iconCanvas = (name: string) => (ICONS[name] ? grid(ICONS[name], ICON_PAL) : roundIcon(name))
 
 // ---------- portraits ----------
 
