@@ -465,7 +465,7 @@ export const HI_POND: Line[] = [
   l('Selma har fortalt deg om dammen, har hun?'),
   l('Tūtū er åttiseks. Familien hennes har passet på fiskedammen i Keaukaha i flere hundre år. Muren er bygd av lavastein, stein for stein, for hånd.'),
   l('Stormen i høst rev et stort hull i den. Multene svømte ut, og havet tok sanden.'),
-  l('Vi trenger lavastein og folk til en dugnad. Det koster rundt 1500 dollar. Jeg har ikke 1500 dollar. Jeg har en fiskebod og en bestemor.'),
+  l('Vi trenger lavastein og folk til en dugnad. Det koster rundt 800 dollar. Jeg har ikke 800 dollar. Jeg har en fiskebod og en bestemor.'),
   n('Hos Leilani kan du nå betale for å få bygd opp muren igjen.'),
 ]
 
@@ -576,7 +576,7 @@ export const MEET_JOHAN: Line[] = [
 export const LO_RORBU: Line[] = [
   n('Den røde rorbua heller litt mot sjøen. Taket har hull, og vinduene er dekket av rim.'),
   e('Her sov vi. Far, Astrid og jeg, i den samme køya. Det luktet tran og våte ullsokker.'),
-  a('Den trenger nytt tak, en ovn og nye vinduer. Ingvild sier det koster 8000 kroner.'),
+  a('Den trenger nytt tak, en ovn og nye vinduer. Ingvild sier det koster 5000 kroner.'),
   n('På mottaket kan du nå betale for å sette rorbua i stand.'),
 ]
 

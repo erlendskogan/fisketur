@@ -96,6 +96,10 @@ if (import.meta.env.DEV) import('./dev/panel')
 
 const DAY_SECONDS = 540
 
+/** What the big jobs cost: Arne's dam, Tūtū's pond wall and the family rorbu */
+const WALL_COST = 800
+const RORBU_COST = 5000
+
 type View = 'sea' | 'harbor'
 
 class Game implements SeaHost {
@@ -483,7 +487,7 @@ class Game implements SeaHost {
       if (!f.lo_sold1) return 'Fang en fisk og selg den til Ingvild på mottaket.'
       if (!f.lo_metJohan) return 'Hils på Johan i den gule rorbua.'
       if (!f.lo_rorbuSeen) return 'Gå og se til familierorbua.'
-      if (!f.lo_fixed) return `Betal for å sette rorbua i stand på mottaket (${kr(8000)}).`
+      if (!f.lo_fixed) return `Betal for å sette rorbua i stand på mottaket (${kr(RORBU_COST)}).`
       if (s.hjell < HJELL_NEED) return `Fang skrei og heng dem på familiehjellen (${s.hjell}/${HJELL_NEED}).`
       if (!f.lo_hjellFull) return 'Gå til bestefar i rorbua.'
       if (!f.lo_gamle) return 'Ro ut en natt og ligg stille ved overflaten med bestefar.'
@@ -497,7 +501,7 @@ class Game implements SeaHost {
       if (!f.hi_metSelma) return 'Besøk Selma på hvalstasjonen.'
       if (b.placed > b.heard) return 'Lytt til sangbøya sammen med Selma.'
       if (f.hi_askPond && !f.hi_pondTold) return 'Snakk med Leilani om fiskedammen.'
-      if (f.hi_pondTold && !f.hi_wall) return `Betal for å bygge opp muren hos Leilani (${kr(1500)}).`
+      if (f.hi_pondTold && !f.hi_wall) return `Betal for å bygge opp muren hos Leilani (${kr(WALL_COST)}).`
       if (f.hi_wall && s.pond < POND_NEED) return `Slipp multe, manini eller papegøyefisk i Tūtūs dam (${s.pond}/${POND_NEED}).`
       if (f.hi_wall && !f.hi_pondFull) return 'Gå til Leilani i fiskeboden.'
       if (b.placed < BUOY_DEPTHS.length) return `Sett ut neste sangbøye på ${BUOY_DEPTHS[b.placed]} meter, om natta.`
@@ -1206,8 +1210,8 @@ class Game implements SeaHost {
         this.placeName('krambua'),
         `${this.placeHead(who, greet)}<div class="stack">
           ${dam ? `<button class="btn green" data-a="dam" ${s.money >= 1500 ? '' : 'disabled'}>${iconImg('sea')}Riv demningen<span class="right">${kr(1500)}</span></button>` : ''}
-          ${fix ? `<button class="btn green" data-a="fix" ${s.money >= 8000 ? '' : 'disabled'}>${iconImg('house')}Sett i stand rorbua<span class="right">${kr(8000)}</span></button>` : ''}
-          ${wall ? `<button class="btn green" data-a="wall" ${s.money >= 1500 ? '' : 'disabled'}>${iconImg('house')}Bygg opp muren<span class="right">${kr(1500)}</span></button>` : ''}
+          ${fix ? `<button class="btn green" data-a="fix" ${s.money >= RORBU_COST ? '' : 'disabled'}>${iconImg('house')}Sett i stand rorbua<span class="right">${kr(RORBU_COST)}</span></button>` : ''}
+          ${wall ? `<button class="btn green" data-a="wall" ${s.money >= WALL_COST ? '' : 'disabled'}>${iconImg('house')}Bygg opp muren<span class="right">${kr(WALL_COST)}</span></button>` : ''}
           <button class="btn green" data-a="sell" ${s.bucket.length ? '' : 'disabled'}>${iconImg('coin')}Selg fangsten<span class="right">${kr(bucketValue(s))}</span></button>
           <button class="btn" data-a="gear">${iconImg('gear')}Utstyr</button>
           <button class="btn plain" data-a="paint">${iconImg('sea')}Båtmaling</button>
@@ -1219,8 +1223,8 @@ class Game implements SeaHost {
       const fx = b.querySelector<HTMLElement>('[data-a=fix]')
       if (fx)
         fx.onclick = async () => {
-          if (s.money < 8000) return
-          s.money -= 8000
+          if (s.money < RORBU_COST) return
+          s.money -= RORBU_COST
           s.flags.lo_fixed = true
           s.gear.lamp = Math.max(s.gear.lamp, 1)
           if (!s.bookClaimed.includes(3005)) s.bookClaimed.push(3005)
@@ -1232,8 +1236,8 @@ class Game implements SeaHost {
       const wl = b.querySelector<HTMLElement>('[data-a=wall]')
       if (wl)
         wl.onclick = async () => {
-          if (s.money < 1500) return
-          s.money -= 1500
+          if (s.money < WALL_COST) return
+          s.money -= WALL_COST
           s.flags.hi_wall = true
           this.ui.closeSheet()
           sfx.fanfare()
