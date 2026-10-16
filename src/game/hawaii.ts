@@ -85,7 +85,7 @@ export const HI_SPECIES: Species[] = [
   },
   {
     id: 'ono', name: 'Ono', zone: 2, weight: 12, value: 30, cm: [90, 170], kg: [6, 35], difficulty: 6, behavior: 'dart',
-    look: { shape: 'long', len: 30, h: 6, top: '#2a4a8a', mid: '#8ab0d8', belly: '#e8f0f8', fin: '#2a3a6a', pattern: 'bars', pat: '#1e2a5a', tail: 'lunate', dorsal: 'long', teeth: true },
+    look: { shape: 'long', len: 30, h: 6, top: '#2a4a8a', mid: '#8ab0d8', belly: '#e8f0f8', fin: '#2a3a6a', pattern: 'bars', pat: '#4a6aa8', tail: 'lunate', dorsal: 'long', teeth: true },
     text: 'En av de raskeste fiskene i havet. Ono betyr «god å spise» på hawaiisk. Det sier jo litt.',
   },
   {

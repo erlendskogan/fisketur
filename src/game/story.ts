@@ -490,3 +490,17 @@ export const AFTER_HI_ENDING: string[] = [
 export const BACK_TO_HAWAII: Line[] = [n('Flyet senker seg over regnskogen, og der ligger Hilo. Leilani vinker fra fiskeboden med en hel fisk.')]
 
 export const FLY_HOME_HI: Line[] = [n('Fra Hilo til Honolulu, og videre over hele jorda. Tre dager senere står du på kaia i Skjærvik med solbrent nese.')]
+
+/** What they say at home once you have been away */
+export const HOME_NEWS: Record<'marit' | 'halvor', string[]> = {
+  marit: [
+    'Bestefaren din har vært ute med Måken hver eneste dag. Han kommer hjem med to sei og et smil.',
+    'Astrid sendte et postkort. Det var bare et bilde av en kveite og ordene «Se her, Marit».',
+    'Fortell, fortell! Er fjellene i Amerika virkelig større enn våre? Nei, ikke si det. Jeg vil ikke vite det.',
+  ],
+  halvor: [
+    'Så du kom tilbake. Hm. Fjorden har ikke vært den samme. Den har vært stillere. Det har vært fint.',
+    'Han Ray ringer meg. Jeg vet ikke hvordan han fikk nummeret. Han sier «uff da» hele tida.',
+    'Knut fanger mer fisk enn meg igjen. Det er din skyld.',
+  ],
+}

@@ -39,6 +39,7 @@ import {
   HI_SELMA_PLAN,
   HI_TRAVEL,
   HI_WALL,
+  HOME_NEWS,
   MEET_KIMO,
   MEET_LEILANI,
   AFTER_ENDING,
@@ -1006,6 +1007,11 @@ class Game implements SeaHost {
   }
 
   private chatter(who: 'marit' | 'halvor' | 'selma' | 'astrid' | 'ray' | 'selmaAk' | 'leilani' | 'kimo' | 'selmaHi') {
+    // back home after travelling, people want to talk about it
+    if ((who === 'marit' || who === 'halvor') && this.s.flags.ak_moved && Math.random() < 0.5) {
+      const news = HOME_NEWS[who]
+      return news[Math.floor(Math.random() * news.length)]
+    }
     const pool = CHATTER[who]
     return pool[Math.floor(Math.random() * pool.length)]
   }
@@ -1238,7 +1244,7 @@ class Game implements SeaHost {
               : `<p>Neste hydrofon: <b>${HYDRO_DEPTHS[h.placed]} m</b>. Ta den med på kroken og hold den stille der.${gearValue(s, 'line') < HYDRO_DEPTHS[h.placed] ? ' Snøret ditt rekker ikke så langt ennå.' : ''}</p>`
         : ''
     const head = away
-      ? '<p>Havstasjonen er låst. På døra henger en lapp: «I Alaska. Mat fiskene. Belønningene ligger i kassa. Hilsen Selma.»</p>'
+      ? `<p>Havstasjonen er låst. På døra henger en lapp: «${s.flags.hi_moved ? 'På Hawaii, etter hvalene' : 'I Alaska'}. Mat fiskene. Belønningene ligger i kassa. Hilsen Selma.»</p>`
       : this.placeHead('selma', this.chatter(this.ak ? 'selmaAk' : this.hi ? 'selmaHi' : 'selma'))
     const b = this.ui.sheet(
       away ? 'Havstasjonen' : this.placeName('stasjon'),
