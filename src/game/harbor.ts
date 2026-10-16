@@ -1,8 +1,9 @@
 // The harbour: Krambua, Havnebua, Havstasjonen and the lighthouse
 
-import { Pix, canvas, rgba, shade, mix, rng, hex2rgb } from '../art/pixel'
+import { Pix, canvas, rgba, shade, mix, rng } from '../art/pixel'
 import { boatSprite, catSprites, gullSprites, BOAT_W, BOAT_H } from '../art/sprites'
-import { bandGradient, drawBeam, nightness } from '../art/scenery'
+import { drawBeam } from '../art/scenery'
+import { Backdrop, drawGlitter, drawReflection, drawRipples, glow, makeVignette, PAL as L, rippleColour, tintAmbient, clamp01 } from '../art/fjord'
 import { PAINTS } from './data'
 import type { Save } from './state'
 
@@ -16,151 +17,11 @@ export interface Spot {
   h: number
 }
 
-// ---------- looks ----------
-
-type SkyTable = [number, string, string][]
-
-interface Look {
-  sky: SkyTable
-  /** far, mid and near hills by day and by night */
-  hills: [string, string, string]
-  nightHills: [string, string, string]
-  water: [string, string]
-  nightWater: [string, string]
-  nightTint: string
-  mist: number
-  /** how much of the scene shows in the water */
-  reflect: number
-  wobble: number
-  vignette: number
-  rays: number
-  sunGlow: number
-}
-
-/** The harbour palette: deep Kingdom-style colours, thick mist and strong reflections */
-const L: Look = {
-  sky: [
-    [0.0, '#080a26', '#1c1848'],
-    [0.16, '#0e1238', '#262058'],
-    [0.2, '#1e2260', '#5a3a7a'],
-    [0.23, '#2e3a80', '#e0708a'],
-    [0.255, '#3a5aa0', '#ff9a6a'],
-    [0.285, '#3a76bc', '#ffd09a'],
-    [0.33, '#2a72bc', '#9ad6e6'],
-    [0.5, '#2464b4', '#84cce6'],
-    [0.6, '#2c62b0', '#b8dce0'],
-    [0.66, '#3a5aa8', '#ffc888'],
-    [0.705, '#40308a', '#ff7040'],
-    [0.74, '#2a1e6a', '#c8486a'],
-    [0.775, '#16164e', '#5a2a6a'],
-    [0.82, '#080a26', '#1c1848'],
-    [1.0, '#080a26', '#1c1848'],
-  ],
-  hills: ['#4a6a9a', '#2e5272', '#1c3e3a'],
-  nightHills: ['#1e2450', '#161c40', '#0c1226'],
-  water: ['#2a7a9a', '#0e3a5a'],
-  nightWater: ['#16285a', '#060c26'],
-  nightTint: '#0c1240',
-  mist: 0.75,
-  reflect: 0.62,
-  wobble: 1.1,
-  vignette: 0.6,
-  rays: 1,
-  sunGlow: 1,
-}
-
 /** Overrides used by the dev panel to preview the harbour */
 export const dev = {
   time: null as number | null,
   ending: null as boolean | null,
   selma: null as boolean | null,
-}
-
-function lerpTable(tab: SkyTable, t: number): [string, string] {
-  for (let i = 0; i < tab.length - 1; i++) {
-    const [a, at, ab] = tab[i]
-    const [b, bt, bb] = tab[i + 1]
-    if (t >= a && t <= b) {
-      const k = (t - a) / (b - a)
-      return [mix(at, bt, k), mix(ab, bb, k)]
-    }
-  }
-  return [tab[0][1], tab[0][2]]
-}
-
-/** Light falling on the houses through the day: [time, colour, strength]; 'night' means the palette's night tint */
-const AMBIENT: [number, string, number][] = [
-  [0.0, 'night', 0.6],
-  [0.16, 'night', 0.58],
-  [0.2, '#3a3a8a', 0.42],
-  [0.23, '#c85a8a', 0.34],
-  [0.255, '#ff7a4a', 0.3],
-  [0.285, '#ffb060', 0.16],
-  [0.34, '#ffffff', 0],
-  [0.6, '#ffffff', 0],
-  [0.66, '#ffa050', 0.18],
-  [0.705, '#ff5a30', 0.34],
-  [0.74, '#7a2a8a', 0.46],
-  [0.775, '#24246e', 0.54],
-  [0.82, 'night', 0.6],
-  [1.0, 'night', 0.6],
-]
-
-function ambientAt(t: number, nightTint: string): [string, number] {
-  const col = (c: string) => (c === 'night' ? nightTint : c)
-  for (let i = 0; i < AMBIENT.length - 1; i++) {
-    const [a, ac, aa] = AMBIENT[i]
-    const [b, bc, ba] = AMBIENT[i + 1]
-    if (t >= a && t <= b) {
-      const k = (t - a) / (b - a)
-      // a colour with no strength takes the neighbour's colour, so day fades cleanly
-      const c0 = aa === 0 ? col(bc) : col(ac)
-      const c1 = ba === 0 ? col(ac) : col(bc)
-      return [mix(c0, c1, k), aa + (ba - aa) * k]
-    }
-  }
-  return [nightTint, 0.6]
-}
-
-const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
-const bump = (t: number, c: number, w: number) => clamp01(1 - Math.abs(t - c) / w)
-/** 1 around sunrise and sunset */
-const golden = (t: number) => Math.max(bump(t, 0.255, 0.07), bump(t, 0.715, 0.08))
-const frac = (x: number) => x - Math.floor(x)
-const noise = (a: number, b: number) => frac(Math.sin(a * 12.9898 + b * 78.233) * 43758.5453)
-
-// ---------- soft pixel glows ----------
-
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
-const glowCache = new Map<string, HTMLCanvasElement>()
-
-/** A round glow with dithered falloff, so it stays pixelly when scaled up */
-function glowSprite(r: number, col: string) {
-  const key = `${r}|${col}`
-  const hit = glowCache.get(key)
-  if (hit) return hit
-  const s = r * 2 + 1
-  const { c, g } = canvas(s, s)
-  const img = g.createImageData(s, s)
-  const [R, G, B] = hex2rgb(col)
-  for (let y = 0; y < s; y++)
-    for (let x = 0; x < s; x++) {
-      const d = Math.hypot(x - r, y - r) / (r + 0.5)
-      if (d >= 1) continue
-      const th = (BAYER[(y % 4) * 4 + (x % 4)] + 0.5) / 16
-      const a = Math.floor((1 - d) * (1 - d) * 5 + th) / 5
-      if (a > 0) img.data.set([R, G, B, Math.round(a * 255)], (y * s + x) * 4)
-    }
-  g.putImageData(img, 0, 0)
-  glowCache.set(key, c)
-  return c
-}
-
-function glow(g: CanvasRenderingContext2D, x: number, y: number, r: number, col: string, a: number) {
-  if (a <= 0.01) return
-  g.globalAlpha = Math.min(1, a)
-  g.drawImage(glowSprite(r, col), Math.round(x) - r, Math.round(y) - r)
-  g.globalAlpha = 1
 }
 
 // ---------- pixel helpers ----------
@@ -692,47 +553,6 @@ for (const p of [BARREL, CRATE, POT, COIL, BOLLARD]) p.outline(0.35)
 const FLAG = (x: number, y: number) =>
   y === 4 || x === 4 ? '#1a3a8a' : y === 3 || y === 5 || x === 3 || x === 5 ? '#f4f4f0' : '#d82a3a'
 
-// ---------- clouds ----------
-
-interface Cloud {
-  x: number
-  y: number
-  speed: number
-  w: number
-  /** [y, x, length, level] where level is 1 body, 2 lit top, 3 shadow */
-  runs: [number, number, number, number][]
-}
-
-function makeCloud(r: () => number, w: number, h: number): Cloud['runs'] {
-  const fill = new Uint8Array(w * h)
-  const n = 3 + Math.floor(r() * 3)
-  for (let i = 0; i < n; i++) {
-    const bx = w * (0.18 + (0.64 * i) / (n - 1)) + (r() - 0.5) * 4
-    const rx = w * (0.16 + r() * 0.12)
-    const ry = h * (0.45 + r() * 0.4) * (1 - Math.abs(i / (n - 1) - 0.5))
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++) if (((x - bx) / rx) ** 2 + ((y - (h - 1)) / ry) ** 2 <= 1) fill[y * w + x] = 1
-  }
-  const at = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && fill[y * w + x] === 1
-  const runs: Cloud['runs'] = []
-  for (let y = 0; y < h; y++) {
-    let x = 0
-    while (x < w) {
-      if (!at(x, y)) {
-        x++
-        continue
-      }
-      const lv = (xx: number) => (!at(xx, y - 1) ? 2 : y >= h - 2 || !at(xx, y + 2) ? 3 : 1)
-      const l = lv(x)
-      let e = x
-      while (e < w && at(e, y) && lv(e) === l) e++
-      runs.push([y, x, e - x, l])
-      x = e
-    }
-  }
-  return runs
-}
-
 // ---------- the harbour ----------
 
 interface Puff {
@@ -756,10 +576,7 @@ export class Harbor {
   private front: HTMLCanvasElement | null = null
   private scene = canvas(1, 1)
   private work = canvas(1, 1)
-  private skyC = canvas(1, 1)
-  private hillsC = canvas(1, 1)
   private vignette: HTMLCanvasElement | null = null
-  private cacheKey = ''
   private key = ''
   private lights: Light[] = []
   private smokeAt: [number, number][] = []
@@ -770,13 +587,6 @@ export class Harbor {
   private flagAt: [number, number] = [0, 0]
   private bollard: [number, number] = [0, 0]
   private rockSpan: [number, number] = [0, 0]
-  private ridges = { far: [] as number[], mid: [] as number[], near: [] as number[] }
-  /** screen y of the far ridge, on average */
-  private ridgeTop = 0
-  private pines: { x: number; h: number }[] = []
-  private shoreLights: { x: number; y: number; on: number }[] = []
-  private clouds: Cloud[] = []
-  private stars: { x: number; y: number; p: number; b: number }[] = []
   private lhPos = { x: 0, y: 0 }
   private ending = false
   private boat: HTMLCanvasElement | null = null
@@ -791,7 +601,7 @@ export class Harbor {
   private nextFish = 5
   private nextSpray = 2
   private smokeT = 0
-  private shooting: { x: number; y: number; age: number } | null = null
+  private bd = new Backdrop()
   private r = rng(77)
 
   constructor(private host: { s: Save }) {}
@@ -803,35 +613,14 @@ export class Harbor {
     this.deckY = Math.round(H * 0.54)
     this.wl = this.deckY + 24
     const { deckY, wl } = this
-    this.ridges = {
-      far: ridgeLine(W, 21, deckY * 0.4 + 28, deckY * 0.12, 0.65),
-      mid: ridgeLine(W, 8, deckY * 0.24 + 26, deckY * 0.07, 0.4),
-      near: ridgeLine(W, 4, 34, 8, 0.1),
-    }
-    this.ridgeTop = wl - this.ridges.far.reduce((a, b) => a + b, 0) / W
+    this.bd.resize(W, wl)
     const r = rng(11)
-    this.pines = []
-    for (let x = 0; x < W; x += 2 + Math.floor(r() * 3)) if (r() < 0.75) this.pines.push({ x, h: 3 + Math.floor(r() * 6) })
-    this.shoreLights = Array.from({ length: 5 }, () => {
-      const x = Math.floor(r() * W)
-      return { x, y: wl - 2 - Math.floor(r() * Math.min(10, this.ridges.near[x] - 4)), on: 0.3 + r() * 0.4 }
-    })
-    this.stars = Array.from({ length: 70 }, () => ({ x: Math.floor(r() * W), y: r() * r(), p: r() * 6, b: r() }))
-    this.clouds = Array.from({ length: 6 }, (_, i) => {
-      const far = i < 3
-      const w = far ? 14 + Math.floor(r() * 10) : 26 + Math.floor(r() * 16)
-      const h = far ? 4 + Math.floor(r() * 2) : 7 + Math.floor(r() * 4)
-      return { x: r() * W, y: Math.round((far ? 0.08 + r() * 0.2 : 0.12 + r() * 0.25) * wl), speed: far ? 0.6 + r() * 0.5 : 1.4 + r() * 1, w, runs: makeCloud(r, w, h) }
-    })
     this.bugs = Array.from({ length: 16 }, () => ({ x: r() * W, y: deckY - 30 + r() * 50, ph: r() * 6 }))
     this.motes = Array.from({ length: 24 }, () => ({ x: r() * W, y: r() * wl, ph: r() * 6 }))
     this.scene = canvas(W, wl)
     this.work = canvas(W, wl)
-    this.skyC = canvas(W, wl)
-    this.hillsC = canvas(W, wl)
     this.vignette = makeVignette(W, H)
     this.key = ''
-    this.cacheKey = ''
   }
 
   private rebuild() {
@@ -1033,88 +822,7 @@ export class Harbor {
     for (const g of this.rings) g.age += dt / 1.6
     this.rings = this.rings.filter((g) => g.age < 1)
 
-    if (!this.shooting && r() < dt * 0.04) this.shooting = { x: r() * W, y: r() * wl * 0.3, age: 0 }
-    if (this.shooting) {
-      this.shooting.age += dt / 0.7
-      if (this.shooting.age >= 1) this.shooting = null
-    }
-  }
-
-  private paintCaches(t: number) {
-    const key = `${Math.round(t * 1000)}:${this.W}x${this.H}`
-    if (key === this.cacheKey) return
-    this.cacheKey = key
-    const { W, wl } = this
-    const night = nightness(t)
-    const gold = golden(t) * (1 - night)
-    const [top, hor] = lerpTable(L.sky, t)
-    const [amb, ambA] = ambientAt(t, L.nightTint)
-
-    const sg = this.skyC.g
-    bandGradient(sg, 0, 0, W, wl, top, hor, 28)
-
-    const g = this.hillsC.g
-    g.clearRect(0, 0, W, wl)
-    const layers = [
-      { r: this.ridges.far, i: 0, haze: 0.42, snow: 0.55 },
-      { r: this.ridges.mid, i: 1, haze: 0.22, snow: 0.82 },
-      { r: this.ridges.near, i: 2, haze: 0.04, snow: 0 },
-    ]
-    for (const ly of layers) {
-      let base = mix(L.hills[ly.i], L.nightHills[ly.i], night)
-      base = mix(base, hor, ly.haze * (1 - night * 0.5))
-      base = mix(base, amb, ambA * 0.55)
-      const lit = shade(base, 0.12)
-      const dark = shade(base, -0.12)
-      const foot = mix(base, hor, 0.22 + ly.haze * 0.5)
-      const snowC = mix(mix('#f4f8ff', '#ffd0b0', gold * 0.6), '#7a84b8', night * 0.8)
-      const lo = Math.min(...ly.r)
-      const hi = Math.max(...ly.r)
-      const snowLine = lo + (hi - lo) * ly.snow
-      for (let x = 0; x < W; x++) {
-        const h = ly.r[x]
-        const y0 = wl - h
-        g.fillStyle = base
-        g.fillRect(x, y0, 1, h)
-        const fh = Math.round(h * 0.3)
-        g.fillStyle = foot
-        g.fillRect(x, wl - fh + (x % 2), 1, fh)
-        const prev = ly.r[x - 1] ?? h
-        if (h > prev) {
-          g.fillStyle = lit
-          g.fillRect(x, y0, 1, Math.min(4, h - prev + 1))
-        } else if (h < prev) {
-          g.fillStyle = dark
-          g.fillRect(x, y0, 1, 1)
-        }
-        if (ly.snow && h > snowLine) {
-          g.fillStyle = snowC
-          g.fillRect(x, y0, 1, Math.round((h - snowLine) * 0.45) + 1 + (x % 2))
-        }
-      }
-      if (ly.i === 2) {
-        g.fillStyle = shade(base, -0.14)
-        for (const p of this.pines) {
-          const y0 = wl - ly.r[p.x] - p.h + 1
-          for (let k = 0; k < p.h; k++) {
-            const hw = Math.floor(k * 0.45) + (k > 1 && k % 2 === 0 ? 1 : 0)
-            g.fillRect(p.x - hw, y0 + k, hw * 2 + 1, 1)
-          }
-        }
-      }
-      // haze settling into the valleys of this layer, thickest at its foot
-      if (ly.i < 2) {
-        const steps = 5
-        for (let k = 0; k < steps; k++) {
-          g.fillStyle = rgba(hor, L.mist * 0.055)
-          for (let x = 0; x < W; x++) {
-            const h = ly.r[x]
-            const hh = Math.round(h * (1 - k / steps) * 0.75 + ((x + k) % 2))
-            g.fillRect(x, wl - hh, 1, hh)
-          }
-        }
-      }
-    }
+    this.bd.update(dt)
   }
 
   draw(g: CanvasRenderingContext2D) {
@@ -1122,112 +830,13 @@ export class Harbor {
     const s = this.host.s
     const { W, H, wl, deckY } = this
     const time = s.time
-    const night = nightness(time)
-    const gold = golden(time) * (1 - night)
-    const [skyTop, hor] = lerpTable(L.sky, time)
-    this.paintCaches(time)
     const wind = 0.6 + 0.4 * Math.sin(this.t * 0.1)
 
     // ---------- sky and hills ----------
     const sg = this.scene.g
     sg.clearRect(0, 0, W, wl)
-    sg.drawImage(this.skyC.c, 0, 0)
-    if (night > 0.05) {
-      for (const st of this.stars) {
-        const tw = Math.sin(this.t * (1 + st.b) + st.p)
-        sg.fillStyle = `rgba(255,250,230,${night * (0.35 + 0.65 * st.b) * (tw > 0.3 ? 1 : 0.45)})`
-        const y = Math.round(st.y * wl * 0.75)
-        sg.fillRect(st.x, y, 1, 1)
-        if (st.b > 0.93 && tw > 0.6) {
-          sg.fillStyle = `rgba(255,250,230,${night * 0.4})`
-          sg.fillRect(st.x - 1, y, 3, 1)
-          sg.fillRect(st.x, y - 1, 1, 3)
-        }
-      }
-      if (this.shooting && night > 0.5) {
-        const { x, y, age } = this.shooting
-        for (let i = 0; i < 8; i++) {
-          sg.fillStyle = `rgba(255,250,230,${(1 - i / 8) * (1 - age) * night})`
-          sg.fillRect(Math.round(x + age * 50 - i * 1.6), Math.round(y + age * 20 - i * 0.64), 1, 1)
-        }
-      }
-    }
-
-    // sun and moon
-    let sun: { x: number; y: number; c: string } | null = null
-    const sk = (time - 0.21) / 0.56
-    if (sk > 0 && sk < 1) {
-      const lift = Math.sin(Math.PI * sk)
-      const x = W * (0.08 + 0.84 * sk)
-      const y = this.ridgeTop + 6 - lift * (this.ridgeTop - 8)
-      const c = mix('#fff4c8', '#ff7a3a', (1 - lift) ** 2)
-      sun = { x, y, c }
-      sg.globalCompositeOperation = 'lighter'
-      glow(sg, x, y, 34, c, 0.22 * L.sunGlow)
-      glow(sg, x, y, 14, '#fff0c0', 0.4 * L.sunGlow)
-      sg.globalCompositeOperation = 'source-over'
-      disc(sg, x, y, 4, c, '#fffbe8')
-    }
-    const mk = (((time - 0.74 + 1) % 1) / 0.52)
-    if (mk > 0 && mk < 1 && night > 0.05) {
-      const lift = Math.sin(Math.PI * mk)
-      const x = W * (0.85 - 0.7 * mk)
-      const y = wl - 14 - lift * wl * 0.6
-      sun ??= { x, y, c: '#c8d8ff' }
-      sg.globalCompositeOperation = 'lighter'
-      glow(sg, x, y, 22, '#8aa8ff', 0.3 * night)
-      sg.globalCompositeOperation = 'source-over'
-      sg.globalAlpha = night
-      disc(sg, x, y, 3, '#d8d4c4', '#f8f4e4')
-      sg.fillStyle = '#b8b4a4'
-      sg.fillRect(Math.round(x) + 1, Math.round(y) - 1, 1, 1)
-      sg.fillRect(Math.round(x) - 1, Math.round(y) + 1, 1, 1)
-      sg.globalAlpha = 1
-    }
-
-    // clouds
-    const cBase = mix(mix('#f4f6ff', mix(hor, '#ffb890', 0.3), 0.15 + gold * 0.7), '#2e2e62', night * 0.85)
-    const cHi = mix(mix('#ffffff', '#ffd8a8', gold), mix(cBase, '#9aa0d8', 0.4), night)
-    const cSh = mix(cBase, skyTop, 0.45)
-    const cols = ['', cBase, cHi, cSh]
-    for (const c of this.clouds) {
-      const span = W + c.w + 20
-      const cx = Math.round((((c.x + this.t * c.speed) % span) + span) % span) - c.w - 10
-      for (const lv of [1, 2, 3]) {
-        sg.fillStyle = cols[lv]
-        for (const [y, x, len, l] of c.runs) if (l === lv) sg.fillRect(cx + x, c.y + y, len, 1)
-      }
-    }
-
-    sg.drawImage(this.hillsC.c, 0, 0)
-    if (sun && gold > 0) {
-      // the low sun lights up the haze over the ridges
-      sg.globalCompositeOperation = 'lighter'
-      glow(sg, sun.x, Math.max(sun.y, this.ridgeTop), 44, sun.c, gold * 0.3 * L.sunGlow)
-      sg.globalCompositeOperation = 'source-over'
-    }
-
-    // mist rolling at the foot of the hills
-    const mc = mix(hor, '#ffffff', 0.18 * (1 - night))
-    for (const [amp, a, off] of [
-      [6, 0.16, 0],
-      [3.5, 0.3, 2],
-    ]) {
-      sg.fillStyle = rgba(mc, L.mist * a)
-      for (let x = 0; x < W; x++) {
-        const h = Math.round(amp + 2 * Math.sin(x * 0.06 + this.t * 0.25 + off) + 1.5 * Math.sin(x * 0.15 - this.t * 0.4 + off))
-        if (h > 0) sg.fillRect(x, wl - h, 1, h)
-      }
-    }
-    if (night > 0.2)
-      for (const l of this.shoreLights) {
-        const a = clamp01((night - l.on) * 4)
-        sg.fillStyle = rgba('#ffd070', a)
-        sg.fillRect(l.x, l.y, 1, 1)
-        sg.globalCompositeOperation = 'lighter'
-        glow(sg, l.x, l.y, 3, '#ff9a40', a * 0.4)
-        sg.globalCompositeOperation = 'source-over'
-      }
+    const sky = this.bd.draw(sg, this.t, time)
+    const { night, gold, sun } = sky
 
     // ---------- the lit world: houses, boat, smoke ----------
     const wg = this.work.g
@@ -1301,13 +910,7 @@ export class Harbor {
     }
 
     // ambient light: blue at night, pink at dawn, gold and red around sunrise and sunset, violet at dusk
-    wg.globalCompositeOperation = 'source-atop'
-    const [amb, ambA] = ambientAt(time, L.nightTint)
-    if (ambA > 0) {
-      wg.fillStyle = rgba(amb, ambA)
-      wg.fillRect(0, 0, W, wl)
-    }
-    wg.globalCompositeOperation = 'source-over'
+    tintAmbient(wg, time, W, wl)
     sg.drawImage(this.work.c, 0, 0)
 
     // ---------- lights and glowing things ----------
@@ -1379,46 +982,11 @@ export class Harbor {
     // ---------- compose, with the scene mirrored in the water ----------
     g.drawImage(this.scene.c, 0, 0)
     const depth = Math.max(1, H - wl)
-    const w0 = mix(mix(L.water[0], L.nightWater[0], night), hor, 0.25 + gold * 0.2)
-    const w1 = mix(L.water[1], L.nightWater[1], night)
-    for (let y = wl; y < H; y++) {
-      const d = y - wl
-      const k = d / depth
-      g.fillStyle = mix(w0, w1, Math.min(1, k * 1.2))
-      g.fillRect(0, y, W, 1)
-      const src = wl - 1 - d
-      if (src < 0) continue
-      const wob = Math.round(Math.sin(this.t * 1.7 + d * 0.42) * L.wobble * (0.5 + k * 2) + Math.sin(this.t * 0.6 + d * 0.11) * 0.7)
-      g.globalAlpha = L.reflect * (1 - k * 0.55)
-      g.drawImage(this.scene.c, 0, src, W, 1, wob, y, W, 1)
-      g.globalAlpha = 1
-    }
-    // ripples
-    const hi = night > 0.5 ? '#9ab8e8' : mix('#ffffff', hor, 0.3)
-    for (let i = 0; i < 40; i++) {
-      const d = 2 + ((i * 53) % Math.max(4, depth - 2))
-      const k = d / depth
-      const len = 2 + Math.round(k * 7) + (i % 3)
-      const span = W + 20
-      const x = ((((i * 71 + this.t * (2 + (i % 5)) * (i % 2 ? 1 : -1)) % span) + span) % span) - 10
-      g.fillStyle = rgba(hi, (0.1 + 0.28 * k) * (0.5 + 0.5 * Math.sin(this.t * 1.3 + i * 1.7)))
-      g.fillRect(Math.round(x), wl + d, len, 1)
-    }
+    drawReflection(g, this.scene.c, this.t, sky, wl, H - wl)
+    const hi = rippleColour(sky)
+    drawRipples(g, this.t, sky, W, wl, depth)
+    drawGlitter(g, this.t, sky, wl, depth)
     g.globalCompositeOperation = 'lighter'
-    // the glittering path under the sun or moon
-    if (sun) {
-      const sx = sun.x
-      for (let d = 1; d < depth; d += 2) {
-        const k = d / depth
-        const spread = 3 + k * 18
-        for (let j = 0; j < 2; j++) {
-          const q = noise(d + j * 31, Math.floor(this.t * 5 + d * 0.3))
-          if (q > 0.55) continue
-          g.fillStyle = rgba(sun.c, (0.3 + 0.4 * (1 - k)) * (night > 0.5 ? 0.6 : 1))
-          g.fillRect(Math.round(sx + (q / 0.55 - 0.5) * 2 * spread), wl + d, q < 0.15 ? 2 : 1, 1)
-        }
-      }
-    }
     // foam where the water meets posts, rock and boat
     g.fillStyle = rgba(hi, 0.5)
     for (const sx of this.stilts) {
@@ -1489,44 +1057,4 @@ export class Harbor {
     }
     return null
   }
-}
-
-function ridgeLine(w: number, seed: number, base: number, amp: number, peaky: number) {
-  const r = rng(seed)
-  const ph = Array.from({ length: 5 }, () => r() * 6.28)
-  return Array.from({ length: w }, (_, x) => {
-    const smooth = 0.5 * Math.sin(x * 0.018 + ph[0]) + 0.3 * Math.sin(x * 0.047 + ph[1]) + 0.12 * Math.sin(x * 0.11 + ph[2])
-    const a = 1 - Math.abs(Math.sin(x * 0.026 + ph[3]))
-    const b = 1 - Math.abs(Math.sin(x * 0.061 + ph[4]))
-    return Math.max(2, Math.round(base + amp * (smooth * (1 - peaky) + (a * a * 1.2 + b * b * 0.4 - 0.6) * peaky)))
-  })
-}
-
-/** A filled pixel circle with a brighter core */
-function disc(g: CanvasRenderingContext2D, x: number, y: number, r: number, rim: string, core: string) {
-  const cx = Math.round(x)
-  const cy = Math.round(y)
-  for (let dy = -r; dy <= r; dy++)
-    for (let dx = -r; dx <= r; dx++) {
-      const d = dx * dx + dy * dy
-      if (d > r * r + r * 0.6) continue
-      g.fillStyle = d > (r - 1.2) ** 2 ? rim : core
-      g.fillRect(cx + dx, cy + dy, 1, 1)
-    }
-}
-
-function makeVignette(W: number, H: number) {
-  const { c, g } = canvas(W, H)
-  const img = g.createImageData(W, H)
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const nx = (x - W / 2) / (W / 2)
-      const ny = (y - H * 0.45) / (H * 0.62)
-      const a = clamp01((Math.hypot(nx, ny) - 0.72) / 0.6)
-      const th = (BAYER[(y % 4) * 4 + (x % 4)] + 0.5) / 16
-      const q = Math.floor(a * 4 + th) / 4
-      if (q > 0) img.data.set([10, 8, 32, Math.round(q * 0.75 * 255)], (y * W + x) * 4)
-    }
-  g.putImageData(img, 0, 0)
-  return c
 }

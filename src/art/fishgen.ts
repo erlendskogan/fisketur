@@ -327,6 +327,23 @@ export function genFish(look: Look, id: string): FishArt {
 
     p.outline(0.6, (x, y) => !!glow.get(x, y))
 
+    // a rim of light along the back, just inside the outline
+    if (H >= 5)
+      for (let x = 1; x < bodyLen - 2; x++) {
+        const u = (x + 0.5) / bodyLen
+        if (u > 0.9) continue
+        const X = x0 + x
+        const y = Math.round(topAt(u)) + 1
+        const c = p.get(X, y)
+        if (c && !glow.get(X, y)) p.set(X, y, shade(c, 0.24))
+        // and a few glinting scales on the flank
+        if (H >= 7 && x % 4 === 1 && u > 0.2 && u < 0.75) {
+          const yy = Math.round(topAt(u) + (botAt(u) - topAt(u)) * (0.45 + 0.1 * Math.sin(x)))
+          const cc = p.get(X, yy)
+          if (cc && !glow.get(X, yy) && look.pattern !== 'spots') p.set(X, yy, shade(cc, 0.18))
+        }
+      }
+
     // face
     const nx = x0 + bodyLen - 1
     const eu = shape === 'angler' ? 0.8 : shape === 'chimaera' ? 0.84 : shape === 'flat' ? 0.84 : shape === 'hatchet' ? 0.82 : 0.87

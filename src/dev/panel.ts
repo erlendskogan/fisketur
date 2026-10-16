@@ -58,9 +58,11 @@ render()
 // handy from the console: __dev.time = 0.7
 ;(window as unknown as { __dev: typeof dev }).__dev = dev
 
-// ?brygge skips the title and opens the harbour, for quick previews after a reload
-if (new URLSearchParams(location.search).has('brygge'))
+// ?brygge or ?sjo skips the title and opens the harbour or the sea, for quick previews after a reload
+const q = new URLSearchParams(location.search)
+const tab = q.has('brygge') ? 'harbor' : q.has('sjo') ? 'sea' : null
+if (tab)
   setTimeout(() => {
     document.querySelector('#title')?.dispatchEvent(new PointerEvent('pointerdown'))
-    setTimeout(() => document.querySelector<HTMLElement>('[data-tab="harbor"]')?.click(), 100)
+    setTimeout(() => document.querySelector<HTMLElement>(`[data-tab="${tab}"]`)?.click(), 100)
   }, 300)

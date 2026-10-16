@@ -12,12 +12,12 @@ export interface Zone {
 }
 
 export const ZONES: Zone[] = [
-  { name: 'Grunna', from: 0, to: 25, water: ['#46c3df', '#2c97c4'], rock: '#6f8a5c' },
-  { name: 'Tareskogen', from: 25, to: 60, water: ['#2c97c4', '#1f7690'], rock: '#59704f' },
-  { name: 'Skumringen', from: 60, to: 150, water: ['#1f7690', '#1b4e7c'], rock: '#47566a' },
-  { name: 'Dypet', from: 150, to: 400, water: ['#1b4e7c', '#132a5c'], rock: '#363f5c' },
-  { name: 'Avgrunnen', from: 400, to: 1000, water: ['#132a5c', '#0b1232'], rock: '#28294a' },
-  { name: 'Grøfta', from: 1000, to: 1200, water: ['#0b1232', '#07081a'], rock: '#1f1d38' },
+  { name: 'Grunna', from: 0, to: 25, water: ['#2f8fb0', '#23779a'], rock: '#5f7a58' },
+  { name: 'Tareskogen', from: 25, to: 60, water: ['#23779a', '#1a5e82'], rock: '#4c6450' },
+  { name: 'Skumringen', from: 60, to: 150, water: ['#1a5e82', '#1a4272'], rock: '#3e4c66' },
+  { name: 'Dypet', from: 150, to: 400, water: ['#1a4272', '#162a5e'], rock: '#323a5c' },
+  { name: 'Avgrunnen', from: 400, to: 1000, water: ['#162a5e', '#0e1238'], rock: '#262648' },
+  { name: 'Grøfta', from: 1000, to: 1200, water: ['#0e1238', '#08081e'], rock: '#1e1a36' },
 ]
 
 /** World pixels per zone */

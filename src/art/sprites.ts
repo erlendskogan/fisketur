@@ -7,25 +7,35 @@ export const INK = '#2a1d2e'
 export const BOAT_W = 48
 export const BOAT_H = 24
 
-/** Måken: a small double-ended wooden boat. The water line is at y = 15. */
+/** Måken: a small double-ended clinker-built boat. The water line is at y = 15. */
 export function boatSprite(hull: string, stripe: string) {
   const p = new Pix(BOAT_W, BOAT_H)
   const L = 44
   const ox = 2
   const wood = '#b0703e'
-  const bottom = '#7a3a34'
+  const rail = '#d8945a'
+  const bottom = '#8a3a34'
   for (let x = 0; x < L; x++) {
     const u = x / (L - 1)
     const top = Math.round(11 - 5 * Math.pow(u, 5) - 2.5 * Math.pow(1 - u, 4))
     const depth = Math.round(9.5 * Math.pow(Math.sin(Math.PI * Math.min(1, u * 0.97 + 0.015)), 0.5))
+    // light from the left and from above: the bow side is a touch brighter
+    const lightX = 0.05 - u * 0.1
     for (let r = 0; r <= depth; r++) {
       const y = top + r
       let c = hull
-      if (r === 0) c = wood
-      else if (r === 1) c = shade(wood, 0.2)
+      if (r === 0) c = x % 7 === 3 ? shade(rail, 0.2) : rail
+      else if (r === 1) c = shade(wood, -0.2)
       else if (r === 3 || (r === 4 && depth > 7)) c = stripe
-      else if (y >= 16) c = bottom
-      else if (r === 6) c = shade(hull, -0.08)
+      else if (y >= 16) c = y === 16 ? shade(bottom, 0.15) : bottom
+      // clinker strakes: each plank overlaps the one below, a dark seam and a lit edge
+      if (r > 1 && c !== stripe) {
+        if (r % 2 === 0) c = shade(c, -0.14)
+        else if (r === 5 || r === 7) c = shade(c, 0.06)
+      }
+      if (r > 1 && r % 2 === 0 && x % 6 === 2 && y < 16) c = '#e8dcc8'
+      c = shade(c, lightX)
+      if (r === depth && depth > 2) c = shade(c, -0.18)
       if (x === 0 || x === L - 1) c = shade(c, -0.15)
       p.set(ox + x, y, c)
     }
@@ -33,10 +43,14 @@ export function boatSprite(hull: string, stripe: string) {
   // stem posts
   p.set(ox + L - 1, 4, wood)
   p.set(ox + L, 3, wood)
+  p.set(ox + L, 2, shade(wood, 0.2))
   p.set(ox, 8, wood)
+  p.set(ox - 1, 7, wood)
+  // oarlocks
+  for (const x of [15, 29]) p.set(ox + x, Math.round(11 - 5 * Math.pow(x / 43, 5) - 2.5 * Math.pow(1 - x / 43, 4)) - 1, '#4a4458')
   // lantern pole at the stern
-  for (let y = 0; y < 8; y++) p.set(ox + 4, y + 1, '#6a4a32')
-  p.rect(ox + 3, 0, 3, 2, '#3a3a4a')
+  for (let y = 0; y < 8; y++) p.set(ox + 4, y + 1, y < 3 ? '#4a3428' : '#6a4a32')
+  p.rect(ox + 3, 0, 3, 3, '#3a3a4a')
   p.outline(0.6)
   // lantern glass, drawn after the outline so it stays bright
   p.set(ox + 4, 1, '#ffd36a')
@@ -50,39 +64,45 @@ export const LANTERN = { x: 6, y: 1 }
 const FISHER_PAL = {
   k: INK,
   p: '#f2e6cc',
+  P: '#c8b8a0',
+  w: '#fff8e8',
   r: '#d8433a',
   R: '#a52e34',
+  h: '#ff7a5a',
+  a: '#6a3e26',
   s: '#f2c29b',
   S: '#d9946e',
-  h: '#6a3e26',
   e: INK,
   b: '#ec8a7a',
   m: '#a8484e',
+  c: '#e8a82e',
   y: '#f2c24a',
   Y: '#c98f2e',
-  w: '#fff8e8',
+  l: '#ffe48a',
+  d: '#8a5a2e',
+  g: '#3a6a8a',
 }
 
 const FISHER = [
   '....kkk.......',
-  '...kpppk......',
-  '....kpk.......',
-  '..kkrrrkk.....',
-  '.krrrRrrrk....',
-  '.krRrrrRrk....',
-  '.kRRRRRRRk....',
-  '.khhsssssk....',
-  '.khssssesk....',
-  '.khsssssssk...',
-  '..kbsssssk....',
-  '..kSsssmk.....',
-  '..kykkkkyk....',
-  '.kyyyyyyyyk...',
-  '.kyyYyyyyyyk..',
-  '.kyyYyyyyssk..',
-  '.kyyYyyyyyk...',
-  '.kyyYyyyyk....',
-  '.kyyYyyyyk....',
+  '...kpwpk......',
+  '...kPpPk......',
+  '..kkrhrkk.....',
+  '.krhhrrrRk....',
+  '.krhrrrrRk....',
+  '.kRrRrRrRk....',
+  '.kaaSssssk....',
+  '.kaSsssesk....',
+  '.kaSssssssk...',
+  '..kSbssSsk....',
+  '..kkSsmmk.....',
+  '..kcccccck....',
+  '.kyylyyyyyk...',
+  '.kyYlyydyyyk..',
+  '.kyYyyyyyggk..',
+  '.kyYyydyyyk...',
+  '.kyYyyyyyk....',
+  '.kyYyyyyyk....',
 ]
 
 export const fisherSprite = () => grid(FISHER, FISHER_PAL)

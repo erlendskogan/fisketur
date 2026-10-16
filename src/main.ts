@@ -887,6 +887,7 @@ class Game implements SeaHost {
 
 // debug helpers for testing in the browser console
 const game = new Game()
+if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game
 ;(window as unknown as { game: Game }).game = game
 void zoneAt
 void depthToY
