@@ -921,3 +921,14 @@ body.intro #dock {
   max-width: 92%;
   opacity: 0.92;
 }
+
+.chart {
+  margin: 0 0 10px;
+  box-shadow: 0 0 0 3px var(--ink);
+  line-height: 0;
+}
+
+.chart img {
+  width: 100%;
+  height: auto;
+}

@@ -2,6 +2,7 @@ import '@fontsource/jersey-10/index.css'
 import './style.css'
 
 import { canvas, mix, toURL } from './art/pixel'
+import { worldMap } from './art/map'
 import { ambientAt, skyAt } from './art/fjord'
 import { nightness } from './art/scenery'
 import { initAudio, setMusic, setRain, setSound, sfx } from './audio'
@@ -953,9 +954,18 @@ class Game implements SeaHost {
     }
     const label: Record<WorldId, string> = { alaska: 'Reis til Alaska', norge: 'Reis hjem til Skjærvik', hawaii: 'Fly til Hawaii', lofoten: 'Ta Hurtigruten til Lofoten' }
     const list = this.destinations()
+    // a sea chart with the places you have lived and the way the song went
+    const coords: Record<WorldId, [number, number]> = { norge: [66.4, 12.6], alaska: [56.8, -132.9], hawaii: [19.7, -155.1], lofoten: [68.4, 15.2] }
+    const been: Record<WorldId, boolean> = { norge: true, alaska: !!f.ak_moved, hawaii: !!f.hi_moved, lofoten: !!f.lo_moved }
+    const order = (['norge', 'alaska', 'hawaii', 'lofoten'] as WorldId[]).filter((w) => been[w] || list.includes(w))
+    const chart = worldMap(
+      order.map((w) => ({ lat: coords[w][0], lon: coords[w][1], state: w === here ? 2 : been[w] ? 1 : 0 })),
+      order.filter((w) => been[w]).map((w) => coords[w]),
+    )
     const b = this.ui.sheet(
       this.placeName('fyret'),
-      `${head}
+      `<div class="chart"><img class="px" src="${toURL(chart, 3)}" alt="Kart"></div>
+      ${head}
       ${list.map((w) => `<p>${esc(why[w])}</p>`).join('')}
       <div class="stack">
         ${list.map((w) => `<button class="btn green" data-go="${w}">${iconImg('sea')}${label[w]}</button>`).join('')}
