@@ -53,6 +53,8 @@ class Game implements SeaHost {
     setSound(this.s.sound)
     this.view = this.s.flags.metMarit ? 'sea' : 'harbor'
     addEventListener('resize', () => this.resize())
+    visualViewport?.addEventListener('resize', () => this.resize())
+    addEventListener('orientationchange', () => setTimeout(() => this.resize(), 300))
     this.resize()
     this.bindInput()
     this.title()
@@ -67,8 +69,10 @@ class Game implements SeaHost {
 
   resize() {
     const dpr = window.devicePixelRatio || 1
-    const cw = innerWidth
-    const ch = innerHeight
+    // the app box covers the whole screen, also behind the status bar and home indicator
+    const box = $('#app').getBoundingClientRect()
+    const cw = box.width || innerWidth
+    const ch = Math.max(box.height, innerHeight)
     const scale = Math.max(2, Math.round((cw * dpr) / 196))
     this.W = Math.ceil((cw * dpr) / scale)
     this.H = Math.ceil((ch * dpr) / scale)

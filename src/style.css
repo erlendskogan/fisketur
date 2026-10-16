@@ -52,7 +52,11 @@ button {
 
 #app {
   position: fixed;
-  inset: 0;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100lvh;
   overflow: hidden;
 }
 
@@ -187,7 +191,7 @@ img.px {
   left: 0;
   right: 0;
   top: 0;
-  padding: calc(var(--safe-top) + 10px) 10px 0;
+  padding: calc(var(--safe-top) + 2px) 10px 0;
   display: flex;
   gap: 6px;
   align-items: center;
@@ -224,7 +228,7 @@ img.px {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 0 14px calc(var(--safe-bot) + 8px);
+  padding: 0 12px max(6px, calc(var(--safe-bot) - 14px));
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -345,7 +349,7 @@ img.px {
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(var(--safe-top) + 54px);
+  top: calc(var(--safe-top) + 46px);
   display: flex;
   flex-direction: column;
   align-items: center;
