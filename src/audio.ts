@@ -1,0 +1,177 @@
+// Tiny synthesised sound effects and a soft generative tune, all WebAudio
+
+let ctx: AudioContext | null = null
+let master: GainNode | null = null
+let musicGain: GainNode | null = null
+let enabled = true
+let noiseBuf: AudioBuffer | null = null
+
+export function initAudio() {
+  if (ctx) {
+    if (ctx.state === 'suspended') ctx.resume()
+    return
+  }
+  try {
+    ctx = new AudioContext()
+  } catch {
+    return
+  }
+  master = ctx.createGain()
+  master.gain.value = enabled ? 0.6 : 0
+  master.connect(ctx.destination)
+  musicGain = ctx.createGain()
+  musicGain.gain.value = 0.18
+  musicGain.connect(master)
+  noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate)
+  const d = noiseBuf.getChannelData(0)
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+  startWaves()
+  startMusic()
+}
+
+export function setSound(on: boolean) {
+  enabled = on
+  if (master && ctx) master.gain.setTargetAtTime(on ? 0.6 : 0, ctx.currentTime, 0.05)
+}
+
+function tone(freq: number, dur: number, type: OscillatorType = 'square', vol = 0.12, when = 0, slide = 0, dest?: AudioNode) {
+  if (!ctx || !master) return
+  const t = ctx.currentTime + when
+  const o = ctx.createOscillator()
+  const g = ctx.createGain()
+  o.type = type
+  o.frequency.setValueAtTime(freq, t)
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur)
+  g.gain.setValueAtTime(0, t)
+  g.gain.linearRampToValueAtTime(vol, t + 0.01)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  o.connect(g)
+  g.connect(dest ?? master)
+  o.start(t)
+  o.stop(t + dur + 0.05)
+}
+
+function noise(dur: number, vol: number, freq: number, q = 1, when = 0, sweep = 0) {
+  if (!ctx || !master || !noiseBuf) return
+  const t = ctx.currentTime + when
+  const src = ctx.createBufferSource()
+  src.buffer = noiseBuf
+  const f = ctx.createBiquadFilter()
+  f.type = 'bandpass'
+  f.frequency.setValueAtTime(freq, t)
+  if (sweep) f.frequency.exponentialRampToValueAtTime(Math.max(60, freq + sweep), t + dur)
+  f.Q.value = q
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(vol, t)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  src.connect(f)
+  f.connect(g)
+  g.connect(master)
+  src.start(t)
+  src.stop(t + dur + 0.05)
+}
+
+export const sfx = {
+  cast() {
+    noise(0.25, 0.25, 1800, 0.8, 0, -1200)
+  },
+  splash() {
+    noise(0.4, 0.35, 900, 0.7, 0, -500)
+    tone(320, 0.12, 'sine', 0.06, 0, -160)
+  },
+  plop() {
+    tone(500, 0.08, 'sine', 0.12, 0, -300)
+  },
+  nibble() {
+    tone(880, 0.05, 'triangle', 0.07)
+  },
+  bite() {
+    tone(660, 0.07, 'square', 0.1)
+    tone(990, 0.1, 'square', 0.1, 0.07)
+  },
+  tick() {
+    tone(1400 + Math.random() * 200, 0.02, 'square', 0.025)
+  },
+  lose() {
+    tone(392, 0.15, 'triangle', 0.1)
+    tone(311, 0.25, 'triangle', 0.1, 0.14)
+  },
+  catch() {
+    ;[523, 659, 784, 1047].forEach((f, i) => tone(f, 0.18, 'square', 0.07, i * 0.08))
+  },
+  fanfare() {
+    ;[523, 659, 784, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.24, 'triangle', 0.1, i * 0.11))
+  },
+  coin() {
+    tone(988, 0.06, 'square', 0.06)
+    tone(1319, 0.14, 'square', 0.06, 0.06)
+  },
+  click() {
+    tone(700, 0.03, 'square', 0.04)
+  },
+  blip() {
+    tone(560 + Math.random() * 60, 0.025, 'square', 0.025)
+  },
+  purr() {
+    for (let i = 0; i < 6; i++) noise(0.09, 0.08, 120, 3, i * 0.12)
+  },
+  chest() {
+    ;[784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.12, 'triangle', 0.08, i * 0.06))
+  },
+  creak() {
+    tone(180, 0.3, 'sawtooth', 0.03, 0, 60)
+  },
+}
+
+/** Gentle surf: filtered noise with a slow swell */
+function startWaves() {
+  if (!ctx || !master || !noiseBuf) return
+  const src = ctx.createBufferSource()
+  src.buffer = noiseBuf
+  src.loop = true
+  const f = ctx.createBiquadFilter()
+  f.type = 'lowpass'
+  f.frequency.value = 500
+  const g = ctx.createGain()
+  g.gain.value = 0.035
+  const lfo = ctx.createOscillator()
+  lfo.frequency.value = 0.12
+  const lfoG = ctx.createGain()
+  lfoG.gain.value = 0.025
+  lfo.connect(lfoG)
+  lfoG.connect(g.gain)
+  src.connect(f)
+  f.connect(g)
+  g.connect(master)
+  src.start()
+  lfo.start()
+}
+
+/** A slow pentatonic music box that never quite repeats */
+function startMusic() {
+  if (!ctx || !musicGain) return
+  const scale = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21]
+  const chords = [
+    [0, 4, 7],
+    [-3, 0, 4],
+    [5, 9, 12],
+    [-5, -1, 2],
+  ]
+  let step = 0
+  let note = 4
+  const base = 261.63
+  const hz = (semi: number) => base * Math.pow(2, semi / 12)
+  const beat = 0.62
+  const tick = () => {
+    if (!ctx || !musicGain) return
+    const chord = chords[Math.floor(step / 8) % chords.length]
+    if (step % 8 === 0) for (const s of chord) tone(hz(s - 12), beat * 7, 'sine', 0.05, 0, 0, musicGain)
+    if (Math.random() < 0.72) {
+      note = Math.max(0, Math.min(scale.length - 1, note + Math.round((Math.random() - 0.5) * 4)))
+      tone(hz(scale[note]), beat * 2.2, 'triangle', 0.07, 0, 0, musicGain)
+      if (Math.random() < 0.2) tone(hz(scale[note] + 12), beat * 1.2, 'sine', 0.03, beat / 2, 0, musicGain)
+    }
+    step++
+  }
+  setInterval(tick, beat * 1000)
+}
