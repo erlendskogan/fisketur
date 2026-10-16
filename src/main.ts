@@ -89,15 +89,13 @@ class Game implements SeaHost {
       initAudio()
       if (!this.started || this.ui.busy) return
       const p = pos(e)
-      if (this.view === 'sea') {
-        if (this.sea.mode === 'reel') this.sea.holding = true
-        else this.sea.tap(p.x, p.y)
-      } else {
+      if (this.view === 'sea') this.sea.press(p.x, p.y)
+      else {
         const id = this.harbor.hit(p.x, p.y)
         if (id) this.openSpot(id)
       }
     })
-    const up = () => (this.sea.holding = false)
+    const up = () => this.sea.release()
     addEventListener('pointerup', up)
     addEventListener('pointercancel', up)
     // the reel can be held anywhere, also on top of the dock
@@ -107,14 +105,18 @@ class Game implements SeaHost {
     addEventListener('keydown', (e) => {
       if (e.code !== 'Space' || !this.started || this.ui.busy) return
       e.preventDefault()
-      if (this.sea.mode === 'reel') this.sea.holding = true
-      else if (!e.repeat && this.view === 'sea') this.sea.action()
+      if (!e.repeat && this.view === 'sea') this.sea.press(-99, -99)
     })
-    addEventListener('keyup', (e) => e.code === 'Space' && (this.sea.holding = false))
+    addEventListener('keyup', (e) => e.code === 'Space' && this.sea.release())
 
-    $('#act').addEventListener('click', () => {
+    // the button: hold it to let line out (like the water), tap it to hook or reel in
+    $('#act').addEventListener('pointerdown', (e) => {
       initAudio()
-      if (this.view === 'sea' && !this.ui.busy) this.sea.action()
+      if (this.view !== 'sea' || this.ui.busy || !this.started) return
+      e.stopPropagation()
+      const m = this.sea.mode
+      if (m === 'idle') this.sea.press(-99, -99)
+      else this.sea.action()
     })
     $('#nav').addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest('button')
@@ -228,9 +230,9 @@ class Game implements SeaHost {
     const hint = $('#hint')
     const sea = this.view === 'sea'
     const labels: Record<string, string> = {
-      idle: 'Kast ut',
-      cast: 'Kaster ...',
-      sink: 'Stopp her',
+      idle: 'Hold for å kaste',
+      cast: 'Slipp for å stoppe',
+      sink: 'Slipp for å stoppe',
       wait: 'Hal inn',
       bite: 'NAPP!',
       reel: '',
@@ -243,19 +245,21 @@ class Game implements SeaHost {
       : mode === 'reel'
         ? 'Hold inne for å løfte det grønne feltet'
         : mode === 'wait'
-          ? s.stats.caught < 2
-            ? 'Vent på napp. Trykk i vannet for å flytte kroken.'
+          ? s.stats.caught < 3
+            ? 'Vent på napp. Hold på skjermen for å gå dypere.'
             : ''
-          : mode === 'idle' && s.stats.caught === 0
-            ? 'Trykk i vannet eller på Kast ut'
-            : ''
+          : mode === 'idle' && s.stats.caught < 3
+            ? 'Hold fingeren på skjermen for å slippe ut snøre'
+            : mode === 'sink' && s.stats.caught < 3
+              ? 'Slipp når du er på riktig dybde'
+              : ''
     const navKey = `${this.view}|${this.badges().join(',')}|${!!s.flags.metHalvor}|${this.claimable()}`
     const actKey = `${sea}|${mode}|${hintText}`
     if (act.dataset.key !== actKey) {
       act.dataset.key = actKey
       act.classList.toggle('hidden', !sea || mode === 'reel')
       act.textContent = labels[mode]
-      act.disabled = ['cast', 'land', 'retrieve', 'snag'].includes(mode)
+      act.disabled = ['land', 'retrieve', 'snag'].includes(mode)
       act.classList.toggle('hot', mode === 'bite')
       act.classList.toggle('green', mode === 'wait' || mode === 'sink')
       hint.textContent = hintText

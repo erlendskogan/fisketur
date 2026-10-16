@@ -76,6 +76,8 @@ export class Sea {
   hooked: Fish | null = null
   reel: Reel | null = null
   holding = false
+  /** finger is down letting out line */
+  letting = false
   private waitT = 0
   private biteT = 0
   private cooldown = 0
@@ -149,7 +151,8 @@ export class Sea {
   // ---------- input ----------
 
   /** A tap on the scene at screen coordinates */
-  tap(sx: number, sy: number) {
+  /** Finger down on the scene: hold to let line out, let go to stop */
+  press(sx: number, sy: number) {
     const wy = sy + this.camY
     // pet the cat
     if (this.s.flags.cat && Math.abs(sx - (this.boatX + 40)) < 9 && Math.abs(wy - (this.bob - 14)) < 10) {
@@ -158,27 +161,39 @@ export class Sea {
       return
     }
     if (this.mode === 'bite') return this.strike()
-    if (this.mode === 'idle') return this.cast(wy > 4 ? wy : this.maxY)
-    if (this.mode === 'sink') return this.stop()
-    if (this.mode === 'wait' && wy > 2) {
-      this.targetY = Math.min(Math.max(8, wy), this.maxY)
+    if (this.mode === 'reel') {
+      this.holding = true
+      return
+    }
+    if (this.mode === 'idle') this.cast()
+    else if (this.mode === 'wait') {
+      this.targetY = this.maxY
       this.mode = 'sink'
       this.host.modeChanged()
     }
+    this.letting = true
   }
 
-  /** The big button */
-  action() {
-    if (this.mode === 'idle') this.cast(this.maxY)
+  /** Finger up anywhere */
+  release() {
+    this.holding = false
+    if (!this.letting) return
+    this.letting = false
+    // let go during the cast: stop just below the surface
+    if (this.mode === 'cast') this.targetY = 10
     else if (this.mode === 'sink') this.stop()
-    else if (this.mode === 'wait') this.retrieve()
+  }
+
+  /** The big button: it never lets line out, it only hooks and reels in */
+  action() {
+    if (this.mode === 'wait') this.retrieve()
     else if (this.mode === 'bite') this.strike()
   }
 
-  cast(toY: number) {
+  cast() {
     this.mode = 'cast'
     this.castT = 0
-    this.targetY = Math.min(Math.max(10, toY), this.maxY)
+    this.targetY = this.maxY
     sfx.cast()
     this.host.modeChanged()
   }
@@ -259,13 +274,14 @@ export class Sea {
         lure.y = this.tipY + 10 + (0 - this.tipY - 10) * k * k
         if (k >= 1) {
           sfx.splash()
+          lure.y = 0
           this.mode = 'sink'
           this.host.modeChanged()
         }
         break
       }
       case 'sink': {
-        const speed = 140 + Math.max(0, lure.y) * 0.12
+        const speed = 110 + Math.max(0, lure.y) * 0.1
         const dir = Math.sign(this.targetY - lure.y)
         lure.y += dir * speed * dt
         lure.x = this.tipX + sway
