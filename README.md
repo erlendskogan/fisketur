@@ -57,8 +57,11 @@ Dette må du gjøre selv. Du trenger ikke Mac eller Xcode, for EAS bygger og sig
 npm i -g eas-cli
 eas login
 cd mobile
+npm install      # appen har egne pakker; npm install i rota installerer bare weben
 eas init
 ```
+
+Bruk npm, ikke pnpm eller yarn. EAS velger pakkehåndterer ut fra hvilken lockfil som finnes, og prosjektet har `package-lock.json`.
 
 `eas init` oppretter prosjektet på expo.dev og legger `extra.eas.projectId` (og `owner`) inn i `mobile/app.json`. **Commit den endringen.**
 
