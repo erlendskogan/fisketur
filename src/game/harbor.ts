@@ -565,6 +565,7 @@ const GLYPHS: Record<string, string[]> = {
   H: ['1.1', '1.1', '111', '1.1', '1.1'],
   I: ['111', '.1.', '.1.', '.1.', '111'],
   K: ['1.1', '1.1', '11.', '1.1', '1.1'],
+  M: ['1.1', '111', '111', '1.1', '1.1'],
   L: ['1..', '1..', '1..', '1..', '111'],
   O: ['.1.', '1.1', '1.1', '1.1', '.1.'],
   P: ['11.', '1.1', '11.', '1..', '1..'],
@@ -1016,6 +1017,157 @@ function palmTree(h: number) {
   return p
 }
 
+
+// ---------- Henningsvær, Lofoten ----------
+
+/** Snow lying on everything that faces up */
+function snowOn(p: Pix, r: () => number) {
+  const tops: [number, number][] = []
+  for (let x = 0; x < p.w; x++)
+    for (let y = 0; y < p.h; y++)
+      if (p.get(x, y)) {
+        tops.push([x, y])
+        break
+      }
+  for (const [x, y] of tops) {
+    p.set(x, y, '#f4f8fc')
+    if (r() < 0.7) p.set(x, y + 1, '#dce6f0')
+  }
+}
+
+/** The fish receiving station: a big white shed on the quay with a crane and the MOTTAK sign */
+function mottak(w: number, r: () => number): Built {
+  const m = 6
+  const roofH = 10
+  const wallH = 32
+  const top = 6 + roofH
+  const H = top + wallH
+  const p = new Pix(w + m * 2, H)
+  const b = built(p)
+  const x0 = m
+  const wall = '#e8e8ec'
+  planks(p, x0, w, top, H, wall, r, 'siding')
+  for (let x = x0; x < x0 + w; x++) {
+    p.set(x, H - 1, shade(wall, -0.35))
+    p.set(x, H - 2, shade(wall, -0.15))
+  }
+  // a dark gable roof
+  const cx = x0 + w / 2
+  for (let y = 6; y < top + 1; y++)
+    for (let x = x0 - 3; x < x0 + w + 3; x++) {
+      const v = y - (6 + Math.abs(x + 0.5 - cx) * (roofH / (w / 2 + 3)))
+      if (v < 0 || v > 4) continue
+      p.set(x, y, v < 1 ? '#5a5a68' : (x + y) % 4 === 0 ? '#2e2e3a' : '#3a3a48')
+    }
+  const sign = 'MOTTAK'
+  const sw = textW(sign) + 4
+  const sx = Math.round(cx - sw / 2)
+  p.rect(sx, top + 3, sw, 7, '#2a3a6a')
+  letters(p, sign, sx + 2, top + 4, '#f4f4f0')
+  // a wide door for fish boxes, and a small window
+  const gw = 14
+  const gx = Math.round(cx - gw / 2)
+  p.rect(gx, H - 16, gw, 15, '#3a6a9a')
+  for (let x = gx; x < gx + gw; x += 2) for (let y = H - 16; y < H - 1; y++) p.set(x, y, '#2e5a88')
+  p.rect(gx, H - 16, gw, 1, '#1e3a5a')
+  win(b, x0 + 3, top + 13, '#f4ecdc', r, {})
+  win(b, x0 + w - 10, top + 13, '#f4ecdc', r, {})
+  // a crane arm for lifting fish out of the boats
+  for (let y = 0; y < top; y++) p.set(x0 + w - 3, y, '#f2c24a')
+  line(p, x0 + w - 3, 0, x0 + w + 4, 3, '#f2c24a')
+  for (let y = 4; y < 12; y++) p.set(x0 + w + 4, y, '#4a4a58')
+  p.rect(x0 + w + 3, 12, 3, 2, '#8a8a96')
+  // a lamp over the door
+  p.rect(Math.round(cx) - 1, H - 19, 3, 2, '#ffd36a')
+  b.lights.push({ x: Math.round(cx) - 1, y: H - 19, w: 3, h: 2, kind: 'lamp', on: 0.05, ph: 6 })
+  snowOn(p, r)
+  return b
+}
+
+/** A rorbu: a fisherman's cabin on poles over the water, red or yellow, with a white gable trim */
+function rorbu(w: number, wall: string, r: () => number, ruined = false): Built {
+  const m = 6
+  const gable = Math.round(w * 0.42)
+  const wallH = 20
+  const apex = 4
+  const top = apex + gable
+  const H = top + wallH
+  const p = new Pix(w + m * 2, H)
+  const b = built(p)
+  const x0 = m
+  const cx = x0 + w / 2
+  const s = gable / (w / 2)
+  const yLine = (x: number) => apex - 1 + Math.abs(x + 0.5 - cx) * s
+  planks(p, x0, w, apex, H, wall, r, ruined ? 'weathered' : 'batten', (x, y) => y >= top || y + 0.5 >= yLine(x))
+  for (let x = x0; x < x0 + w; x++) {
+    p.set(x, H - 1, shade(wall, -0.35))
+    p.set(x, H - 2, shade(wall, -0.15))
+  }
+  for (let y = 0; y < top + 3; y++)
+    for (let x = x0 - 4; x < x0 + w + 4; x++) {
+      const v = yLine(x) - (y + 0.5)
+      if (v < 0 || v >= 3.6) continue
+      p.set(x, y, v < 1.2 ? '#f4ecdc' : v < 2.4 ? '#3a3a48' : '#4a4a58')
+    }
+  if (ruined) {
+    // holes in the roof and boards over a broken window
+    for (const hx of [x0 + 3, x0 + w - 6]) for (let k = 0; k < 3; k++) p.set(hx + k, Math.round(yLine(hx + k)) + 1, '#1e1a22')
+    win(b, x0 + 3, top + 4, '#c8bfae', r, { boarded: true })
+    p.rect(x0 + w - 8, top + 6, 5, 2, '#8a6a4a')
+  } else {
+    win(b, x0 + 3, top + 4, '#f4ecdc', r, {})
+    win(b, x0 + w - 10, top + 4, '#f4ecdc', r, {})
+    // a stovepipe with smoke
+    const chx = Math.round(x0 + w * 0.7)
+    const chy = Math.round(yLine(chx)) - 4
+    p.rect(chx, chy, 2, 5, '#4a4a58')
+    b.smoke.push([chx + 1, chy - 1])
+  }
+  door(b, Math.round(cx) - 3, 6, 12, ruined ? '#5a4a3e' : '#2a4a6a', '#f4ecdc')
+  snowOn(p, r)
+  return b
+}
+
+/** A drying rack of poles with `n` pairs of skrei hanging from it */
+function hjell(w: number, n: number) {
+  const p = new Pix(w, 24)
+  for (let x = 0; x < w; x += 6) for (let y = 3; y < 24; y++) p.set(x, y, y < 5 ? '#8a6a4a' : '#6a4a32')
+  for (const y of [3, 12]) for (let x = 0; x < w; x++) p.set(x, y, '#7a5a3e')
+  let k = 0
+  for (const y of [4, 13])
+    for (let x = 2; x < w - 1; x += 3) {
+      if (k++ >= n) continue
+      for (let j = 0; j < 6; j++) {
+        p.set(x, y + j, j > 4 ? '#6a6458' : j % 2 ? '#a8a294' : '#c8c2b0')
+      }
+      p.set(x + 1, y + 1, '#8a8478')
+    }
+  for (let x = 0; x < w; x++) p.set(x, 2, '#f4f8fc')
+  return p
+}
+
+/** The coastal steamer, black hull and white decks, docking at the end of the quay */
+function hurtigruten() {
+  const p = new Pix(52, 26)
+  for (let x = 2; x < 50; x++) {
+    const u = x / 50
+    const top = 14 + Math.round(Math.pow(1 - u, 3) * 2)
+    for (let y = top; y < 26; y++) p.set(x, y, y === top ? '#4a4a58' : y > 22 ? '#a8343a' : '#1e1e26')
+  }
+  // bow rising to the right
+  for (let y = 10; y < 14; y++) for (let x = 46 + (13 - y); x < 51; x++) p.set(x, y, '#1e1e26')
+  // white superstructure with rows of windows
+  p.rect(10, 7, 30, 7, '#f0f0f4')
+  p.rect(14, 3, 20, 4, '#f0f0f4')
+  for (let x = 11; x < 39; x += 2) p.set(x, 9, '#3a4a6a')
+  for (let x = 15; x < 33; x += 2) p.set(x, 5, '#3a4a6a')
+  // the red funnel with a black top
+  p.rect(22, 0, 4, 4, '#c8383a')
+  p.rect(22, 0, 4, 1, '#1e1e26')
+  p.outline(0.4, (x, y) => y > 22)
+  return p
+}
+
 // ---------- the harbour ----------
 
 interface Puff {
@@ -1070,6 +1222,7 @@ export class Harbor {
   private bd = new Backdrop()
   private ak = false
   private hi = false
+  private lo = false
   private flag2At: [number, number] | null = null
   private plane: { x: number; y: number } | null = null
   private otters: { x: number; ph: number; dir: number }[] = []
@@ -1103,14 +1256,16 @@ export class Harbor {
     const selma = dev.selma ?? !!(ak ? s.flags.ak_selma : s.world === 'hawaii' ? true : s.flags.selma)
     const ending = !ak && (dev.ending ?? !!s.flags.ending)
     const hi = s.world === 'hawaii'
-    const festival = (ak && !!s.flags.ak_ending) || (hi && !!s.flags.hi_ending)
-    const key = `${this.W}x${this.H}:${selma}:${ending}:${s.world}:${festival}`
+    const lo = s.world === 'lofoten'
+    const festival = (ak && !!s.flags.ak_ending) || (hi && !!s.flags.hi_ending) || (lo && !!s.flags.lo_ending)
+    const key = `${this.W}x${this.H}:${selma}:${ending}:${s.world}:${festival}:${s.flags.lo_fixed}:${s.hjell}`
     if (key === this.key) return
     this.key = key
     this.ending = ending
     this.ak = ak
     this.hi = s.world === 'hawaii'
-    this.bd.resize(this.W, this.wl, ak ? 40 : s.world === 'hawaii' ? 60 : 0, 1, s.world)
+    this.lo = s.world === 'lofoten'
+    this.bd.resize(this.W, this.wl, ak ? 40 : s.world === 'hawaii' ? 60 : s.world === 'lofoten' ? 70 : 0, 1, s.world)
     const { W, deckY, wl } = this
     const F = new Pix(W, wl)
     const r = rng(29)
@@ -1172,6 +1327,11 @@ export class Harbor {
     }
     if (hi) {
       this.buildHi(F, place, r, festival, quayW)
+      this.front = F.toCanvas()
+      return
+    }
+    if (lo) {
+      this.buildLo(F, place, r, festival, quayW)
       this.front = F.toCanvas()
       return
     }
@@ -1326,6 +1486,74 @@ export class Harbor {
     this.spots.push({ id: 'baten', x: Math.round(W * 0.12), y: wl - 16, w: 56, h: 26 })
     const rr = rng(4)
     this.otters = Array.from({ length: 2 }, (_, i) => ({ x: W * (0.3 + i * 0.32) + rr() * 10, ph: rr() * 6, dir: i % 2 ? 1 : -1 }))
+  }
+
+  /** Henningsvær: the fish receiving station, Johan's yellow rorbu, the family's red rorbu, the drying rack and Hurtigruten */
+  private buildLo(F: Pix, place: (id: SpotId, b: Built, x: number) => void, r: () => number, festival: boolean, quayW: number) {
+    const { W, deckY, wl } = this
+    const s = this.host.s
+    const kx = Math.round(W * 0.02) + 3
+    const kw = Math.round(W * 0.3)
+    place('krambua', mottak(kw, r), kx - 6)
+    const hx = Math.round(W * 0.37) + 3
+    const hw = Math.round(W * 0.15)
+    place('havnebua', rorbu(hw, '#e8b83a', r), hx - 6)
+    const sx = Math.round(W * 0.58) + 3
+    const sw = Math.round(W * 0.15)
+    place('stasjon', rorbu(sw, '#a8343a', r, !s.flags.lo_fixed), sx - 6)
+    // the family drying rack behind the quay, filling up with skrei
+    const rack = hjell(Math.round(W * 0.08) + 2, s.hjell)
+    blit(F, rack, sx + sw + 2, deckY - rack.h)
+    // fish boxes stacked on the quay, with snow on them
+    for (const [x, y] of [[kx + 2, 0], [kx + 9, 0], [kx + 5, 1]] as [number, number][]) {
+      F.rect(x, deckY - 4 - y * 4, 7, 4, '#3a6ac8')
+      F.rect(x, deckY - 4 - y * 4, 7, 1, '#f4f8fc')
+    }
+    const bx = Math.round(W * 0.14)
+    this.bollard = [bx + 47, deckY - 4]
+    blit(F, BOLLARD, bx + 46, deckY - BOLLARD.h)
+    const lad = bx + 53
+    for (let y = deckY + 1; y < wl + 1; y++) {
+      F.set(lad, y, '#6a4a32')
+      F.set(lad + 3, y, '#4a3222')
+      if ((y - deckY) % 3 === 0) {
+        F.set(lad + 1, y, '#8a6242')
+        F.set(lad + 2, y, '#7a5236')
+      }
+    }
+    // snow along the quay
+    for (let x = 0; x < quayW; x++) if (r() < 0.8) F.set(x, deckY, '#eef4fa')
+    const fx = quayW - 3
+    for (let y = deckY - 36; y < deckY; y++) {
+      F.set(fx, y, '#f4ecdc')
+      F.set(fx + 1, y, '#b8b0a4')
+    }
+    F.rect(fx, deckY - 38, 2, 2, '#ffd84a')
+    this.flagAt = [fx + 2, deckY - 35]
+    this.flag2At = null
+    this.festival = festival
+    if (festival) {
+      // lanterns strung along the quay for the last evening
+      for (let x = 4; x < quayW - 4; x++) {
+        const y = Math.round(deckY - 40 + Math.sin(((x % 36) / 36) * Math.PI) * 5)
+        F.set(x, y, '#3a3448')
+        if (x % 6 === 0) {
+          F.set(x, y + 1, '#ffd36a')
+          this.lights.push({ x, y: y + 1, w: 1, h: 1, kind: 'lamp', on: 0, ph: x })
+        }
+      }
+    }
+    const ship = hurtigruten()
+    const px = W - ship.w + 6
+    const py = wl - ship.h + 4
+    blit(F, ship, px, py)
+    for (let x = px + 12; x < px + 38; x += 2) this.lights.push({ x, y: py + 9, w: 1, h: 1, kind: 'pane', on: 0.1, ph: x })
+    this.plane = null
+    this.rockSpan = [px + 3, W]
+    this.lhPos = { x: 0, y: 0 }
+    this.spots.push({ id: 'fyret', x: px, y: py - 2, w: ship.w - 6, h: ship.h })
+    this.spots.push({ id: 'baten', x: Math.round(W * 0.12), y: wl - 16, w: 56, h: 26 })
+    this.otters = []
   }
 
   /** Hilo: Leilani's fish stall, Kimo's office, the whale station, palms and the island plane */
@@ -1544,7 +1772,7 @@ export class Harbor {
       }
     }
     // gulls at home, eagles circling over Petersburg
-    if (this.ak && night < 0.7)
+    if ((this.ak || this.lo) && night < 0.7)
       for (let i = 0; i < 2; i++) {
         const a = this.t * (0.12 + i * 0.05) + i * 2.5
         const x = W * (0.3 + i * 0.35) + Math.cos(a) * W * 0.22

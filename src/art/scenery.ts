@@ -269,6 +269,10 @@ export function buildWater(W: number, world = 'norge'): Water {
     hawaiiLife(g, W, r, deco, glows, onWall, px)
     return { bg: c, wallL, wallR, deco, glows }
   }
+  if (world === 'lofoten') {
+    lofotenLife(g, W, r, deco, glows, onWall, px)
+    return { bg: c, wallL, wallR, deco, glows }
+  }
 
   // Grunna: sea grass, mussels and barnacles, starfish
   for (let i = 0; i < 10; i++) {
@@ -477,6 +481,100 @@ function alaskaLife(
   }
 }
 
+/** Lofoten: rockweed and mussels, a forest of tare, king crabs, and the white coral of Røstrevet */
+function lofotenLife(
+  g: CanvasRenderingContext2D,
+  W: number,
+  r: () => number,
+  deco: Deco[],
+  glows: Water['glows'],
+  onWall: (y: number, side: 1 | -1) => number,
+  px: (x: number, y: number, c: string) => void,
+) {
+  const side = () => (r() < 0.5 ? 1 : -1) as 1 | -1
+  for (let i = 0; i < 12; i++) {
+    const y = 60 + r() * 220
+    const sd = side()
+    deco.push({ x: onWall(y, sd), y, kind: 'grass', len: 5 + r() * 6, side: sd, seed: r() * 10, color: r() < 0.5 ? '#8a7a3a' : '#6a6a2e' })
+  }
+  for (let i = 0; i < 46; i++) {
+    const y = Math.round(80 + r() * 300)
+    const sd = side()
+    const x = onWall(y, sd) - (sd === 1 ? 1 : 0)
+    if (r() < 0.6) for (let k = 0; k < 3; k++) px(x - sd * (k % 2), y + k, k === 0 ? '#4a5a8a' : '#1e1e3a')
+    else px(x, y, '#ece8dc')
+  }
+  // tare: thick stalks with a broad frond, a forest from 15 to 60 metres
+  for (let i = 0; i < 26; i++) {
+    const y = 300 + 10 + r() * 280
+    const sd = side()
+    deco.push({ x: onWall(y, sd), y, kind: 'kelp', len: 18 + r() * 30, side: sd, seed: r() * 10, color: r() < 0.5 ? '#6a6a2a' : '#7a6a32' })
+  }
+  // green sea urchins grazing the rock
+  for (let i = 0; i < 24; i++) {
+    const y = Math.round(300 + r() * 400)
+    const sd = side()
+    const x = onWall(y, sd) - sd * 2
+    const c = '#4a8a3a'
+    px(x, y, c)
+    for (const [dx, dy] of [[-1, -1], [1, -1], [-2, 0], [2, 0], [0, -2]]) px(x + dx, y + dy, '#6aaa4a')
+  }
+  // king crabs walking along the ledges of Vestfjorden
+  for (let i = 0; i < 9; i++) {
+    const y = 600 + 20 + r() * 400
+    const sd = side()
+    deco.push({ x: onWall(y, sd), y, kind: 'crab', len: 1, side: sd, seed: r() * 10, color: '#a8382e' })
+  }
+  // Røstrevet: mounds of white and orange Lophelia coral
+  const lophelia = (x: number, y: number, dir: number, col: string) => {
+    const branch = (bx: number, by: number, n: number, ang: number) => {
+      for (let k = 0; k < n; k++) {
+        const cx = Math.round(bx + Math.cos(ang) * k * dir)
+        const cy = Math.round(by - Math.sin(ang) * k)
+        px(cx, cy, k === n - 1 ? '#fff8f0' : col)
+        if (k === Math.floor(n / 2) && n > 3) {
+          branch(cx, cy, n - 2, ang + 0.6)
+          branch(cx, cy, n - 2, ang - 0.5)
+        }
+      }
+    }
+    branch(x, y, 7, 0.9)
+    branch(x, y, 5, 0.4)
+  }
+  for (let i = 0; i < 30; i++) {
+    const y = Math.round(900 + r() * 300)
+    const sd = side()
+    lophelia(onWall(y, sd), y, sd, r() < 0.6 ? '#f0e8dc' : '#f0a070')
+  }
+  for (let i = 0; i < 8; i++) {
+    const y = 900 + r() * 300
+    const sd = side()
+    deco.push({ x: onWall(y, sd), y, kind: 'anemone', len: 5 + r() * 4, side: sd, seed: r() * 10, color: '#f4ece4' })
+  }
+  // Eggakanten: cold-water sponges
+  for (let i = 0; i < 14; i++) {
+    const y = Math.round(1200 + r() * 300)
+    const sd = side()
+    const x = onWall(y, sd) + (sd === 1 ? 0 : -4)
+    g.fillStyle = '#c8b898'
+    g.fillRect(x, y - 4, 4, 4)
+    g.fillStyle = '#e8dcc0'
+    g.fillRect(x, y - 4, 4, 1)
+    g.fillStyle = '#8a7a5a'
+    g.fillRect(x + 1, y - 3, 2, 1)
+  }
+  // Norskehavet: small lights in the cold dark
+  for (let i = 0; i < 18; i++) {
+    const y = 1500 + r() * 280
+    const sd = side()
+    glows.push({ x: onWall(y, sd) + sd * 3, y: Math.round(y), c: ['#8affd8', '#6ab8ff'][Math.floor(r() * 2)], r: 1 })
+  }
+  for (let i = 0; i < 8; i++) {
+    const x = 6 + r() * (W - 12)
+    deco.push({ x, y: SEABED + 1, kind: 'glowplant', len: 4 + r() * 8, side: 1, seed: r() * 10, color: '#8affd8' })
+  }
+}
+
 /** Hilo Bay: coral heads and urchins on black lava, turtles, sea fans, and vents on the volcano below */
 function hawaiiLife(
   g: CanvasRenderingContext2D,
@@ -640,6 +738,20 @@ export function drawDeco(g: CanvasRenderingContext2D, d: Deco, camY: number, t: 
           g.fillRect(Math.round(d.x + d.side * (1 + i) + sway), Math.round(y0 + j - i * 0.3), 1, 1)
         }
     }
+  } else if (d.kind === 'crab' && d.len > 0) {
+    // a king crab: big, spiny and slow, with long jointed legs
+    const X = Math.round(d.x + d.side * (5 + Math.sin(t * 0.15 + d.seed) * 4))
+    const Y = Math.round(y0)
+    const step = Math.floor(t * 2 + d.seed) % 2
+    g.fillStyle = '#7a2a22'
+    for (const [lx, ly] of [[-5, 0], [-4, -2], [4, -2], [5, 0], [-6, 1], [6, 1]]) g.fillRect(X + lx, Y + ly - (lx < 0 ? step : 1 - step), 1, 2)
+    g.fillStyle = d.color
+    g.fillRect(X - 3, Y - 4, 7, 3)
+    g.fillStyle = shade(d.color, 0.3)
+    for (let x = -2; x <= 2; x += 2) g.fillRect(X + x, Y - 4, 1, 1)
+    g.fillStyle = '#e8c8a0'
+    g.fillRect(X - 4, Y - 5, 1, 1)
+    g.fillRect(X + 4, Y - 5, 1, 1)
   } else if (d.kind === 'crab') {
     // a Dungeness crab shuffling sideways along its ledge
     const X = Math.round(d.x + d.side * (3 + Math.sin(t * 0.3 + d.seed) * 3))

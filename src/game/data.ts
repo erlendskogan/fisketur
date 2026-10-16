@@ -1,6 +1,7 @@
 import type { Look } from '../art/fishgen'
 import { AK_BOOK_REWARDS, AK_GEAR, AK_PAINTS, AK_QUESTS, AK_SPECIES, AK_ZONES } from './alaska'
 import { HI_BOOK_REWARDS, HI_GEAR, HI_PAINTS, HI_QUESTS, HI_SPECIES, HI_ZONES } from './hawaii'
+import { LO_BOOK_REWARDS, LO_GEAR, LO_PAINTS, LO_QUESTS, LO_SPECIES, LO_ZONES } from './lofoten'
 
 // ---------- depth zones ----------
 
@@ -235,7 +236,7 @@ const NO_SPECIES: Species[] = [
 
 export let SPECIES: Species[] = NO_SPECIES
 /** Every fish in every world, so a catch can always be looked up */
-export const SPECIES_BY_ID: Record<string, Species> = Object.fromEntries([...NO_SPECIES, ...AK_SPECIES, ...HI_SPECIES].map((s) => [s.id, s]))
+export const SPECIES_BY_ID: Record<string, Species> = Object.fromEntries([...NO_SPECIES, ...AK_SPECIES, ...HI_SPECIES, ...LO_SPECIES].map((s) => [s.id, s]))
 export let BOOK = SPECIES.filter((s) => !s.special)
 
 // ---------- gear ----------
@@ -391,12 +392,13 @@ export let PAINTS = NO_PAINTS
 
 // ---------- worlds ----------
 
-export type WorldId = 'norge' | 'alaska' | 'hawaii'
+export type WorldId = 'norge' | 'alaska' | 'hawaii' | 'lofoten'
 
 export const WORLDS: Record<WorldId, { place: string; currency: 'kr' | '$'; boat: string; zones: Zone[]; species: Species[]; gear: typeof NO_GEAR; quests: Quest[]; rewards: BookReward[]; paints: Paint[] }> = {
   norge: { place: 'Skjærvik', currency: 'kr', boat: 'Måken', zones: NO_ZONES, species: NO_SPECIES, gear: NO_GEAR, quests: NO_QUESTS, rewards: NO_BOOK_REWARDS, paints: NO_PAINTS },
   alaska: { place: 'Petersburg', currency: '$', boat: 'Ternen', zones: AK_ZONES, species: AK_SPECIES, gear: AK_GEAR, quests: AK_QUESTS, rewards: AK_BOOK_REWARDS, paints: AK_PAINTS },
   hawaii: { place: 'Hilo', currency: '$', boat: 'Koholā', zones: HI_ZONES, species: HI_SPECIES, gear: HI_GEAR, quests: HI_QUESTS, rewards: HI_BOOK_REWARDS, paints: HI_PAINTS },
+  lofoten: { place: 'Henningsvær', currency: 'kr', boat: 'Nordstjerna', zones: LO_ZONES, species: LO_SPECIES, gear: LO_GEAR, quests: LO_QUESTS, rewards: LO_BOOK_REWARDS, paints: LO_PAINTS },
 }
 
 export let WORLD: WorldId = 'norge'
@@ -414,4 +416,5 @@ export function setWorld(id: WorldId) {
   PAINTS = w.paints
 }
 
-export const worldOf = (speciesId: string): WorldId => (AK_SPECIES.some((s) => s.id === speciesId) ? 'alaska' : HI_SPECIES.some((s) => s.id === speciesId) ? 'hawaii' : 'norge')
+export const worldOf = (speciesId: string): WorldId =>
+  AK_SPECIES.some((s) => s.id === speciesId) ? 'alaska' : HI_SPECIES.some((s) => s.id === speciesId) ? 'hawaii' : LO_SPECIES.some((s) => s.id === speciesId) ? 'lofoten' : 'norge'

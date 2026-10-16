@@ -19,11 +19,12 @@ export function weatherAt(day: number, time: number): Weather {
   // Petersburg gets more than twice the rain of home, and its mornings are often grey
   const ak = WORLD === 'alaska'
   const hi = WORLD === 'hawaii'
-  const showers = day > 0 && r() < (ak ? 0.55 : hi ? 0.5 : 0.32)
+  const lo = WORLD === 'lofoten'
+  const showers = day > 0 && r() < (ak ? 0.55 : hi ? 0.5 : lo ? 0.5 : 0.32)
   const start = 0.3 + r() * 0.4
   const len = 0.08 + r() * 0.14
   const heavy = 0.5 + r() * 0.5
-  const foggy = day > 0 && r() < (ak ? 0.45 : hi ? 0.12 : 0.35)
+  const foggy = day > 0 && r() < (ak ? 0.45 : hi ? 0.12 : lo ? 0.2 : 0.35)
   const thick = 0.6 + r() * 0.4
   const rain = showers ? ease(start, start + len, 0.03, time) * heavy : 0
   // fog settles before dawn and burns off in the morning
@@ -57,17 +58,28 @@ export class Rain {
   }
 
   /** `floor(x, k)` gives the screen y where a drop at x lands; k is a random number fixed per drop */
+  /** in Lofoten the showers come as snow */
+  snow = false
+  private t = 0
+
   update(dt: number, amount: number, floor: (x: number, k: number) => number) {
+    this.snow = WORLD === 'lofoten'
+    this.t += dt
     if (amount <= 0) {
       this.splashes = []
       return
     }
     for (const d of this.drops) {
-      d.y += d.v * dt
-      d.x -= d.v * 0.25 * dt
+      if (this.snow) {
+        d.y += d.v * 0.14 * dt
+        d.x += Math.sin(this.t * 1.3 + d.k * 20) * 10 * dt - 4 * dt
+      } else {
+        d.y += d.v * dt
+        d.x -= d.v * 0.25 * dt
+      }
       const f = floor(d.x, d.k)
       if (d.y >= f) {
-        if (Math.random() < amount && f < this.H) this.splashes.push({ x: d.x, y: f, t: 0 })
+        if (!this.snow && Math.random() < amount && f < this.H) this.splashes.push({ x: d.x, y: f, t: 0 })
         d.y = -Math.random() * 40
         d.x = Math.random() * (this.W + 40)
         d.k = Math.random()
@@ -80,6 +92,16 @@ export class Rain {
   draw(g: CanvasRenderingContext2D, amount: number, night: number) {
     if (amount <= 0) return
     const n = Math.floor(this.drops.length * amount)
+    if (this.snow) {
+      g.fillStyle = night > 0.5 ? 'rgba(200,210,240,0.8)' : 'rgba(255,255,255,0.9)'
+      g.beginPath()
+      for (let i = 0; i < n; i++) {
+        const d = this.drops[i]
+        g.rect(Math.round(d.x), Math.round(d.y), d.len > 4 ? 2 : 1, d.len > 4 ? 2 : 1)
+      }
+      g.fill()
+      return
+    }
     g.fillStyle = night > 0.5 ? `rgba(150,170,220,${0.3 + amount * 0.15})` : `rgba(210,225,245,${0.3 + amount * 0.2})`
     g.beginPath()
     for (let i = 0; i < n; i++) {

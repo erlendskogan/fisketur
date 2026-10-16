@@ -38,6 +38,8 @@ export interface Save {
   buoys: { placed: number; heard: number }
   /** young fish let into Tūtū's pond */
   pond: number
+  /** skrei hung on the family's drying rack in Lofoten */
+  hjell: number
   /** money by currency, so dollars follow you between Alaska and Hawaii */
   purse: Partial<Record<'kr' | '$', number>>
 }
@@ -57,6 +59,7 @@ const freshGear = (): Record<GearKind, number> => ({ line: 0, rod: 0, reel: 0, b
 export function freshPart(w: WorldId): Part {
   if (w === 'alaska') return { money: 60, gear: freshGear(), bucket: [], paint: 'ak_hvit', paints: ['ak_hvit'] }
   if (w === 'hawaii') return { money: 0, gear: freshGear(), bucket: [], paint: 'hi_hvit', paints: ['hi_hvit'] }
+  if (w === 'lofoten') return { money: 0, gear: freshGear(), bucket: [], paint: 'lo_hvit', paints: ['lo_hvit'] }
   return { money: 0, gear: freshGear(), bucket: [], paint: 'hvit', paints: ['hvit'] }
 }
 
@@ -105,6 +108,7 @@ export function fresh(): Save {
     hydro: { placed: 0, heard: 0 },
     buoys: { placed: 0, heard: 0 },
     pond: 0,
+    hjell: 0,
     purse: {},
   }
 }
@@ -145,7 +149,8 @@ export const needsMet = (s: Save, needs?: string) =>
   !needs ? true : needs === 'lamp1' ? s.gear.lamp >= 1 : needs === 'lamp2' ? s.gear.lamp >= 2 : !!s.flags[needs]
 
 /** Whether you have met the one who hands out quests where you are */
-export const questsOpen = (s: Save) => !!(s.world === 'alaska' ? s.flags.ak_metRay : s.world === 'hawaii' ? s.flags.hi_metKimo : s.flags.metHalvor)
+export const questsOpen = (s: Save) =>
+  !!(s.world === 'alaska' ? s.flags.ak_metRay : s.world === 'hawaii' ? s.flags.hi_metKimo : s.world === 'lofoten' ? s.flags.lo_metJohan : s.flags.metHalvor)
 
 /** The three earliest unfinished quests are active */
 export function activeQuests(s: Save) {

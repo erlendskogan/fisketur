@@ -298,13 +298,23 @@ export class Backdrop {
     this.style = style
     const ak = style === 'alaska'
     const hi = style === 'hawaii'
-    this.hills = ak
+    const lo = style === 'lofoten'
+    this.hills = lo
+      ? { day: ['#6a7a98', '#4a5468', '#2e3442'], night: ['#22285a', '#1a1e40', '#10142a'], snow: [0.12, 0.3] }
+      : ak
       ? { day: ['#6a86b0', '#3a5868', '#173a30'], night: ['#22285a', '#161e40', '#0a1820'], snow: [0.3, 0.6] }
       : hi
         ? { day: ['#6a6aa0', '#3a8a52', '#1e5a32'], night: ['#2a2a5a', '#14302a', '#0a1e16'], snow: [0.86, 1.1] }
         : { day: PAL.hills, night: PAL.nightHills, snow: [0.55, 0.82] }
     const deck = H - 24
-    this.ridges = hi
+    this.ridges = lo
+      ? {
+          // Lofotveggen: a wall of sharp peaks rising straight out of the sea
+          far: ridgeLine(W, 71 + seed, (deck * 0.42 + 26) * scale, deck * 0.24 * scale, 0.95),
+          mid: ridgeLine(W, 74 + seed, (deck * 0.24 + 24) * scale, deck * 0.14 * scale, 0.9),
+          near: ridgeLine(W, 77 + seed, 26 * scale, 10 * scale, 0.6),
+        }
+      : hi
       ? {
           // Mauna Kea: a huge, gentle shield volcano, with a few cinder cones on its back
           far: Array.from({ length: W }, (_, x) => {
@@ -339,7 +349,8 @@ export class Backdrop {
     this.ridgeTop = H - this.ridges.far.reduce((a, b) => a + b, 0) / W
     const r = rng(11 + seed)
     this.pines = []
-    if (hi) for (let x = 2; x < W; x += 5 + Math.floor(r() * 7)) this.pines.push({ x, h: 7 + Math.floor(r() * 6 * Math.min(1, scale + 0.2)) })
+    if (lo) this.pines = []
+    else if (hi) for (let x = 2; x < W; x += 5 + Math.floor(r() * 7)) this.pines.push({ x, h: 7 + Math.floor(r() * 6 * Math.min(1, scale + 0.2)) })
     else if (ak) for (let x = 0; x < W; x += 1 + Math.floor(r() * 2)) this.pines.push({ x, h: 6 + Math.floor(r() * 7 * Math.min(1, scale + 0.2)) })
     else for (let x = 0; x < W; x += 2 + Math.floor(r() * 3)) if (r() < 0.75) this.pines.push({ x, h: 3 + Math.floor(r() * 6 * Math.min(1, scale + 0.2)) })
     this.shoreLights = Array.from({ length: 5 }, () => {
@@ -385,7 +396,7 @@ export class Backdrop {
     const layers = [
       { r: this.ridges.far, i: 0, haze: 0.42, snow: this.hills.snow[0] },
       { r: this.ridges.mid, i: 1, haze: 0.22, snow: this.hills.snow[1] },
-      { r: this.ridges.near, i: 2, haze: 0.04, snow: 0 },
+      { r: this.ridges.near, i: 2, haze: 0.04, snow: this.style === 'lofoten' ? 0.35 : 0 },
     ]
     for (const ly of layers) {
       let base = mix(this.hills.day[ly.i], this.hills.night[ly.i], night)
@@ -522,13 +533,51 @@ export class Backdrop {
       }
     }
 
+    // the northern lights over Lofoten: green curtains with a violet hem, slowly folding
+    if (this.style === 'lofoten' && night > 0.3) {
+      const a = (night - 0.3) / 0.7 * (1 - wx.rain * 0.8) * (1 - wx.fog * 0.6)
+      if (a > 0.02) {
+        sg.globalCompositeOperation = 'lighter'
+        // each column of the curtain: a bright hem at the bottom fading up through green into violet
+        const bands: [string, number, number, number][] = [
+          ['#7affb8', 0.34, 0, 0.08],
+          ['#3aff9a', 0.22, 0.08, 0.35],
+          ['#2ad890', 0.13, 0.35, 0.6],
+          ['#9a5aff', 0.11, 0.6, 0.85],
+          ['#7a4aff', 0.06, 0.85, 1],
+        ]
+        const cols: { top: number; len: number; k: number }[] = []
+        for (let x = 0; x < W; x++) {
+          const fold = Math.sin(x * 0.03 + t * 0.1) + 0.5 * Math.sin(x * 0.08 - t * 0.17)
+          const k = Math.max(0, 0.55 + 0.45 * Math.sin(x * 0.045 + t * 0.13 + fold) - 0.15) * (0.75 + 0.25 * Math.sin(x * 0.9 + t * 0.6))
+          const bottom = H * 0.42 + fold * H * 0.06
+          const len = H * (0.12 + k * 0.22)
+          cols.push({ top: bottom - len, len, k })
+        }
+        for (const [col, alpha, from, to] of bands) {
+          sg.fillStyle = rgba(col, alpha * a)
+          sg.beginPath()
+          cols.forEach(({ top, len, k }, x) => {
+            if (k < 0.08) return
+            // rays: some columns reach higher than their neighbours
+            const y0 = Math.round(top + len * (1 - to))
+            const y1 = Math.round(top + len * (1 - from))
+            if (y1 > y0 && (k > 0.3 || (x + Math.floor(t * 2)) % 2 === 0)) sg.rect(x, y0, 1, y1 - y0)
+          })
+          sg.fill()
+        }
+        sg.globalCompositeOperation = 'source-over'
+      }
+    }
+
     // sun and moon
     let sun: Sky['sun'] = null
     const sk = (time - 0.21) / 0.56
     if (sk > 0 && sk < 1) {
       const lift = Math.sin(Math.PI * sk)
       const x = W * (0.08 + 0.84 * sk)
-      const y = this.ridgeTop + 6 - lift * (this.ridgeTop - 8)
+      // in the Lofoten winter the sun only just clears the mountains
+      const y = this.ridgeTop + 6 - lift * (this.ridgeTop - 8) * (this.style === 'lofoten' ? 0.3 : 1)
       const c = mix('#fff4c8', '#ff7a3a', (1 - lift) ** 2)
       sun = { x, y, c }
       light(sg, x, y, 34, c, 0.22 * PAL.sunGlow * (clear + wx.fog * 0.3))

@@ -141,7 +141,11 @@ export const fisherSprite = (world = 'norge') =>
     FISHER,
     world === 'alaska'
       ? { ...FISHER_PAL, r: '#3a7a52', R: '#24543a', h: '#5aa070', p: '#e8e0cc', y: '#f07a2a', Y: '#b8521c', l: '#ffa860', c: '#d8641e', d: '#5a2e18', g: '#2a2a34' }
-      : world === 'hawaii'
+      : world === 'lofoten'
+        ? { ...FISHER_PAL, r: '#2a3a6a', R: '#1a2448', h: '#4a5a8a', p: '#e8e0cc', y: '#f07a2a', Y: '#b8521c', l: '#ffa860', c: '#e8eef4', d: '#5a2e18', g: '#2a2a34' }
+        : world === 'knut'
+          ? { ...FISHER_PAL, r: '#3a4a7a', R: '#24305a', h: '#5a6a9a', p: '#e8e0cc', a: '#e8e4dc', y: '#3a5a8a', Y: '#24406a', l: '#5a7aa8', c: '#e8e4dc', d: '#e8e4dc', g: '#6a4a3a', b: '#e89a8a' }
+          : world === 'hawaii'
         ? { ...FISHER_PAL, r: '#e8c878', R: '#b8964a', h: '#f8e0a0', p: '#e8c878', P: '#b8964a', w: '#f8e0a0', y: '#e8484a', Y: '#a8303a', l: '#fff0e8', c: '#f4ecdc', d: '#fff0e8', g: '#f2c29b' }
         : FISHER_PAL,
   )
@@ -367,6 +371,20 @@ export const ICONS: Record<string, string[]> = {
     '..s...s...s.',
     '............',
   ],
+  snow: [
+    '....kkkk....',
+    '..kkcccckk..',
+    '.kcccwccccC.',
+    'kccwccccccCk',
+    'kcccccccCCCk',
+    '.kCCCCCCCCk.',
+    '..kkkkkkkk..',
+    '..w...w...w.',
+    '.www.www.www',
+    '..w...w...w.',
+    '....w...w...',
+    '...www.www..',
+  ],
   lock: [
     '....kkkk....',
     '...kGggGk...',
@@ -476,6 +494,8 @@ export const PORTRAITS: Record<string, Face> = {
   leilani: { skin: '#c88a5e', hair: '#1e1418', style: 'bob', cloth: '#e84a6a', cloth2: '#fff0e8' },
   kimo: { skin: '#b87a52', hair: '#d8d4ce', style: 'old', cloth: '#2a8ac8', cloth2: '#ffd84a', brows: '#e8e4de', mustache: '#d8d4ce' },
   tutu: { skin: '#b07a52', hair: '#f4f2ee', style: 'bun', cloth: '#f4ecdc', cloth2: '#ffd84a', brows: '#e8e4de' },
+  ingvild: { skin: '#f4c8a8', hair: '#e8b86a', style: 'bob', cloth: '#f2742a', cloth2: '#2a3a5a', freckles: true },
+  johan: { skin: '#e8b090', hair: '#e8e4dc', style: 'cap', cloth: '#2a3a5a', cloth2: '#f4ecdc', beard: '#f0ece6', brows: '#f0ece6' },
 }
 
 /** Where each person is usually found, painted behind the portrait */
@@ -489,6 +509,8 @@ const BACKDROPS: Record<string, { sky: [string, string]; hill?: string; planks?:
   leilani: { sky: ['#ffd8a0', '#e87a6a'], planks: true },
   kimo: { sky: ['#7ad0e8', '#2a8ab8'], hill: '#2a5a3a' },
   tutu: { sky: ['#ffb07a', '#a85a8a'], hill: '#1e2a3a' },
+  ingvild: { sky: ['#a8c8e8', '#4a6a9a'], hill: '#e8eef4' },
+  johan: { sky: ['#2a3a6a', '#6a4a8a'], hill: '#d8e4f0', stars: true },
   pus: { sky: ['#ffc080', '#e07a5a'], planks: true },
 }
 
@@ -540,6 +562,8 @@ function person(id: string) {
       if ((id === 'leilani' || id === 'kimo') && y > 18 && (x * 3 + y * 5) % 7 === 0) c = f.cloth2!
       // a lei of yellow flowers around the neck
       if (id === 'tutu' && y === 18 && Math.abs(x - cx) < 6) c = (x % 2 ? '#ffd84a' : '#f8a83a')
+      // a reflective stripe across the flotation suit
+      if (id === 'ingvild' && y === 21 && Math.abs(x - cx) < 7) c = '#e8eef4'
       // a work jacket with a yellow collar
       if (id === 'ray' && y === 18 && Math.abs(x - cx) < 5) c = f.cloth2!
       if (f.cloth2 && id === 'marit' && dx < 3.5 && y > 18) c = shade(f.cloth, 0.05)

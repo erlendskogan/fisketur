@@ -1,6 +1,6 @@
 // Everything people say. `who` is a portrait id, or null for narration.
 
-export type Who = 'marit' | 'halvor' | 'selma' | 'edvard' | 'pus' | 'astrid' | 'ray' | 'leilani' | 'kimo' | 'tutu' | null
+export type Who = 'marit' | 'halvor' | 'selma' | 'edvard' | 'pus' | 'astrid' | 'ray' | 'leilani' | 'kimo' | 'tutu' | 'ingvild' | 'johan' | null
 export interface Line {
   who: Who
   text: string
@@ -16,6 +16,8 @@ const r = (text: string): Line => ({ who: 'ray', text })
 const l = (text: string): Line => ({ who: 'leilani', text })
 const k = (text: string): Line => ({ who: 'kimo', text })
 const t = (text: string): Line => ({ who: 'tutu', text })
+const i = (text: string): Line => ({ who: 'ingvild', text })
+const j = (text: string): Line => ({ who: 'johan', text })
 
 export const NAMES: Record<string, string> = {
   marit: 'Marit',
@@ -28,6 +30,8 @@ export const NAMES: Record<string, string> = {
   leilani: 'Leilani',
   kimo: 'Kimo',
   tutu: 'Tūtū',
+  ingvild: 'Ingvild',
+  johan: 'Johan',
 }
 
 export const INTRO: Line[] = [
@@ -141,7 +145,7 @@ export const ENDING: Line[] = [
   n('Slutt. Men fjorden er full av fisk, og Måken venter.'),
 ]
 
-export const CHATTER: Record<'marit' | 'halvor' | 'selma' | 'edvard' | 'astrid' | 'ray' | 'selmaAk' | 'leilani' | 'kimo' | 'selmaHi', string[]> = {
+export const CHATTER: Record<'marit' | 'halvor' | 'selma' | 'edvard' | 'astrid' | 'ray' | 'selmaAk' | 'leilani' | 'kimo' | 'selmaHi' | 'ingvild' | 'johan' | 'lofoten', string[]> = {
   marit: [
     'Har du prøvd å fiske om natta? Noen fisker våkner først når månen kommer opp.',
     'Bedre agn lokker fram de sjeldne fiskene. Bare så du vet det.',
@@ -216,6 +220,26 @@ export const CHATTER: Record<'marit' | 'halvor' | 'selma' | 'edvard' | 'astrid' 
     'Under oss ligger en undersjøisk vulkan som vokser. Om noen tusen år blir den en ny øy.',
     'Rødt lys forsvinner først i dypet. Derfor er så mange av de dype snapperne røde.',
     'Papegøyefisken lager sand. En stor en kan lage flere hundre kilo i året. Tenk på det neste gang du ligger på stranda.',
+  ],
+  ingvild: [
+    'Skreien henger på hjellen til mai. Sol og vind og frost, ingenting annet. Så blir den til tørrfisk, og den holder i ti år.',
+    'Det er polarnatt nå, men sola kommer snart tilbake. Vi feirer den med solboller.',
+    'Kassa full? Kom inn med den. Mottaket stenger aldri i skreisesongen.',
+    'Tunger! Ungene her skjærer ut torsketunger og selger dem. De tjener mer enn meg.',
+    'Om natta kommer lysingen og havålen opp. Ta med lykta.',
+  ],
+  johan: [
+    'Hold fisken i det grønne feltet hele veien. Det kaller jeg perfekt. Knut kalte det flaks.',
+    'Spekkhoggerne kommer inn i Vestfjorden etter silda. Ser du en høy, svart finne, så er det dem.',
+    'Røstrevet er det største korallrevet i den kalde delen av verden. Folk tror ikke på det før de ser det.',
+    'Nittiåtte kilo, var den. Kveita mi. Nittiåtte.',
+    'Været snur fort i Lofoten. Ser du snøbygene komme over Vestfjorden, så ro hjem.',
+  ],
+  lofoten: [
+    'Far sa at Lofotveggen er det siste nordmannen ser før han kommer hjem fra havet.',
+    'Astrid snorker. Ikke si at jeg sa det.',
+    'Nordlyset var sterkere da vi var små. Eller kanskje vi var mindre.',
+    'Kaffen her smaker bedre enn hjemme. Det er vannet, sier Astrid. Det er selskapet, sier jeg.',
   ],
 }
 
@@ -504,3 +528,100 @@ export const HOME_NEWS: Record<'marit' | 'halvor', string[]> = {
     'Knut fanger mer fisk enn meg igjen. Det er din skyld.',
   ],
 }
+
+// ---------- Lofoten ----------
+
+export const LO_INVITE: Line[] = [
+  n('Astrid sitter ved kjøkkenbordet i fyret, som om hun aldri har reist. Bestefar skjenker kaffe til henne og til deg.'),
+  a('Der er du! Knut har fortalt meg alt. To ganger. Og en gang til i morges, men det gjør ingenting.'),
+  e('Vi har snakket om far. Hver vinter dro han på Lofotfiske, med en sjark som het Nordstjerna og en rorbu i Henningsvær.'),
+  a('Vi var med ham den siste vinteren. Knut var tolv og jeg var ti. Jeg dro opp mer fisk enn ham.'),
+  e('Det har hun aldri latt meg glemme. Ikke en eneste gang på sekstifem år.'),
+  e('Rorbua står der fortsatt, og Nordstjerna ligger i naustet under den. Den er vår, men ingen har vært der på mange år.'),
+  a('Én vinter til, Knut. Vi tre. Før vi blir for gamle.'),
+  e('Fyret, Astrid. Jeg har lovet...'),
+  h('Jeg tenner fyret. Jeg har vært nest best i fjorden i femti år. Et fyr klarer jeg å tenne.'),
+  e('... Takk, Halvor.'),
+  e('Skreien kommer i februar, og Hurtigruten går fra kaia hver tirsdag. Måken er for liten til Vestfjorden om vinteren, så hun blir her.'),
+  e('Kronene dine kan du ta med deg. Vi er jo fortsatt i Norge.'),
+  n('Nå kan du ta Hurtigruten til Lofoten fra fyret.'),
+]
+
+export const LO_TRAVEL: Line[] = [
+  n('Hurtigruten glir nordover langs kysten. Bestefar står ute på dekk i to timer og ser på hver eneste holme.'),
+  n('Over Vestfjorden kommer Lofotveggen opp av mørket, en mur av fjell med snø helt ned i sjøen.'),
+  n('I Henningsvær står hjellene fulle av fisk, og over fjellene danser et grønt lys.'),
+  a('Nordlyset. Det var her vi så det for første gang, Knut.'),
+  e('Jeg husker. Jeg husker det, Astrid.'),
+]
+
+export const MEET_INGVILD: Line[] = [
+  i('Hei og velkommen! Ingvild heter jeg, og jeg driver fiskemottaket. Er det dere som er Bakke-familien?'),
+  i('Rorbua deres står der borte. Den er... ja. Dere får se selv.'),
+  i('Fisken kjøper jeg, all skrei og alt annet. Prisene er gode i år. Utstyr har jeg også, for det du har med deg holder ikke i Vestfjorden i februar.'),
+  i('Og kronene dine er like gode her som i Skjærvik. Det er det beste med å bo i samme land.'),
+]
+
+export const LO_FIRST_SALE: Line[] = [
+  i('Din første fisk til mottaket! Bestefaren din sier oldefaren din alltid ga den første fisken til den som trengte den mest.'),
+  i('Gå bort til Johan i den gule rorbua. Han har fisket her i sytti vintre og vet alt. Han er bare litt sur.'),
+]
+
+export const MEET_JOHAN: Line[] = [
+  j('Knut Bakke? Lever han fortsatt? Jeg trodde han var blitt til en fyrlykt for lenge siden.'),
+  j('Vi fisket sammen i 1961. Han fikk en kveite på åtti kilo og har aldri sluttet å snakke om det. Jeg fikk en på nittiåtte. Det har han glemt.'),
+  j('Jeg har en liste over ting som må fiskes. Klar dem, så betaler jeg. Og så skal jeg vise deg revet ute ved Røst.'),
+]
+
+export const LO_RORBU: Line[] = [
+  n('Den røde rorbua heller litt mot sjøen. Taket har hull, og vinduene er dekket av rim.'),
+  e('Her sov vi. Far, Astrid og jeg, i den samme køya. Det luktet tran og våte ullsokker.'),
+  a('Den trenger nytt tak, en ovn og nye vinduer. Ingvild sier det koster 8000 kroner.'),
+  n('På mottaket kan du nå betale for å sette rorbua i stand.'),
+]
+
+export const LO_FIXED: Line[] = [
+  n('Snekkeren fra Svolvær kommer med nye takplater. Johan bærer ved, og påstår at han ikke gjør det.'),
+  n('Om kvelden brenner det i ovnen, og det lukter kaffe og nyvasket treverk.'),
+  a('Nå er det en rorbu igjen. Og her, ta denne hodelykta. I polarnatta trenger du den.'),
+  e('Far hengte alltid fisken på hjellen bak rorbua. Tolv skrei, så var vinteren god. Vil du henge opp tolv for meg?'),
+  n('Når du fanger skrei, kan du nå henge dem på familiehjellen.'),
+]
+
+export const LO_HJELL_FULL: Line[] = [
+  e('Tolv skrei på hjellen. Det er en god vinter.'),
+  e('Jeg har noe til deg. Det var fars snøre, fra den siste vinteren.'),
+  n('Bestefar gir deg en gammel snelle med tjæret snøre. Det rekker helt ned i Norskehavet.'),
+  a('Og så vil Knut ut på havet. Om natta, når det er mørkt og stille. Han har noe han vil vise deg.'),
+]
+
+export const LO_GAMLE: Line[] = [
+  n('Havet ligger blankt. Bestefar sitter i baugen og ser ned i vannet.'),
+  n('Så kommer et blått lys opp fra dypet. Det er Den gamle. Hun har svømt hele veien fra Skjærvik.'),
+  e('Hun husket meg. Hun fant meg her også.'),
+  n('Den gamle ligger stille ved siden av båten lenge. Så synker hun, og det blå lyset blir borte i dypet.'),
+  e('Nå kan jeg glemme, vennen. For du husker.'),
+]
+
+export const LO_ENDING: Line[] = [
+  n('Den siste kvelden i Lofoten sitter alle sammen i rorbua. Ingvild har med seg boller, og Johan har med seg en historie om en kveite på nittiåtte kilo.'),
+  j('Hundre kilo var den. Nesten.'),
+  a('Vi kommer igjen neste vinter. Alle sammen. Selma også, hun har skrevet at hun vil se nordlyset.'),
+  e('Far sa alltid at havet ikke eier noen, men at det husker alle som har vært glad i det.'),
+  e('Jeg tror han hadde rett. Jeg tror havet husker for oss når vi glemmer.'),
+  n('Bestefar sovner i den samme køya som han sov i da han var tolv år gammel. Utenfor danser nordlyset over Vestfjorden.'),
+  n('Slutt på fjerde kapittel. Men skreien biter, og Nordstjerna venter.'),
+]
+
+export const AFTER_LO_ENDING: string[] = [
+  'Hjellen deres er den fineste i hele Henningsvær. Folk tar bilder av den.',
+  'Johan sier kveita var hundre og to kilo nå. Den vokser hver gang han forteller om den.',
+  'Bestefaren din er nede på kaia hver morgen og teller båtene. Han husker navnet på alle sammen.',
+]
+
+export const TO_LOFOTEN_AGAIN: Line[] = [n('Hurtigruten legger til i Henningsvær i snødrevet. Ingvild står på kaia med en kasse skrei og et stort smil.')]
+
+export const LO_HOME_CALL: Line[] = [
+  n('Telefonen ringer. Det er bestefar.'),
+  e('Vennen? Astrid og jeg har noe vi vil spørre deg om. Kom hjem til Skjærvik når du kan.'),
+]

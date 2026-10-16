@@ -65,6 +65,7 @@ export interface SeaHost {
   letterFound(): void
   hydroPlaced(): void
   calfVisit(): void
+  gamleVisit(): void
   gamleCaught(): void
   modeChanged(): void
 }
@@ -113,7 +114,9 @@ export class Sea {
   private farLamp = { x: 0, y: 0 }
   private farLit: boolean | null = null
   private windows: { x: number; y: number; on: number }[] = []
-  private whales: { x: number; t0: number; dir: 1 | -1; breach?: boolean }[] = []
+  private whales: { x: number; t0: number; dir: 1 | -1; breach?: boolean; orca?: boolean }[] = []
+  private gamle: { t0: number; told: boolean } | null = null
+  private gamleT = 0
   private calf: { t0: number; told: boolean } | null = null
   private calfT = 0
   private flyers: { x: number; t0: number; y: number }[] = []
@@ -122,6 +125,7 @@ export class Sea {
   private boatImg!: HTMLCanvasElement
   private paint = ''
   private fisherImg = fisherSprite(WORLD)
+  private knutImg = fisherSprite('knut')
   private cats = catSprites()
   private heart = heartSprite()
   private bang = bangSprite()
@@ -594,6 +598,8 @@ export class Sea {
     this.net = null
     this.calf = null
     this.calfT = 0
+    this.gamle = null
+    this.gamleT = 0
   }
 
   /** Where the next of Selma's hydrophones should go, if you are carrying one */
@@ -683,6 +689,20 @@ export class Sea {
     f.state = 'approach'
   }
 
+  /** Lofoten: on a dark night at sea with the twelve skrei hung, Den gamle comes to see Knut */
+  private updateLofoten(dt: number) {
+    const f = this.s.flags
+    if (f.lo_finale && !f.lo_gamle && this.mode === 'idle' && nightness(this.s.time) > 0.5) {
+      this.gamleT += dt
+      if (this.gamleT > 2 && !this.gamle) this.gamle = { t0: this.t, told: false }
+    }
+    if (this.gamle && !this.gamle.told && this.t - this.gamle.t0 > 7) {
+      this.gamle.told = true
+      this.host.gamleVisit()
+    }
+    if (f.lo_gamle && this.gamle && this.t - this.gamle.t0 > 30) this.gamle = null
+  }
+
   /** Hawaii: the mother and calf come to the boat when the song is complete, and flying fish */
   private updateHawaii(dt: number) {
     const f = this.s.flags
@@ -703,6 +723,7 @@ export class Sea {
   private updateLife(dt: number) {
     const W = this.W
     if (WORLD === 'hawaii') this.updateHawaii(dt)
+    if (WORLD === 'lofoten') this.updateLofoten(dt)
     if (WORLD !== 'norge') {
       // whales come up now and then; when the herring are in they come often and feed together
       const feeding = WORLD === 'alaska' && !!this.s.flags.ak_finale
@@ -711,7 +732,11 @@ export class Sea {
         this.nextWhale = feeding ? 5 + Math.random() * 6 : 14 + Math.random() * 22
         const x = W * (0.45 + Math.random() * 0.45)
         if (feeding && !this.net && Math.random() < 0.5) this.net = { x, t0: this.t }
-        else this.whales.push({ x, t0: this.t, dir: Math.random() < 0.5 ? 1 : -1, breach: WORLD === 'hawaii' && Math.random() < 0.4 })
+        else if (WORLD === 'lofoten' && Math.random() < 0.6) {
+          // a pod of orcas following the herring into Vestfjorden
+          const dir = Math.random() < 0.5 ? 1 : -1
+          for (let i = 0; i < 3; i++) this.whales.push({ x: x + i * 9 * -dir, t0: this.t + i * 0.5, dir, orca: true })
+        } else this.whales.push({ x, t0: this.t, dir: Math.random() < 0.5 ? 1 : -1, breach: WORLD === 'hawaii' && Math.random() < 0.4 })
       }
       this.whales = this.whales.filter((w) => this.t - w.t0 < 7.5)
     }
@@ -740,6 +765,7 @@ export class Sea {
   private paintFar() {
     if (WORLD === 'alaska') return this.paintFarAk()
     if (WORLD === 'hawaii') return this.paintFarHi()
+    if (WORLD === 'lofoten') return this.paintFarLo()
     const lit = dev.ending ?? !!this.s.flags.ending
     if (this.farLit === lit) return
     this.farLit = lit
@@ -887,6 +913,55 @@ export class Sea {
     }
   }
 
+  /** Snowy skerries with red rorbuer and drying racks on the left, a lone skerry out in Vestfjorden */
+  private paintFarLo() {
+    if (this.farLit === false) return
+    this.farLit = false
+    const { W, hz } = this
+    this.farC = canvas(W, hz)
+    const g = this.farC.g
+    const r = rng(14)
+    const landW = Math.round(W * 0.38)
+    for (let x = 0; x < landW; x++) {
+      const h = Math.round(5 + 2 * Math.cos((x / landW) * Math.PI * 0.5) + Math.sin(x * 0.7) * 0.8)
+      g.fillStyle = '#3a4250'
+      g.fillRect(x, hz - h - 1, 1, h)
+      g.fillStyle = '#eef2f8'
+      g.fillRect(x, hz - h - 1, 1, 2)
+    }
+    this.windows = []
+    // red and yellow rorbuer on poles at the water's edge
+    for (let x = 3; x < landW - 8; x += 8 + Math.floor(r() * 3)) {
+      const c = r() < 0.75 ? '#a8343a' : '#e8b83a'
+      const base = hz - 3
+      g.fillStyle = '#3e2e24'
+      for (let px = x; px < x + 6; px += 2) g.fillRect(px, base, 1, 3)
+      g.fillStyle = c
+      g.fillRect(x, base - 4, 6, 4)
+      g.fillStyle = '#eef2f8'
+      for (let i = 0; i < 4; i++) g.fillRect(x - 1 + i, base - 5 - i, 8 - i * 2, 1)
+      g.fillStyle = '#26304e'
+      g.fillRect(x + 2, base - 3, 1, 1)
+      this.windows.push({ x: x + 2, y: base - 3, on: 0.1 + r() * 0.4 })
+    }
+    // a drying rack full of fish
+    const hx = landW + 2
+    g.fillStyle = '#6a5040'
+    for (let x = hx; x < hx + 14; x += 4) g.fillRect(x, hz - 9, 1, 8)
+    g.fillRect(hx, hz - 9, 14, 1)
+    g.fillStyle = '#9a9488'
+    for (let x = hx + 1; x < hx + 14; x += 2) g.fillRect(x, hz - 8, 1, 3)
+    // a skerry with snow on it out in the fjord
+    const sx = Math.round(W * 0.78)
+    for (let i = -9; i <= 9; i++) {
+      const h = Math.round(5 * Math.sqrt(Math.max(0, 1 - (i / 9) ** 2)) + (i % 3 === 0 ? 1 : 0))
+      g.fillStyle = '#3a4250'
+      g.fillRect(sx + i, hz - h, 1, h)
+      g.fillStyle = '#eef2f8'
+      g.fillRect(sx + i, hz - h, 1, Math.min(2, h))
+    }
+  }
+
   /** Hilo's old wooden bayfront on the left and Coconut Island with its palms out in the bay */
   private paintFarHi() {
     if (this.farLit === false) return
@@ -963,6 +1038,26 @@ export class Sea {
       const k = (t - w.t0) / 7
       if (k < 0 || k > 1) continue
       const x = Math.round(w.x + w.dir * k * 18)
+      if (w.orca) {
+        // a tall black fin, a black back and the white patch behind the eye
+        if (k > 0.1 && k < 0.6) {
+          const q = (k - 0.1) / 0.5
+          const lift = Math.sin(Math.PI * q) * 3
+          const bx = x + Math.round(q * 6) * w.dir
+          g.fillStyle = '#14141c'
+          for (let i = -6; i <= 6; i++) {
+            const h = Math.round(lift * Math.cos((i / 6) * (Math.PI / 2)))
+            if (h > 0) g.fillRect(bx + i, hz - h, 1, h)
+          }
+          const fin = Math.round(lift * 2.6)
+          for (let y = 0; y < fin; y++) g.fillRect(bx - Math.round(y * 0.25) * w.dir, hz - Math.round(lift) - y, Math.max(1, 3 - Math.floor((y * 3) / fin)), 1)
+          if (lift > 1.5) {
+            g.fillStyle = '#f4f4f0'
+            g.fillRect(bx + 4 * w.dir, hz - Math.round(lift) + 1, 2, 1)
+          }
+        }
+        continue
+      }
       if (w.breach) {
         // a humpback throwing itself out of the water and crashing back on its side
         if (k < 0.45) {
@@ -1036,6 +1131,21 @@ export class Sea {
           g.fillRect(tx - 3, top + 4, 1, 1)
           g.fillRect(tx + 4, top + 5, 1, 1)
         }
+      }
+    }
+    // Den gamle, come all the way from Skjærvik, lying blue and glowing beside the boat
+    if (this.gamle) {
+      const k = Math.min(1, (t - this.gamle.t0) / 3)
+      const bx = this.boatX + 70
+      const len = 26
+      const lift = 4 * k + Math.sin(t * 0.7) * 0.5
+      for (let i = -len; i <= len; i++) {
+        const h = Math.round(lift * Math.cos((i / len) * (Math.PI / 2)))
+        if (h <= 0) continue
+        g.fillStyle = (i * 7) % 11 === 0 ? '#e8f4ff' : '#2a5aa8'
+        g.fillRect(bx + i, hz - h, 1, h)
+        g.fillStyle = '#8ad0ff'
+        g.fillRect(bx + i, hz - h, 1, 1)
       }
     }
     // a mother and her calf resting at the surface next to the boat
@@ -1140,6 +1250,18 @@ export class Sea {
     }
     sg.drawImage(this.work.c, 0, 0)
     this.bd.fogOver(sg, sky, wx.fog)
+    // Den gamle shines through the dark, so her light goes on after the night tint
+    if (this.gamle) {
+      const k = Math.min(1, (this.t - this.gamle.t0) / 3)
+      const bx = this.boatX + 70
+      light(sg, bx, hz - 2, 30, '#6ab8ff', 0.45 * k)
+      light(sg, bx, hz - 3, 12, '#c8f0ff', 0.35 * k)
+      for (let i = -24; i <= 24; i += 5) {
+        const tw = Math.sin(this.t * 2 + i) > 0 ? 1 : 0.4
+        sg.fillStyle = rgba('#e8f8ff', 0.8 * k * tw)
+        sg.fillRect(bx + i, hz - Math.round(3 * k * Math.cos((i / 26) * (Math.PI / 2))), 1, 1)
+      }
+    }
 
     // lights
     const night = sky.night
@@ -1509,8 +1631,11 @@ export class Sea {
       g.fillStyle = k < 0.3 ? '#6a4a32' : k > 0.92 ? '#e8e0d0' : '#a87a4a'
       g.fillRect(Math.round(x), Math.round(y), 1, 1)
     }
+    // great-grandfather's boat with grandfather in it, the last nights in Lofoten
+    const knut = WORLD === 'lofoten' && this.s.flags.lo_hjellFull && !this.s.flags.lo_ending
+    if (knut) g.drawImage(this.knutImg, bx + 28, top - 5)
     g.drawImage(this.boatImg, bx, top)
-    if (this.s.flags.cat) {
+    if (this.s.flags.cat && !knut) {
       const blink = this.catT % 4 < 0.15
       g.drawImage(this.cats[blink ? 1 : 0], bx + 34, top + 1)
     }

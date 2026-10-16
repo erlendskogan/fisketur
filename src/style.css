@@ -909,8 +909,11 @@ body.intro #dock {
 
 .tabs3 .btn {
   flex: 1;
-  padding: 6px 4px;
+  padding: 6px 2px;
   min-height: 40px;
+  font-size: 17px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 #hint.goal {
