@@ -706,7 +706,10 @@ export class Sea {
     const f = this.s.flags
     if (f.lo_finale && !f.lo_gamle && this.mode === 'idle' && nightness(this.s.time) > 0.5) {
       this.gamleT += dt
-      if (this.gamleT > 2 && !this.gamle) this.gamle = { t0: this.t, told: false }
+      if (this.gamleT > 2 && !this.gamle) {
+        this.gamle = { t0: this.t, told: false }
+        sfx.whale()
+      }
     }
     if (this.gamle && !this.gamle.told && this.t - this.gamle.t0 > 7) {
       this.gamle.told = true
@@ -720,7 +723,10 @@ export class Sea {
     const f = this.s.flags
     if (f.hi_finale && !f.hi_calf && this.mode === 'idle') {
       this.calfT += dt
-      if (this.calfT > 2 && !this.calf) this.calf = { t0: this.t, told: false }
+      if (this.calfT > 2 && !this.calf) {
+        this.calf = { t0: this.t, told: false }
+        sfx.song()
+      }
     }
     if (this.calf && !this.calf.told && this.t - this.calf.t0 > 6) {
       this.calf.told = true
@@ -749,6 +755,8 @@ export class Sea {
           const dir = Math.random() < 0.5 ? 1 : -1
           for (let i = 0; i < 3; i++) this.whales.push({ x: x + i * 9 * -dir, t0: this.t + i * 0.5, dir, orca: true })
         } else this.whales.push({ x, t0: this.t, dir: Math.random() < 0.5 ? 1 : -1, breach: WORLD === 'hawaii' && Math.random() < 0.4 })
+        // you hear them through the hull when the surface is close
+        if (this.camY < 40 && WORLD !== 'lofoten') sfx.whale(true)
       }
       this.whales = this.whales.filter((w) => this.t - w.t0 < 7.5)
     }

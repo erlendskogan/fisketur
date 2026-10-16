@@ -72,7 +72,48 @@ function noise(dur: number, vol: number, freq: number, q = 1, when = 0, sweep = 
   src.stop(t + dur + 0.05)
 }
 
+/** A humpback's call: a low tone that slides up and back down, with a slow wobble */
+function whaleCall(base: number, vol: number) {
+  if (!ctx || !master) return
+  const t = ctx.currentTime
+  const o = ctx.createOscillator()
+  const lfo = ctx.createOscillator()
+  const lfoG = ctx.createGain()
+  const g = ctx.createGain()
+  const f = ctx.createBiquadFilter()
+  f.type = 'lowpass'
+  f.frequency.value = 900
+  o.type = 'sine'
+  o.frequency.setValueAtTime(base, t)
+  o.frequency.exponentialRampToValueAtTime(base * 1.9, t + 0.9)
+  o.frequency.exponentialRampToValueAtTime(base * 0.8, t + 2.2)
+  lfo.frequency.value = 5
+  lfoG.gain.value = base * 0.03
+  lfo.connect(lfoG)
+  lfoG.connect(o.frequency)
+  g.gain.setValueAtTime(0, t)
+  g.gain.linearRampToValueAtTime(vol, t + 0.4)
+  g.gain.linearRampToValueAtTime(vol * 0.7, t + 1.6)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4)
+  o.connect(f)
+  f.connect(g)
+  g.connect(master)
+  o.start(t)
+  lfo.start(t)
+  o.stop(t + 2.5)
+  lfo.stop(t + 2.5)
+}
+
 export const sfx = {
+  whale(far = false) {
+    whaleCall(far ? 160 : 120, far ? 0.04 : 0.09)
+  },
+  song() {
+    // three phrases, like the recordings: Den gamle, the whales of the north, and the new verse
+    whaleCall(110, 0.08)
+    setTimeout(() => whaleCall(150, 0.07), 1800)
+    setTimeout(() => whaleCall(200, 0.06), 3600)
+  },
   cast() {
     noise(0.25, 0.25, 1800, 0.8, 0, -1200)
   },

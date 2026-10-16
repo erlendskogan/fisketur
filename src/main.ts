@@ -985,7 +985,7 @@ class Game implements SeaHost {
       const h = s.hydro
       if (h.placed > h.heard) {
         const i = h.heard
-        sfx.creak()
+        sfx.song()
         await this.ui.talk(HYDRO_HEARD[i])
         h.heard = i + 1
         if (i === 1) f.ak_askCreek = true
@@ -1166,7 +1166,7 @@ class Game implements SeaHost {
       const b = s.buoys
       if (b.placed > b.heard) {
         const i = b.heard
-        sfx.creak()
+        sfx.song()
         await this.ui.talk(BUOY_HEARD[i])
         b.heard = i + 1
         if (i === 0) f.hi_askPond = true
