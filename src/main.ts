@@ -1,4 +1,3 @@
-import '@fontsource/jersey-10/index.css'
 import './style.css'
 
 import { canvas, toURL } from './art/pixel'
