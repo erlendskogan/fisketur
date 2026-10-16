@@ -6,6 +6,7 @@ import { useEffect } from 'react'
 import type { DOMProps } from 'expo/dom'
 
 import { mountGame } from '../../src/main'
+import { setSaveStore } from '../../src/platform/storage'
 
 // Metro does not copy files referenced by url() in CSS into the app, so the font the web
 // page gets from @fontsource's CSS is required here instead, which Metro does bundle.
@@ -26,12 +27,34 @@ type Props = {
   dom?: DOMProps
   /** Notch and home indicator, measured natively */
   insets: { top: number; bottom: number }
+  /** Native storage (mobile/storage.ts); these run in the app, not in the web view */
+  loadStorage: () => Promise<Record<string, string>>
+  writeStorage: (key: string, value: string | null) => Promise<void>
+}
+
+/** The game reads its save synchronously, so fetch it all from the app before starting */
+async function connectNativeStorage({ loadStorage, writeStorage }: Props) {
+  const data = await loadStorage().catch(() => null)
+  // could not read the save: play on in the web view's own storage rather than overwrite it
+  if (!data) return
+  setSaveStore({
+    get: (key) => data[key] ?? null,
+    set: (key, value) => {
+      data[key] = value
+      writeStorage(key, value)
+    },
+    remove: (key) => {
+      delete data[key]
+      writeStorage(key, null)
+    },
+  })
 }
 
 // Effects run twice in development (React strict mode); the game must only start once
 let mounted = false
 
-export default function Game({ insets }: Props) {
+export default function Game(props: Props) {
+  const { insets } = props
   useEffect(() => {
     // style.css reads env(safe-area-inset-*) into these, which is 0 in the app's web view
     const root = document.documentElement.style
@@ -44,7 +67,7 @@ export default function Game({ insets }: Props) {
     mounted = true
     // the page already has user-scalable=no; this also stops iOS pinch gestures
     document.addEventListener('gesturestart', (e) => e.preventDefault())
-    loadFont().then(() => mountGame())
+    Promise.all([loadFont(), connectNativeStorage(props)]).then(() => mountGame())
   }, [])
   return null
 }

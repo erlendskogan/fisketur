@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native'
 import { initialWindowMetrics, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import Game from './components/Game'
+import { loadStorage, writeStorage } from './storage'
 
 export default function App() {
   return (
@@ -21,6 +22,8 @@ function Screen() {
       <StatusBar style="light" />
       <Game
         insets={{ top: insets.top, bottom: insets.bottom }}
+        loadStorage={loadStorage}
+        writeStorage={writeStorage}
         dom={{
           style: styles.game,
           contentInsetAdjustmentBehavior: 'never',
