@@ -1254,7 +1254,7 @@ export class Harbor {
     const s = this.host.s
     const ak = s.world === 'alaska'
     const selma = dev.selma ?? !!(ak ? s.flags.ak_selma : s.world === 'hawaii' ? true : s.flags.selma)
-    const ending = !ak && (dev.ending ?? !!s.flags.ending)
+    const ending = s.world === 'norge' && (dev.ending ?? !!s.flags.ending)
     const hi = s.world === 'hawaii'
     const lo = s.world === 'lofoten'
     const festival = (ak && !!s.flags.ak_ending) || (hi && !!s.flags.hi_ending) || (lo && !!s.flags.lo_ending)

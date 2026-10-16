@@ -138,7 +138,7 @@ class Game implements SeaHost {
     const f = this.s.flags
     if (this.hi) return { krambua: 'Fiskeboden', havnebua: 'Havna', stasjon: 'Hvalstasjonen', fyret: 'Øyflyet', baten: 'Koholā' }[id]
     if (this.lo) return { krambua: 'Mottaket', havnebua: 'Johan', stasjon: 'Rorbua', fyret: 'Hurtigruten', baten: 'Nordstjerna' }[id]
-    if (this.ak) return { krambua: 'Bakke Fisk', havnebua: 'Havnekontoret', stasjon: f.ak_selma ? 'Selmas hytte' : 'Tom hytte', fyret: 'Sjøflyet', baten: 'Ternen' }[id]
+    if (this.ak) return { krambua: 'Bakke Fisk', havnebua: 'Havna', stasjon: f.ak_selma ? 'Selmas hytte' : 'Tom hytte', fyret: 'Sjøflyet', baten: 'Ternen' }[id]
     return { krambua: 'Krambua', havnebua: 'Havnebua', stasjon: f.selma ? 'Havstasjonen' : 'Tomt hus', fyret: 'Fyret', baten: 'Måken' }[id]
   }
 
