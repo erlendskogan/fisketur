@@ -26,6 +26,8 @@ import { AFTER_ENDING, CAT, CHATTER, ENDING, FIRST_SALE, GAMLE, INTRO, LETTERS, 
 import { $, esc, face, icon, iconImg, kr, UI } from './ui/ui'
 import { watchForUpdates } from './update'
 
+if (import.meta.env.DEV) import('./dev/panel')
+
 const DAY_SECONDS = 540
 
 type View = 'sea' | 'harbor'
