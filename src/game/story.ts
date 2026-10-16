@@ -625,3 +625,12 @@ export const LO_HOME_CALL: Line[] = [
   n('Telefonen ringer. Det er bestefar.'),
   e('Vennen? Astrid og jeg har noe vi vil spørre deg om. Kom hjem til Skjærvik når du kan.'),
 ]
+
+// ---------- the daily fishing competition ----------
+
+export const DERBY: Record<string, { host: Who; rivals: string[]; start: string; win: string; lose: string }> = {
+  norge: { host: 'halvor', rivals: ['Halvor', 'Marit', 'Bestefar'], start: 'To minutter, og det er vekta som teller. Jeg har trent i femti år.', win: 'Førsteplass. Hm. Gratulerer. Neste gang er det min tur.', lose: 'Bedre lykke neste gang. Det sier jeg til meg selv også, hver gang.' },
+  alaska: { host: 'ray', rivals: ['Ray', 'Astrid', 'Lorna fra sjøflyet'], start: 'Petersburg-derbyet! To minutter, største totalvekt vinner. Uff da, så spennende!', win: 'Vi har en vinner! Jeg skal skrive navnet ditt på tavla med stor skrift.', lose: 'Uff da. Nesten! Kom igjen i morgen.' },
+  hawaii: { host: 'kimo', rivals: ['Kimo', 'Leilani', 'Keoni fra nabobåten'], start: 'Fiskekonkurranse! To minutter, og vekta avgjør. Jeg spiller ukulele mens du fisker.', win: 'Mester av Hilo! Jeg lager en sang om det. En ny en.', lose: 'Ikke denne gangen. Men havet er fullt av i morgen.' },
+  lofoten: { host: 'johan', rivals: ['Johan', 'Ingvild', 'Astrid'], start: 'Lofotkonkurransen. To minutter. Ingen juks, ingen unnskyldninger.', win: 'Du vant. Jeg sier ikke at det var flaks. Jeg tenker det bare.', lose: 'Ikke verst. Men ikke godt nok. Kom igjen i morgen.' },
+}

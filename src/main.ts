@@ -1,7 +1,7 @@
 import '@fontsource/jersey-10/index.css'
 import './style.css'
 
-import { canvas, mix, toURL } from './art/pixel'
+import { canvas, mix, rng, toURL } from './art/pixel'
 import { worldMap } from './art/map'
 import { ambientAt, skyAt } from './art/fjord'
 import { nightness } from './art/scenery'
@@ -70,6 +70,7 @@ import {
   BACK_TO_ALASKA,
   CAT,
   CHATTER,
+  DERBY,
   ENDING,
   FIRST_SALE,
   FLY_HOME,
@@ -288,6 +289,7 @@ class Game implements SeaHost {
     this.s.time = (this.s.time + dt / DAY_SECONDS) % 1
     if (this.s.time < before) this.s.day = (this.s.day ?? 0) + 1
     this.watchWeather()
+    this.tickDerby(dt)
     const paused = this.ui.busy || !this.started
     this.sea.update(dt, paused)
     this.harbor.update(dt)
@@ -344,7 +346,9 @@ class Game implements SeaHost {
     const min = Math.floor((s.time * 24 * 60) % 60 / 10) * 10
     const depth = this.view === 'sea' ? Math.round(this.sea.depth) : -1
     const wet = weatherAt(s.day, s.time).rain > 0.3
-    const key = `${s.money}|${s.bucket.length}|${gearValue(s, 'bucket')}|${depth}|${hour}:${min}|${this.view}|${s.gear.line}|${wet}`
+    const d = s.derby && s.derby.world === s.world ? s.derby : null
+    const derby = d ? (d.done ? 'ferdig' : `${String(Math.floor(d.left / 60))}:${String(Math.floor(d.left % 60)).padStart(2, '0')}|${d.kg.toFixed(1)}`) : ''
+    const key = `${s.money}|${s.bucket.length}|${gearValue(s, 'bucket')}|${depth}|${hour}:${min}|${this.view}|${s.gear.line}|${wet}|${derby}`
     if (key === this.hudKey) return
     this.hudKey = key
     const night = nightness(s.time) > 0.5
@@ -353,7 +357,11 @@ class Game implements SeaHost {
       <button class="chip" data-hud="bucket">${iconImg('bucket')}${s.bucket.length}/${gearValue(s, 'bucket')}</button>
       <span class="grow"></span>
       ${depth >= 0 ? `<span class="chip depth">${depth} m<small>/ ${gearValue(s, 'line')}</small></span>` : ''}
-      <span class="chip">${iconImg(wet ? (this.lo ? 'snow' : 'rain') : night ? 'moon' : 'sun')}${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}</span>
+      ${
+        d
+          ? `<span class="chip money">${iconImg('trophy')}${d.done ? 'Ferdig' : `${String(d.kg.toFixed(1)).replace('.', ',')} kg · ${derby.split('|')[0]}`}</span>`
+          : `<span class="chip">${iconImg(wet ? (this.lo ? 'snow' : 'rain') : night ? 'moon' : 'sun')}${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}</span>`
+      }
       <button class="chip icon-only" data-hud="settings" aria-label="Innstillinger">${iconImg('wheel')}</button>`
   }
 
@@ -468,6 +476,7 @@ class Game implements SeaHost {
   nextGoal(): string {
     const s = this.s
     const f = s.flags
+    if (s.derby && s.derby.world === s.world) return s.derby.done ? `Premieutdeling i ${this.placeName('havnebua')}.` : 'Fiskekonkurranse! Fang så mye du kan før tiden er ute.'
     if (this.ak) {
       const h = s.hydro
       if (!f.ak_sold1) return 'Fang en fisk og selg den til Astrid på Bakke Fisk.'
@@ -530,6 +539,7 @@ class Game implements SeaHost {
   badges(): SpotId[] {
     const f = this.s.flags
     const out: SpotId[] = []
+    if (this.s.derby?.done && this.s.derby.world === this.s.world) out.push('havnebua')
     if (this.lo) {
       if (!f.lo_metIngvild || (this.s.bucket.length && !f.lo_sold1)) out.push('krambua')
       if (f.lo_sold1 && !f.lo_metJohan) out.push('havnebua')
@@ -594,6 +604,12 @@ class Game implements SeaHost {
       this.progress('treasure')
     }
     this.progress('catch', { sp, kg, perfect, night })
+    const d = s.derby
+    if (d && d.world === s.world && !d.done) {
+      d.kg += kg
+      d.n++
+      d.best = Math.max(d.best, kg)
+    }
     this.checkStory()
     this.save()
     this.catchCard(sp, { cm, kg, value }, isNew, perfect, bonus, prev?.best)
@@ -839,6 +855,78 @@ class Game implements SeaHost {
           ? [{ who: 'edvard', text: `Det neste brevet... jeg tror jeg senket det på rundt ${[40, 120, 300, 800][s.letters.delivered]} meter.` }]
           : []
     await this.ui.talk([{ who: 'edvard', text: pool[Math.floor(Math.random() * pool.length)] }, ...hint])
+  }
+
+  // ---------- the fishing competition ----------
+
+  /** The story of this place is over, so there is time for competitions */
+  private chapterDone() {
+    const f = this.s.flags
+    return !!(this.ak ? f.ak_ending : this.hi ? f.hi_ending : this.lo ? f.lo_ending : f.ending)
+  }
+
+  private async startDerby() {
+    const s = this.s
+    const D = DERBY[s.world]
+    s.derby = { world: s.world, left: 120, kg: 0, n: 0, best: 0, done: false }
+    s.derbyDay = { ...s.derbyDay, [s.world]: s.day }
+    this.save()
+    this.ui.closeSheet()
+    await this.ui.talk([{ who: D.host, text: D.start }])
+    this.go('sea')
+    this.hudKey = ''
+  }
+
+  private tickDerby(dt: number) {
+    const d = this.s.derby
+    if (!d || d.done || d.world !== this.s.world) return
+    // the clock stops while you look at a catch or talk
+    if (!this.ui.busy && this.started) d.left -= dt
+    if (d.left <= 0) {
+      d.left = 0
+      d.done = true
+      sfx.fanfare()
+      this.ui.toast(`Tiden er ute! Premieutdeling i ${this.placeName('havnebua')}.`, 'trophy')
+      this.save()
+    }
+  }
+
+  /** What a good haul weighs here, so the others make a fair fight of it */
+  private derbyReference() {
+    const line = gearValue(this.s, 'line')
+    const reach = WORLDS[this.s.world].species.filter((sp) => !sp.special && WORLDS[this.s.world].zones[sp.zone].from <= line)
+    const w = reach.reduce((n, sp) => n + sp.weight, 0) || 1
+    const avgKg = reach.reduce((n, sp) => n + sp.weight * (sp.kg[0] + (sp.kg[1] - sp.kg[0]) * 0.3), 0) / w
+    const avgValue = reach.reduce((n, sp) => n + sp.weight * sp.value, 0) / w
+    return { kg: avgKg * 5, value: avgValue }
+  }
+
+  private async derbyPrizes() {
+    const s = this.s
+    const d = s.derby
+    if (!d) return
+    const D = DERBY[s.world]
+    const ref = this.derbyReference()
+    const rr = rng(s.day * 31 + d.n)
+    const rows = D.rivals.map((name, i) => ({ name, kg: +(ref.kg * [0.55, 0.85, 1.15][i] * (0.75 + rr() * 0.5)).toFixed(1) }))
+    rows.push({ name: 'Du', kg: +d.kg.toFixed(1) })
+    rows.sort((a, b) => b.kg - a.kg)
+    const place = rows.findIndex((r) => r.name === 'Du')
+    const prize = Math.round(ref.value * [14, 7, 3, 0][place])
+    s.money += prize
+    if (place === 0) s.stats.trophies = (s.stats.trophies ?? 0) + 1
+    s.derby = undefined
+    this.save()
+    this.ui.closeSheet()
+    const fmt = (kg: number) => `${String(kg).replace('.', ',')} kg`
+    await this.ui.talk([
+      { who: D.host, text: 'Da er vekta talt opp!' },
+      { who: null, text: rows.map((r, i) => `${i + 1}. ${r.name}: ${fmt(r.kg)}`).join('   ') },
+      { who: D.host, text: place === 0 ? D.win : D.lose },
+      ...(prize ? [{ who: null, text: `Du fikk ${kr(prize)}${place === 0 ? ' og en pokal' : ''}.` } as Line] : []),
+    ])
+    if (prize) sfx.coin()
+    this.hudKey = ''
   }
 
   // ---------- Alaska ----------
@@ -1393,12 +1481,28 @@ class Game implements SeaHost {
   }
 
   openHalvor() {
+    const s = this.s
     const who = this.ak ? 'ray' : this.hi ? 'kimo' : this.lo ? 'johan' : 'halvor'
+    const d = s.derby && s.derby.world === s.world ? s.derby : null
+    const can = this.chapterDone() && !d && (s.derbyDay?.[s.world] ?? -1) !== s.day
+    const derby = d
+      ? d.done
+        ? `<button class="btn green" data-a="prize">${iconImg('trophy')}Premieutdeling</button>`
+        : '<p class="muted">Konkurransen er i gang. Ut og fisk!</p>'
+      : can
+        ? `<button class="btn green" data-a="derby">${iconImg('trophy')}Bli med i fiskekonkurransen</button>`
+        : this.chapterDone()
+          ? '<p class="muted">Neste fiskekonkurranse er i morgen.</p>'
+          : ''
     const b = this.ui.sheet(
       this.placeName('havnebua'),
-      `${this.placeHead(who, this.chatter(who))}<div class="stack"><button class="btn" data-a="q">${iconImg('scroll')}Oppdrag${this.claimable() ? `<span class="right">${this.claimable()} klar</span>` : ''}</button></div>`,
+      `${this.placeHead(who, this.chatter(who))}<div class="stack">${derby}<button class="btn" data-a="q">${iconImg('scroll')}Oppdrag${this.claimable() ? `<span class="right">${this.claimable()} klar</span>` : ''}</button></div>`,
     )
     b.querySelector<HTMLElement>('[data-a=q]')!.onclick = () => this.openQuests()
+    const st = b.querySelector<HTMLElement>('[data-a=derby]')
+    if (st) st.onclick = () => this.startDerby()
+    const pr = b.querySelector<HTMLElement>('[data-a=prize]')
+    if (pr) pr.onclick = () => this.derbyPrizes()
   }
 
   openQuests() {
@@ -1662,7 +1766,7 @@ class Game implements SeaHost {
       .filter(([id]) => SPECIES_BY_ID[id] && !SPECIES_BY_ID[id].special)
       .sort((a, b) => b[1].best - a[1].best)[0]
     const stats = `<div class="facts"><span><small>Fisk fanget</small>${s.stats.caught}</span><span><small>Arter</small>${all} av ${total}</span><span><small>Perfekte</small>${s.stats.perfect}</span></div>
-      ${best ? `<p class="muted">Lengste fisk: ${esc(SPECIES_BY_ID[best[0]].name)}, ${best[1].best} cm. Sluppet ut: ${s.stats.released}. Skattekister: ${s.stats.treasure}.</p>` : ''}`
+      ${best ? `<p class="muted">Lengste fisk: ${esc(SPECIES_BY_ID[best[0]].name)}, ${best[1].best} cm. Sluppet ut: ${s.stats.released}. Skattekister: ${s.stats.treasure}.${s.stats.trophies ? ` Pokaler: ${s.stats.trophies}.` : ''}</p>` : ''}`
     const b = this.ui.sheet(
       'Dagbok og innstillinger',
       `<p><b>Du er i ${WORLDS[s.world].place}.</b> ${esc(this.nextGoal())}</p>

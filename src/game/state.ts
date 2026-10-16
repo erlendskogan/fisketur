@@ -20,7 +20,7 @@ export interface Save {
   done: string[]
   /** letters found but not yet given to Edvard / delivered */
   letters: { found: number; delivered: number }
-  stats: { caught: number; perfect: number; sold: number; night: number; released: number; treasure: number }
+  stats: { caught: number; perfect: number; sold: number; night: number; released: number; treasure: number; trophies?: number }
   bookClaimed: number[]
   time: number
   /** days gone by, for the weather */
@@ -42,6 +42,10 @@ export interface Save {
   hjell: number
   /** money by currency, so dollars follow you between Alaska and Hawaii */
   purse: Partial<Record<'kr' | '$', number>>
+  /** the daily fishing competition, while it runs and until the prizes are given out */
+  derby?: { world: WorldId; left: number; kg: number; n: number; best: number; done: boolean }
+  /** the last day you entered the competition in each place */
+  derbyDay?: Partial<Record<WorldId, number>>
 }
 
 /** The things that belong to one place */
