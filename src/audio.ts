@@ -26,6 +26,7 @@ export function initAudio() {
   const d = noiseBuf.getChannelData(0)
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
   startWaves()
+  startRain()
   startMusic()
 }
 
@@ -145,6 +146,38 @@ function startWaves() {
   g.connect(master)
   src.start()
   lfo.start()
+}
+
+let rainGain: GainNode | null = null
+
+/** Soft hiss of rain on the water, silent until it rains */
+function startRain() {
+  if (!ctx || !master || !noiseBuf) return
+  const src = ctx.createBufferSource()
+  src.buffer = noiseBuf
+  src.loop = true
+  const hp = ctx.createBiquadFilter()
+  hp.type = 'highpass'
+  hp.frequency.value = 900
+  const lp = ctx.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.value = 5200
+  rainGain = ctx.createGain()
+  rainGain.gain.value = 0
+  src.connect(hp)
+  hp.connect(lp)
+  lp.connect(rainGain)
+  rainGain.connect(master)
+  src.start()
+}
+
+/** 0..1, how hard it is raining */
+let rainNow = -1
+export function setRain(amount: number) {
+  const a = Math.round(amount * 20) / 20
+  if (!rainGain || !ctx || a === rainNow) return
+  rainNow = a
+  rainGain.gain.setTargetAtTime(a * 0.05, ctx.currentTime, 0.8)
 }
 
 /** A slow pentatonic music box that never quite repeats */

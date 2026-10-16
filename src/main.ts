@@ -3,7 +3,7 @@ import './style.css'
 
 import { canvas, toURL } from './art/pixel'
 import { nightness } from './art/scenery'
-import { initAudio, setSound, sfx } from './audio'
+import { initAudio, setRain, setSound, sfx } from './audio'
 import {
   BOOK,
   BOOK_REWARDS,
@@ -236,6 +236,7 @@ class Game implements SeaHost {
   /** A word when a shower starts, since the fish bite better in the rain */
   private watchWeather() {
     const rain = weatherAt(this.s.day, this.s.time).rain
+    setRain(rain)
     if (!this.raining && rain > 0.3 && this.started && !this.ui.busy) {
       this.raining = true
       this.ui.toast('Det begynner å regne. Fisken biter bedre nå!', 'rain')

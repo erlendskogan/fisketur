@@ -114,18 +114,18 @@ export const FISHER_HAND = { x: 10, y: 15 }
 const CAT_PAL = { k: INK, o: '#f0a04a', O: '#c8742e', w: '#f8ecd8', e: '#3a6a3a', n: '#e87a8a', p: '#f6b0a0' }
 
 const CAT = [
-  '.k...k......',
-  'kpk.kpk.....',
-  'kooooook....',
-  'koeooeok....',
-  'kowwnwok....',
-  '.kowwok.....',
-  '.kooOooookk.',
-  '.kowoOOoookok',
-  '.kowwoOOook.k',
-  '.kkkkkkkkkk.',
+  '.k...k........',
+  'kpk.kpk.......',
+  'koOoOook......',
+  'koeooeok......',
+  'kowwnwok....k.',
+  '.kowwok....kok',
+  '.kooOoOooookk.',
+  '.kowoOoOoook..',
+  '.kowwoooook...',
+  '.kkwkkkkwkk...',
 ]
-const CAT_BLINK = CAT.map((r, i) => (i === 3 ? 'kokkokok....' : r))
+const CAT_BLINK = CAT.map((r, i) => (i === 3 ? 'kokkokok......' : r))
 
 export const catSprites = () => [grid(CAT, CAT_PAL), grid(CAT_BLINK, CAT_PAL)]
 
