@@ -123,7 +123,7 @@ export class Sea {
   private tin = tinSprite()
   private hydro = hydroSprite()
   private gulls = gullSprites()
-  private jellyImgs = jellySprites()
+  private jellyImgs = jellySprites(WORLD)
   private dark = canvas(1, 1)
   private landing: { fish: Fish; t: number; x0: number; y0: number } | null = null
   /** where the line and the boat sit, in world coordinates */
@@ -584,6 +584,7 @@ export class Sea {
     this.farLit = null
     this.paint = ''
     this.fisherImg = fisherSprite(WORLD)
+    this.jellyImgs = jellySprites(WORLD)
     this.whales = []
     this.net = null
   }
@@ -826,6 +827,33 @@ export class Sea {
     berg(Math.round(W * 0.5), 6, 3)
   }
 
+  /** Bakke Creek tumbling out of the forest: a trickle behind the dam, a white cascade once it is free */
+  private drawCreek(g: CanvasRenderingContext2D, hz: number, sky: Sky) {
+    const free = !!this.s.flags.ak_dam
+    const x0 = Math.round(this.W * 0.29)
+    const top = hz - 18
+    const c = mix('#e8f4fa', sky.hor, 0.35)
+    const w = free ? 3 : 1
+    for (let y = top; y < hz - 1; y++) {
+      const flow = Math.floor(this.t * 12 - y) % 4
+      g.fillStyle = rgba(c, free ? (flow === 0 ? 0.95 : 0.7) : flow === 0 ? 0.6 : 0.25)
+      g.fillRect(x0 + Math.round(Math.sin(y * 0.6) * 0.6), y, w, 1)
+    }
+    if (free) {
+      g.fillStyle = rgba(c, 0.8)
+      for (let i = 0; i < 5; i++) g.fillRect(x0 - 2 + ((i * 3 + Math.floor(this.t * 6)) % 7), hz - 2, 1, 1)
+      // salmon leaping at the mouth of the creek once they are home
+      if (this.s.flags.ak_king) {
+        const ph = (this.t * 0.7) % 1
+        if (ph < 0.35) {
+          const k = ph / 0.35
+          g.fillStyle = '#d8584a'
+          g.fillRect(x0 + 4 + Math.round(k * 6), hz - 2 - Math.round(Math.sin(Math.PI * k) * 6), 2, 1)
+        }
+      }
+    }
+  }
+
   /** Humpbacks: a blow, the long back with its little fin, and the tail as it dives */
   private drawWhales(g: CanvasRenderingContext2D, hz: number, sky: Sky) {
     if (WORLD !== 'alaska') return
@@ -942,6 +970,7 @@ export class Sea {
         wg.drawImage(this.gulls[Math.floor(this.t * 3 + i) % 2], Math.round(gx), gy)
       }
     this.drawWhales(wg, hz, sky)
+    if (WORLD === 'alaska') this.drawCreek(wg, hz, sky)
     this.drawBoat(wg, hz)
     tintAmbient(wg, time, W, hz)
     if (wx.rain > 0) {
@@ -1030,6 +1059,25 @@ export class Sea {
     if (surf + 260 > 0) this.drawLightShafts(g, surf, sky, 1 - wx.rain * 0.75 - wx.fog * 0.4)
 
     for (const d of this.water.deco) if (d.y - cam > -80 && d.y - cam < H + 10) drawDeco(g, d, cam, this.t)
+
+    // a humpback gliding past far behind everything, just a long shadow
+    if (WORLD === 'alaska') {
+      const span = W + 160
+      const wx = ((this.t * 4) % span) - 80
+      const wy = 170 + Math.sin(this.t * 0.05) * 40 - cam
+      if (wy > -30 && wy < H + 30) {
+        g.fillStyle = rgba(mix(ZONES[0].water[1], '#06101e', 0.6), 0.32)
+        for (let i = 0; i < 60; i++) {
+          const u = i / 59
+          const h = Math.round(9 * Math.sin(Math.PI * Math.pow(u, 0.7)) + 1)
+          g.fillRect(Math.round(wx + 30 - i), Math.round(wy - h / 2 + Math.sin(this.t + i * 0.08) * 0.8), 1, h)
+        }
+        // the long white-edged flipper and the tail
+        g.fillRect(Math.round(wx + 14), Math.round(wy + 3), 2, 1)
+        for (let i = 0; i < 14; i++) g.fillRect(Math.round(wx + 14 - i), Math.round(wy + 4 + i * 0.4), 2, 1)
+        for (let i = -5; i <= 5; i++) g.fillRect(Math.round(wx - 31 - Math.abs(i) * 0.3), Math.round(wy + i + Math.sin(this.t * 1.5) * 1.5), 2, 1)
+      }
+    }
 
     // fish schools far behind, just shadows in the water
     for (const sc of this.schools) {
@@ -1171,7 +1219,7 @@ export class Sea {
     for (const j of this.jellies) {
       const y = j.y + Math.sin(this.t * 0.5 + j.ph) * 14 - cam
       if (y < -20 || y > H + 20) continue
-      glow(g, j.x + Math.sin(this.t * 0.3 + j.ph) * 8 + 4, y + 3, 9, '#ff7ac0', 0.22 + 0.08 * Math.sin(this.t * 2 + j.ph))
+      glow(g, j.x + Math.sin(this.t * 0.3 + j.ph) * 8 + 4, y + 3, 9, WORLD === 'alaska' ? '#ff8a5a' : '#ff7ac0', 0.22 + 0.08 * Math.sin(this.t * 2 + j.ph))
     }
     if (WORLD === 'alaska')
       for (let i = 0; i < this.s.hydro.placed; i++) {

@@ -405,6 +405,28 @@ export class Backdrop {
           g.fillRect(x, y0, 1, Math.round((h - snowLine) * 0.45) + 1 + (x % 2))
         }
       }
+      if (ly.i === 1 && this.style === 'alaska') {
+        // a glacier pouring down a valley, white on top and blue in the cracks
+        const from = Math.round(W * 0.14)
+        let gx = from
+        for (let x = from; x < Math.round(W * 0.42); x++) if (ly.r[x] < ly.r[gx]) gx = x
+        const ice = mix(mix('#e4f2fa', '#ffe0c8', gold * 0.5), '#5a6a9a', night * 0.75)
+        const blue = mix('#9ac8e4', '#2a3a6a', night * 0.7)
+        const top0 = H - ly.r[gx]
+        const len = Math.round(ly.r[gx] * 0.7)
+        for (let y = top0 - 6; y < top0 + len; y++) {
+          const k = Math.max(0, (y - top0) / len)
+          // wide in the icefield, narrowing as it flows down, with a ragged snout
+          const hw = 10 - k * 6 + Math.sin(y * 0.7) * 0.6
+          for (let x = Math.round(gx - hw); x <= Math.round(gx + hw); x++) {
+            if (x < 0 || x >= W || y < H - ly.r[x]) continue
+            if (k > 0.8 && (x * 3 + y) % 3 === 0) continue
+            const d = Math.abs(x - gx) / hw
+            g.fillStyle = d > 0.8 || (y + Math.round(x * 0.4)) % 5 === 0 ? blue : ice
+            g.fillRect(x, y, 1, 1)
+          }
+        }
+      }
       if (ly.i === 2) {
         g.fillStyle = shade(base, -0.14)
         for (const p of this.pines) {

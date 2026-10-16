@@ -195,8 +195,9 @@ export const eagleSprites = () => {
 export const otterSprite = () =>
   grid(['..ww......', '.wkwbbbb..', 'bbbBBbbbbb', '.bbbbbbbB.', '..b....b..'], { b: '#6a4a32', B: '#a88a6a', w: '#c8b8a0', k: INK })
 
-export const jellySprites = () => {
-  const pal = { a: '#ff9ad0', b: '#ffd0ea', c: '#d870b0' }
+/** Pink jellies at home; in Alaska the big red lion's mane */
+export const jellySprites = (world: 'norge' | 'alaska' = 'norge') => {
+  const pal = world === 'alaska' ? { a: '#e8603a', b: '#ffb08a', c: '#c8402a' } : { a: '#ff9ad0', b: '#ffd0ea', c: '#d870b0' }
   return [
     grid(['..aaaaa..', '.abbbbba.', 'aabbbbbaa', 'acaacaaca', '.c.c.c.c.', '.c.c.c.c.', 'c.c.c.c..', '.c...c...'], pal),
     grid(['.........', '.aaaaaaa.', 'abbbbbbba', 'acaacaaca', '.c.c.c.c.', 'c.c.c.c.c', '.c.c.c...', 'c...c....'], pal),
@@ -384,9 +385,9 @@ function roundIcon(name: string) {
       for (let x = 0; x < 12; x++) {
         const d = at(x, y)
         const a = Math.atan2(y - c, x - c)
-        const ray = d > 4.2 && d < 6.2 && Math.abs(Math.sin(a * 4)) < 0.3
-        if (d < 3.6) p.set(x, y, d < 1.6 && x < c && y < c ? '#fff8e8' : x + y > 13 ? '#f2a83a' : '#ffd84a')
-        else if (ray) p.set(x, y, '#ffb84a')
+        const ray = d > 4.6 && d < 6.4 && Math.abs(Math.sin(a * 4)) < 0.38
+        if (d < 4.1) p.set(x, y, d < 2.2 && x < c && y < c ? '#fff8e8' : x + y > 13 ? '#f2a83a' : '#ffd84a')
+        else if (ray) p.set(x, y, '#ffc84a')
       }
     p.outline(0.55)
   } else if (name === 'moon') {
