@@ -114,6 +114,26 @@ I App Store Connect må du fylle ut:
 
 Velg så bygget og trykk **Add for Review**.
 
+### 8. Bygg fra GitHub
+
+Workflowen `.github/workflows/testflight.yml` bygger appen på EAS og sender den til TestFlight. Start den under **Actions → TestFlight → Run workflow**. Alle med skrivetilgang til repoet kan kjøre den, og den som gjør det trenger verken Expo- eller Apple-konto. Jobben blir grønn når bygget er lastet opp til App Store Connect, vanligvis etter 15–30 minutter. Deretter bruker Apple 5–30 minutter før bygget dukker opp i TestFlight.
+
+Oppsett (én gang):
+
+1. **App Store Connect API-nøkkel på EAS** (den som eier Expo-prosjektet): kjør `cd mobile && eas credentials -p ios`, velg `production` og *App Store Connect: Manage your API Key*. Er det allerede satt opp en nøkkel for EAS Submit, er du ferdig. Hvis ikke, velg å sette den opp. EAS lager nøkkelen etter Apple-innlogging og lagrer den hos seg, ikke i repoet.
+2. **`ascAppId` i `mobile/eas.json`** (under `submit.production.ios`): appens Apple ID. Den finner du i App Store Connect under **Apps → Fisketur → App Information → Apple ID**. Den er ikke hemmelig. Uten den stopper innsendingen først etter at bygget er ferdig.
+3. **Expo-token** (den som eier Expo-prosjektet): gå til <https://expo.dev> → **Account settings → Access tokens → Create token**, for eksempel med navnet «fisketur-github».
+4. **GitHub-secret** (eieren av GitHub-repoet): gå til **Settings → Secrets and variables → Actions → New repository secret**. Navnet skal være `EXPO_TOKEN`, og verdien er tokenet. I et personlig repo er det bare eieren som kan legge inn secrets.
+
+Om tokenet:
+
+- Det gir tilgang til hele Expo-kontoen det er laget på, også andre prosjekter der.
+- Alle med skrivetilgang til repoet kan i praksis bruke det.
+- Kommer det på avveie, slett det på expo.dev, lag et nytt og oppdater secreten.
+- Vil dere begrense tilgangen, kan prosjektet flyttes til en Expo-organisasjon med en *robot user* som bare har tilgang til det.
+
+Vil andre enn kontoeieren se byggene i TestFlight, må de legges til som brukere i App Store Connect og deretter som interne testere (se punkt 5).
+
 Ikke legg sertifikater, `.p8`- eller `.p12`-filer eller API-nøkler i repoet. `mobile/.gitignore` stopper de vanligste. Trenger du nøkler senere (for eksempel for innsending fra CI), legg dem i EAS sine miljøvariabler eller hemmeligheter.
 
 ## Kjente begrensninger i appen
