@@ -24,15 +24,26 @@ async function loadFont() {
 
 type Props = {
   dom?: DOMProps
+  /** Notch and home indicator, measured natively */
+  insets: { top: number; bottom: number }
 }
 
 // Effects run twice in development (React strict mode); the game must only start once
 let mounted = false
 
-export default function Game(_: Props) {
+export default function Game({ insets }: Props) {
+  useEffect(() => {
+    // style.css reads env(safe-area-inset-*) into these, which is 0 in the app's web view
+    const root = document.documentElement.style
+    root.setProperty('--safe-top', `${insets.top}px`)
+    root.setProperty('--safe-bot', `${insets.bottom}px`)
+  }, [insets.top, insets.bottom])
+
   useEffect(() => {
     if (mounted) return
     mounted = true
+    // the page already has user-scalable=no; this also stops iOS pinch gestures
+    document.addEventListener('gesturestart', (e) => e.preventDefault())
     loadFont().then(() => mountGame())
   }, [])
   return null

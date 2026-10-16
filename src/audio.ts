@@ -8,7 +8,8 @@ let noiseBuf: AudioBuffer | null = null
 
 export function initAudio() {
   if (ctx) {
-    if (ctx.state === 'suspended') ctx.resume()
+    // iOS reports 'interrupted' (not 'suspended') after a call or a trip to another app
+    if (ctx.state !== 'running') ctx.resume()
     return
   }
   try {

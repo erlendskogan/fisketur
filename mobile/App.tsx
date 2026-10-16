@@ -1,13 +1,35 @@
 import { StatusBar } from 'expo-status-bar'
 import { StyleSheet, View } from 'react-native'
+import { initialWindowMetrics, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import Game from './components/Game'
 
 export default function App() {
   return (
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <Screen />
+    </SafeAreaProvider>
+  )
+}
+
+function Screen() {
+  // The game draws edge to edge, behind the notch and home indicator, and pads its own
+  // HUD and buttons; it only needs to know how much.
+  const insets = useSafeAreaInsets()
+  return (
     <View style={styles.root}>
       <StatusBar style="light" />
-      <Game dom={{ style: styles.game }} />
+      <Game
+        insets={{ top: insets.top, bottom: insets.bottom }}
+        dom={{
+          style: styles.game,
+          contentInsetAdjustmentBehavior: 'never',
+          scrollEnabled: false,
+          bounces: false,
+          showsVerticalScrollIndicator: false,
+          showsHorizontalScrollIndicator: false,
+        }}
+      />
     </View>
   )
 }
