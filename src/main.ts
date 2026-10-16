@@ -72,7 +72,7 @@ class Game implements SeaHost {
     // the app box covers the whole screen, also behind the status bar and home indicator
     const box = $('#app').getBoundingClientRect()
     const cw = box.width || innerWidth
-    const ch = Math.max(box.height, innerHeight)
+    const ch = box.height || innerHeight
     const scale = Math.max(2, Math.round((cw * dpr) / 196))
     this.W = Math.ceil((cw * dpr) / scale)
     this.H = Math.ceil((ch * dpr) / scale)
@@ -199,12 +199,31 @@ class Game implements SeaHost {
     this.renderHud()
     this.renderDock()
     this.renderLabels()
+    this.matchEdges(dt)
     this.saveT += dt
     if (this.saveT > 8) {
       this.saveT = 0
       this.save()
     }
     requestAnimationFrame(this.frame)
+  }
+
+  /**
+   * iOS home-screen apps leave a strip below the page that only the page background
+   * can paint. Give it the colour of the bottom of the scene so it blends in.
+   */
+  private edgeT = 0
+  private edge = ''
+  private matchEdges(dt: number) {
+    this.edgeT -= dt
+    if (this.edgeT > 0) return
+    this.edgeT = 0.4
+    const [r, g, b] = this.g.getImageData(Math.floor(this.W / 2), this.H - 1, 1, 1).data
+    const c = `rgb(${r},${g},${b})`
+    if (c === this.edge) return
+    this.edge = c
+    document.documentElement.style.background = c
+    document.body.style.background = c
   }
 
   // ---------- HUD and dock ----------
