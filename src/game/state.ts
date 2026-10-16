@@ -1,4 +1,4 @@
-import { GEAR, QUESTS, type GearKind } from './data'
+import { BOOK, GEAR, QUESTS, setWorld, type GearKind, type WorldId } from './data'
 
 export interface Catch {
   id: string
@@ -28,6 +28,45 @@ export interface Save {
   paint: string
   paints: string[]
   sound: boolean
+  /** where you live and fish right now */
+  world: WorldId
+  /** what you left behind in the other places: money, gear, catch and paint */
+  away: Partial<Record<WorldId, Part>>
+  /** Selma's hydrophones in Alaska: set out and listened to */
+  hydro: { placed: number; heard: number }
+}
+
+/** The things that belong to one place */
+export interface Part {
+  money: number
+  gear: Record<GearKind, number>
+  bucket: Catch[]
+  paint: string
+  paints: string[]
+}
+
+const freshGear = (): Record<GearKind, number> => ({ line: 0, rod: 0, reel: 0, bucket: 0, lure: 0, lamp: 0 })
+
+/** What you have when you first arrive somewhere: the change in your pocket and an old boat */
+export function freshPart(w: WorldId): Part {
+  return w === 'alaska'
+    ? { money: 60, gear: freshGear(), bucket: [], paint: 'ak_hvit', paints: ['ak_hvit'] }
+    : { money: 0, gear: freshGear(), bucket: [], paint: 'hvit', paints: ['hvit'] }
+}
+
+/** Pack up what belongs here and pick up what you left in the other place */
+export function switchWorld(s: Save, to: WorldId) {
+  if (s.world === to) return
+  s.away[s.world] = { money: s.money, gear: { ...s.gear }, bucket: s.bucket, paint: s.paint, paints: s.paints }
+  const p = s.away[to] ?? freshPart(to)
+  delete s.away[to]
+  s.money = p.money
+  s.gear = { ...freshGear(), ...p.gear }
+  s.bucket = p.bucket
+  s.paint = p.paint
+  s.paints = p.paints
+  s.world = to
+  setWorld(to)
 }
 
 const KEY = 'fisketur:save'
@@ -36,7 +75,7 @@ export function fresh(): Save {
   return {
     v: 1,
     money: 0,
-    gear: { line: 0, rod: 0, reel: 0, bucket: 0, lure: 0, lamp: 0 },
+    gear: freshGear(),
     bucket: [],
     book: {},
     flags: {},
@@ -51,13 +90,20 @@ export function fresh(): Save {
     paint: 'hvit',
     paints: ['hvit'],
     sound: true,
+    world: 'norge',
+    away: {},
+    hydro: { placed: 0, heard: 0 },
   }
 }
 
 export function load(): Save {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return { ...fresh(), ...JSON.parse(raw) }
+    if (raw) {
+      const s: Save = { ...fresh(), ...JSON.parse(raw) }
+      setWorld(s.world)
+      return s
+    }
   } catch {
     /* private mode or corrupt save */
   }
@@ -85,11 +131,15 @@ export const gearValue = (s: Save, k: GearKind) => GEAR[k].levels[s.gear[k]].val
 export const needsMet = (s: Save, needs?: string) =>
   !needs ? true : needs === 'lamp1' ? s.gear.lamp >= 1 : needs === 'lamp2' ? s.gear.lamp >= 2 : !!s.flags[needs]
 
+/** Whether you have met the one who hands out quests where you are */
+export const questsOpen = (s: Save) => !!(s.world === 'alaska' ? s.flags.ak_metRay : s.flags.metHalvor)
+
 /** The three earliest unfinished quests are active */
 export function activeQuests(s: Save) {
-  if (!s.flags.metHalvor) return []
+  if (!questsOpen(s)) return []
   return QUESTS.filter((q) => !s.done.includes(q.id)).slice(0, 3)
 }
 
 export const bucketValue = (s: Save) => s.bucket.reduce((n, c) => n + c.value, 0)
-export const bookCount = (s: Save) => Object.keys(s.book).filter((k) => k !== 'gamle').length
+/** Species found in the book of the place you are in */
+export const bookCount = (s: Save) => BOOK.filter((sp) => s.book[sp.id]).length

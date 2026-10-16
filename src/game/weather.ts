@@ -3,6 +3,7 @@
 
 import type { Weather } from '../art/fjord'
 import { rng } from '../art/pixel'
+import { WORLD } from './data'
 
 export type { Weather }
 
@@ -15,11 +16,13 @@ export function weatherAt(day: number, time: number): Weather {
   const r = rng(day * 7919 + 13)
   r()
   // the very first day is always fine
-  const showers = day > 0 && r() < 0.32
+  // Petersburg gets more than twice the rain of home, and its mornings are often grey
+  const ak = WORLD === 'alaska'
+  const showers = day > 0 && r() < (ak ? 0.55 : 0.32)
   const start = 0.3 + r() * 0.4
   const len = 0.08 + r() * 0.14
   const heavy = 0.5 + r() * 0.5
-  const foggy = day > 0 && r() < 0.35
+  const foggy = day > 0 && r() < (ak ? 0.45 : 0.35)
   const thick = 0.6 + r() * 0.4
   const rain = showers ? ease(start, start + len, 0.03, time) * heavy : 0
   // fog settles before dawn and burns off in the morning

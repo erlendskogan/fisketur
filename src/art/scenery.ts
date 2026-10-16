@@ -112,7 +112,7 @@ export function drawBeam(g: CanvasRenderingContext2D, x: number, y: number, angl
 export interface Deco {
   x: number
   y: number
-  kind: 'kelp' | 'grass' | 'glowplant' | 'vent' | 'anemone'
+  kind: 'kelp' | 'grass' | 'glowplant' | 'vent' | 'anemone' | 'bullkelp' | 'crab'
   len: number
   side: 1 | -1
   seed: number
@@ -186,7 +186,7 @@ const zoneMix = (y: number, pick: (i: number) => string) => {
   return mix(pick(i), pick(Math.min(ZONES.length - 1, i + 1)), Math.max(0, (y - i * ZONE_H) / ZONE_H))
 }
 
-export function buildWater(W: number): Water {
+export function buildWater(W: number, world: 'norge' | 'alaska' = 'norge'): Water {
   const Hh = WORLD_BOTTOM + 40
   const { c, g } = canvas(W, Hh)
   const r = rng(7)
@@ -259,6 +259,11 @@ export function buildWater(W: number): Water {
   const px = (x: number, y: number, col: string) => {
     g.fillStyle = col
     g.fillRect(Math.round(x), Math.round(y), 1, 1)
+  }
+
+  if (world === 'alaska') {
+    alaskaLife(g, W, r, deco, glows, onWall, px)
+    return { bg: c, wallL, wallR, deco, glows }
   }
 
   // Grunna: sea grass, mussels and barnacles, starfish
@@ -357,6 +362,117 @@ export function buildWater(W: number): Water {
   return { bg: c, wallL, wallR, deco, glows }
 }
 
+/** Frederick Sound: eelgrass and ochre stars, bull kelp, crabs, plumose anemones, red tree coral */
+function alaskaLife(
+  g: CanvasRenderingContext2D,
+  W: number,
+  r: () => number,
+  deco: Deco[],
+  glows: Water['glows'],
+  onWall: (y: number, side: 1 | -1) => number,
+  px: (x: number, y: number, c: string) => void,
+) {
+  const side = () => (r() < 0.5 ? 1 : -1) as 1 | -1
+  const star = (x: number, y: number, col: string, arms: number) => {
+    // ochre stars have five fat arms, sunflower stars up to twenty thin ones
+    for (let a = 0; a < arms; a++) {
+      const ang = (a / arms) * Math.PI * 2
+      const len = arms > 5 ? 3 : 2
+      for (let k = 1; k <= len; k++) px(x + Math.round(Math.cos(ang) * k), y + Math.round(Math.sin(ang) * k * 0.8), k === len ? shade(col, 0.2) : col)
+    }
+    px(x, y, shade(col, -0.2))
+  }
+  // Tidevannet: eelgrass, mussels and barnacles, purple ochre stars
+  for (let i = 0; i < 14; i++) {
+    const y = 60 + r() * 230
+    const sd = side()
+    deco.push({ x: onWall(y, sd), y, kind: 'grass', len: 6 + r() * 8, side: sd, seed: r() * 10, color: r() < 0.5 ? '#5aa84a' : '#7ab84a' })
+  }
+  for (let i = 0; i < 50; i++) {
+    const y = Math.round(80 + r() * 260)
+    const sd = side()
+    const x = onWall(y, sd) - (sd === 1 ? 1 : 0)
+    if (r() < 0.55) for (let k = 0; k < 3; k++) px(x - sd * (k % 2), y + k, k === 0 ? '#4a5a8a' : '#1e1e3a')
+    else px(x, y, '#ece8dc')
+  }
+  for (let i = 0; i < 14; i++) {
+    const y = Math.round(110 + r() * 250)
+    const sd = side()
+    star(onWall(y, sd) - sd * 3, y, r() < 0.6 ? '#8a3a9a' : '#e8702a', 5)
+  }
+  // Kelpskogen: bull kelp reaching for the light, and sunflower stars
+  for (let i = 0; i < 16; i++) {
+    const y = 300 + 30 + r() * 250
+    const sd = side()
+    deco.push({ x: onWall(y, sd), y, kind: 'bullkelp', len: 50 + r() * 70, side: sd, seed: r() * 10, color: '#7a6a2e' })
+  }
+  for (let i = 0; i < 10; i++) {
+    const y = 300 + r() * 300
+    const sd = side()
+    deco.push({ x: onWall(y, sd), y, kind: 'kelp', len: 14 + r() * 18, side: sd, seed: r() * 10, color: '#4a8a3a' })
+  }
+  for (let i = 0; i < 8; i++) {
+    const y = Math.round(340 + r() * 520)
+    const sd = side()
+    star(onWall(y, sd) - sd * 4, y, r() < 0.5 ? '#f08a3a' : '#c84a8a', 12)
+  }
+  // Kveitebanken: Dungeness crabs on the ledges and sea pens
+  for (let i = 0; i < 8; i++) {
+    const y = 600 + 20 + r() * 260
+    const sd = side()
+    deco.push({ x: onWall(y, sd), y, kind: 'crab', len: 0, side: sd, seed: r() * 10, color: '#c8703a' })
+  }
+  for (let i = 0; i < 12; i++) {
+    const y = Math.round(600 + r() * 300)
+    const sd = side()
+    const x = onWall(y, sd) + sd * 2
+    for (let k = 0; k < 5; k++) px(x, y - k, k > 2 ? '#f0c08a' : '#a87a5a')
+    if (r() < 0.4) glows.push({ x, y: y - 4, c: '#9ae8ff', r: 1 })
+  }
+  // Steinriket: white plumose anemones and red tree coral, home of the old rockfish
+  for (let i = 0; i < 14; i++) {
+    const y = 900 + r() * 300
+    const sd = side()
+    deco.push({ x: onWall(y, sd), y, kind: 'anemone', len: 5 + r() * 4, side: sd, seed: r() * 10, color: r() < 0.7 ? '#f4ece4' : '#f0a07a' })
+  }
+  for (let i = 0; i < 16; i++) {
+    const y = Math.round(920 + r() * 280)
+    const sd = side()
+    const x = onWall(y, sd)
+    // a little red tree coral, branching out from the rock
+    const branch = (bx: number, by: number, dx: number, n: number) => {
+      for (let k = 0; k < n; k++) {
+        px(bx + dx * k, by - Math.round(k * 0.8), k === n - 1 ? '#ff8a8a' : '#d8343a')
+        if (k === 2 && n > 3) branch(bx + dx * k, by - 2, dx, n - 2)
+      }
+    }
+    branch(x, y, sd, 5)
+    branch(x, y - 1, sd, 3)
+  }
+  // Sundet: glass sponges like pale vases
+  for (let i = 0; i < 12; i++) {
+    const y = Math.round(1200 + r() * 300)
+    const sd = side()
+    const x = onWall(y, sd) + (sd === 1 ? 0 : -3)
+    for (let k = 0; k < 5; k++) {
+      g.fillStyle = k === 4 ? '#e8e4d8' : '#b8b4a8'
+      g.fillRect(x, y - k, 1 + Math.min(2, Math.floor(k / 2)), 1)
+      g.fillRect(x + 2, y - k, 1, 1)
+    }
+    if (r() < 0.3) glows.push({ x: x + 1, y: y - 5, c: '#b8f0ff', r: 1 })
+  }
+  // Juvet: deep-sea glows on the walls and plants on the bottom
+  for (let i = 0; i < 20; i++) {
+    const y = 1500 + r() * 280
+    const sd = side()
+    glows.push({ x: onWall(y, sd) + sd * 3, y: Math.round(y), c: ['#8affd8', '#6ab8ff', '#ff8ab8'][Math.floor(r() * 3)], r: 1 })
+  }
+  for (let i = 0; i < 12; i++) {
+    const x = 6 + r() * (W - 12)
+    deco.push({ x, y: SEABED + 1, kind: 'glowplant', len: 5 + r() * 10, side: 1, seed: r() * 10, color: ['#8affd8', '#b8a8ff'][Math.floor(r() * 2)] })
+  }
+}
+
 /** Swaying seaweed and other animated decorations */
 export function drawDeco(g: CanvasRenderingContext2D, d: Deco, camY: number, t: number) {
   const y0 = d.y - camY
@@ -393,6 +509,45 @@ export function drawDeco(g: CanvasRenderingContext2D, d: Deco, camY: number, t: 
         g.fillRect(X + (d.side === 1 ? 2 : -1), Y, 1, 1)
       }
     }
+  } else if (d.kind === 'bullkelp') {
+    // a single thin stipe up towards the surface, a float, and long blades streaming in the current
+    const n = Math.round(d.len)
+    let x = d.x + d.side
+    let y = y0
+    for (let i = 0; i < n; i++) {
+      const k = i / n
+      x += Math.sin(t * 0.6 + d.seed + i * 0.05) * 0.18 * k + d.side * (k < 0.08 ? 0.6 : 0.05)
+      y -= 1
+      g.fillStyle = k < 0.15 ? '#4a4a22' : '#6a5e2a'
+      g.fillRect(Math.round(x), Math.round(y), 1, 1)
+    }
+    g.fillStyle = '#9a8a3a'
+    g.fillRect(Math.round(x) - 1, Math.round(y) - 2, 3, 2)
+    g.fillStyle = '#c8b45a'
+    g.fillRect(Math.round(x) - 1, Math.round(y) - 2, 1, 1)
+    for (let b = 0; b < 4; b++) {
+      const len = 8 + b * 3
+      for (let j = 0; j < len; j++) {
+        const wav = Math.sin(t * 1.4 + d.seed + b + j * 0.35) * (j / len) * 2
+        g.fillStyle = j > len - 3 ? '#c8a84a' : b % 2 ? '#a8903a' : '#8a7a32'
+        g.fillRect(Math.round(x + (b - 1.5) * 1.2 + j * 0.9 * (b % 2 ? 1 : -1) * 0.5 + wav), Math.round(y - 2 - j * 0.6), 1, 1)
+      }
+    }
+  } else if (d.kind === 'crab') {
+    // a Dungeness crab shuffling sideways along its ledge
+    const X = Math.round(d.x + d.side * (3 + Math.sin(t * 0.3 + d.seed) * 3))
+    const Y = Math.round(y0)
+    const legs = Math.floor(t * 4 + d.seed) % 2
+    g.fillStyle = '#8a4a2a'
+    g.fillRect(X - 3, Y - 1 + legs, 1, 1)
+    g.fillRect(X + 3, Y - legs, 1, 1)
+    g.fillStyle = d.color
+    g.fillRect(X - 2, Y - 3, 5, 2)
+    g.fillStyle = shade(d.color, 0.25)
+    g.fillRect(X - 1, Y - 3, 3, 1)
+    g.fillStyle = '#f0d0a0'
+    g.fillRect(X - 3, Y - 4, 1, 1)
+    g.fillRect(X + 3, Y - 4, 1, 1)
   } else if (d.kind === 'grass') {
     for (let b = 0; b < 4; b++) {
       const n = Math.round(d.len * (0.6 + ((b * 37) % 10) / 20))

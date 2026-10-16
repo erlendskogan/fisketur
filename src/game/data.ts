@@ -1,4 +1,5 @@
 import type { Look } from '../art/fishgen'
+import { AK_BOOK_REWARDS, AK_GEAR, AK_PAINTS, AK_QUESTS, AK_SPECIES, AK_ZONES } from './alaska'
 
 // ---------- depth zones ----------
 
@@ -11,7 +12,7 @@ export interface Zone {
   rock: string
 }
 
-export const ZONES: Zone[] = [
+const NO_ZONES: Zone[] = [
   { name: 'Grunna', from: 0, to: 25, water: ['#2f8fb0', '#23779a'], rock: '#5f7a58' },
   { name: 'Tareskogen', from: 25, to: 60, water: ['#23779a', '#1a5e82'], rock: '#4c6450' },
   { name: 'Skumringen', from: 60, to: 150, water: ['#1a5e82', '#1a4272'], rock: '#3e4c66' },
@@ -21,8 +22,11 @@ export const ZONES: Zone[] = [
 ]
 
 /** World pixels per zone */
+/** The zones of the place you are fishing now (see setWorld) */
+export let ZONES: Zone[] = NO_ZONES
+
 export const ZONE_H = 300
-export const WORLD_BOTTOM = ZONES.length * ZONE_H
+export const WORLD_BOTTOM = NO_ZONES.length * ZONE_H
 
 export function depthToY(d: number) {
   for (let i = 0; i < ZONES.length; i++) {
@@ -64,7 +68,7 @@ export interface Species {
   special?: boolean
 }
 
-export const SPECIES: Species[] = [
+const NO_SPECIES: Species[] = [
   // Grunna
   {
     id: 'sild', name: 'Sild', zone: 0, weight: 30, value: 6, cm: [20, 35], kg: [0.1, 0.4], difficulty: 1, behavior: 'calm',
@@ -228,8 +232,10 @@ export const SPECIES: Species[] = [
   },
 ]
 
-export const SPECIES_BY_ID = Object.fromEntries(SPECIES.map((s) => [s.id, s]))
-export const BOOK = SPECIES.filter((s) => !s.special)
+export let SPECIES: Species[] = NO_SPECIES
+/** Every fish in every world, so a catch can always be looked up */
+export const SPECIES_BY_ID: Record<string, Species> = Object.fromEntries([...NO_SPECIES, ...AK_SPECIES].map((s) => [s.id, s]))
+export let BOOK = SPECIES.filter((s) => !s.special)
 
 // ---------- gear ----------
 
@@ -247,7 +253,7 @@ export interface GearLevel {
   gift?: boolean
 }
 
-export const GEAR: Record<GearKind, { title: string; levels: GearLevel[] }> = {
+const NO_GEAR: Record<GearKind, { title: string; levels: GearLevel[] }> = {
   line: {
     title: 'Snøre',
     levels: [
@@ -306,6 +312,8 @@ export const GEAR: Record<GearKind, { title: string; levels: GearLevel[] }> = {
   },
 }
 
+export let GEAR = NO_GEAR
+
 export const GEAR_ORDER: GearKind[] = ['line', 'rod', 'reel', 'bucket', 'lure', 'lamp']
 
 // ---------- Halvor's tasks ----------
@@ -331,7 +339,7 @@ export interface Quest {
   reward?: string
 }
 
-export const QUESTS: Quest[] = [
+const NO_QUESTS: Quest[] = [
   { id: 'q1', title: 'Fang tre fisk', goal: { kind: 'catch', n: 3 }, money: 50 },
   { id: 'q2', title: 'Fang en makrell', goal: { kind: 'species', id: 'makrell', n: 1 }, money: 60 },
   { id: 'q3', title: 'Selg fisk for 300 kr', goal: { kind: 'sell', kr: 300 }, money: 120 },
@@ -350,12 +358,15 @@ export const QUESTS: Quest[] = [
   { id: 'q16', title: 'Fang en sildekonge', goal: { kind: 'species', id: 'sildekonge', n: 1 }, money: 3000 },
 ]
 
+export let QUESTS = NO_QUESTS
+
 export const questTarget = (g: QuestGoal) =>
   g.kind === 'heavy' ? 1 : g.kind === 'sell' ? g.kr : g.n
 
 // ---------- Selma's book milestones ----------
 
-export const BOOK_REWARDS: { n: number; text: string; money?: number; gift?: [GearKind, number]; flag?: string }[] = [
+export type BookReward = { n: number; text: string; money?: number; gift?: [GearKind, number]; flag?: string }
+const NO_BOOK_REWARDS: BookReward[] = [
   { n: 5, text: 'Hodelykt', gift: ['lamp', 1] },
   { n: 10, text: '600 kr', money: 600 },
   { n: 15, text: '1500 kr', money: 1500 },
@@ -365,10 +376,40 @@ export const BOOK_REWARDS: { n: number; text: string; money?: number; gift?: [Ge
 
 // ---------- boat paints ----------
 
-export const PAINTS: { id: string; name: string; hull: string; stripe: string; price: number; needs?: string }[] = [
+export type Paint = { id: string; name: string; hull: string; stripe: string; price: number; needs?: string }
+const NO_PAINTS: Paint[] = [
   { id: 'hvit', name: 'Hvit og rød', hull: '#f0e6cc', stripe: '#d8433a', price: 0 },
   { id: 'bla', name: 'Fjordblå', hull: '#3a6cb2', stripe: '#f0e6cc', price: 400 },
   { id: 'gronn', name: 'Mosegrønn', hull: '#4c8a4a', stripe: '#f2c24a', price: 400 },
   { id: 'rosa', name: 'Solnedgang', hull: '#f08a8a', stripe: '#7a3a6a', price: 400 },
   { id: 'gull', name: 'Gull', hull: '#f2c24a', stripe: '#8a5a2a', price: 0, needs: 'goldpaint' },
 ]
+
+export let BOOK_REWARDS = NO_BOOK_REWARDS
+export let PAINTS = NO_PAINTS
+
+// ---------- worlds ----------
+
+export type WorldId = 'norge' | 'alaska'
+
+export const WORLDS: Record<WorldId, { place: string; currency: 'kr' | '$'; boat: string; zones: Zone[]; species: Species[]; gear: typeof NO_GEAR; quests: Quest[]; rewards: BookReward[]; paints: Paint[] }> = {
+  norge: { place: 'Skjærvik', currency: 'kr', boat: 'Måken', zones: NO_ZONES, species: NO_SPECIES, gear: NO_GEAR, quests: NO_QUESTS, rewards: NO_BOOK_REWARDS, paints: NO_PAINTS },
+  alaska: { place: 'Petersburg', currency: '$', boat: 'Ternen', zones: AK_ZONES, species: AK_SPECIES, gear: AK_GEAR, quests: AK_QUESTS, rewards: AK_BOOK_REWARDS, paints: AK_PAINTS },
+}
+
+export let WORLD: WorldId = 'norge'
+
+/** Point every table above at the place you are in now */
+export function setWorld(id: WorldId) {
+  const w = WORLDS[id] ?? WORLDS.norge
+  WORLD = id
+  ZONES = w.zones
+  SPECIES = w.species
+  BOOK = w.species.filter((s) => !s.special)
+  GEAR = w.gear
+  QUESTS = w.quests
+  BOOK_REWARDS = w.rewards
+  PAINTS = w.paints
+}
+
+export const worldOf = (speciesId: string): WorldId => (AK_SPECIES.some((s) => s.id === speciesId) ? 'alaska' : 'norge')

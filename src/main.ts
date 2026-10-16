@@ -13,17 +13,51 @@ import {
   PAINTS,
   QUESTS,
   SPECIES_BY_ID,
-  ZONES,
+  WORLDS,
   questTarget,
   zoneAt,
   depthToY,
   type Quest,
   type Species,
+  type WorldId,
 } from './game/data'
 import { Harbor, type SpotId } from './game/harbor'
 import { artFor, Sea, type SeaHost } from './game/sea'
-import { activeQuests, bookCount, bucketValue, fresh, gearValue, load, needsMet, persist, wipe, type Save } from './game/state'
-import { AFTER_ENDING, CAT, CHATTER, ENDING, FIRST_SALE, GAMLE, INTRO, LETTERS, LETTER_FOUND, MEET_EDVARD, MEET_HALVOR, MEET_MARIT, MEET_SELMA, type Line } from './game/story'
+import { activeQuests, bookCount, bucketValue, fresh, gearValue, load, needsMet, persist, questsOpen, switchWorld, wipe, type Save } from './game/state'
+import {
+  AFTER_AK_ENDING,
+  AFTER_ENDING,
+  AK_CREEK,
+  AK_DAM,
+  AK_ENDING,
+  AK_FIRST_SALE,
+  AK_KING,
+  AK_LETTER,
+  AK_LETTER_KNUT,
+  AK_LETTER_MARIT,
+  AK_SELMA_ARRIVES,
+  AK_TRAVEL,
+  BACK_HOME,
+  BACK_TO_ALASKA,
+  CAT,
+  CHATTER,
+  ENDING,
+  FIRST_SALE,
+  FLY_HOME,
+  GAMLE,
+  HYDRO_HEARD,
+  INTRO,
+  LETTERS,
+  LETTER_FOUND,
+  MEET_ASTRID,
+  MEET_EDVARD,
+  MEET_HALVOR,
+  MEET_MARIT,
+  MEET_RAY,
+  MEET_SELMA,
+  type Line,
+} from './game/story'
+import { HYDRO_DEPTHS } from './game/alaska'
 import { $, esc, face, icon, iconImg, kr, UI } from './ui/ui'
 import { watchForUpdates } from './update'
 import { weatherAt } from './game/weather'
@@ -51,6 +85,18 @@ class Game implements SeaHost {
   private hudKey = ''
   private navKey = ''
   private labelKey = ''
+
+  /** True while you live in Petersburg */
+  get ak() {
+    return this.s.world === 'alaska'
+  }
+
+  /** What the places are called where you are */
+  private placeName(id: SpotId) {
+    const f = this.s.flags
+    if (this.ak) return { krambua: 'Bakke Fisk', havnebua: 'Havnekontoret', stasjon: f.ak_selma ? 'Selmas hytte' : 'Tom hytte', fyret: 'Sjøflyet', baten: 'Ternen' }[id]
+    return { krambua: 'Krambua', havnebua: 'Havnebua', stasjon: f.selma ? 'Havstasjonen' : 'Tomt hus', fyret: 'Fyret', baten: 'Måken' }[id]
+  }
 
   constructor() {
     this.g.imageSmoothingEnabled = false
@@ -297,7 +343,7 @@ class Game implements SeaHost {
             : mode === 'sink' && s.stats.caught < 3
               ? 'Slipp når du er på riktig dybde'
               : ''
-    const navKey = `${this.view}|${this.badges().join(',')}|${!!s.flags.metHalvor}|${this.claimable()}`
+    const navKey = `${this.view}|${this.badges().join(',')}|${questsOpen(s)}|${this.claimable()}|${s.world}`
     const actKey = `${sea}|${mode}|${hintText}`
     if (act.dataset.key !== actKey) {
       act.dataset.key = actKey
@@ -316,9 +362,9 @@ class Game implements SeaHost {
     const claim = this.claimable()
     $('#nav').innerHTML = `
       <button data-tab="sea" class="${this.view === 'sea' ? 'on' : ''}"><img class="px" src="${icon('sea', 36)}" alt="">Sjøen</button>
-      <button data-tab="harbor" class="${this.view === 'harbor' ? 'on' : ''}"><img class="px" src="${icon('house', 36)}" alt="">Bryggen${harborBadge ? '<span class="badge">!</span>' : ''}</button>
+      <button data-tab="harbor" class="${this.view === 'harbor' ? 'on' : ''}"><img class="px" src="${icon('house', 36)}" alt="">${this.ak ? 'Kaia' : 'Bryggen'}${harborBadge ? '<span class="badge">!</span>' : ''}</button>
       <button data-tab="book"><img class="px" src="${icon('book', 36)}" alt="">Fiskebok</button>
-      <button data-tab="quests" ${s.flags.metHalvor ? '' : 'disabled'}><img class="px" src="${icon(s.flags.metHalvor ? 'scroll' : 'lock', 36)}" alt="">Oppdrag${claim ? `<span class="badge">${claim}</span>` : ''}</button>`
+      <button data-tab="quests" ${questsOpen(s) ? '' : 'disabled'}><img class="px" src="${icon(questsOpen(s) ? 'scroll' : 'lock', 36)}" alt="">Oppdrag${claim ? `<span class="badge">${claim}</span>` : ''}</button>`
   }
 
   private renderLabels() {
@@ -330,22 +376,15 @@ class Game implements SeaHost {
     }
     this.lightLabels(el)
     const badges = this.badges()
-    const key = `${this.W}|${badges.join(',')}|${!!this.s.flags.selma}|${this.harbor.spots.length}`
+    const key = `${this.W}|${badges.join(',')}|${!!this.s.flags.selma}|${!!this.s.flags.ak_selma}|${this.harbor.spots.length}|${this.s.world}`
     if (key === this.labelKey) return
     this.labelKey = key
-    const names: Record<SpotId, string> = {
-      krambua: 'Krambua',
-      havnebua: 'Havnebua',
-      stasjon: this.s.flags.selma ? 'Havstasjonen' : 'Tomt hus',
-      fyret: 'Fyret',
-      baten: 'Måken',
-    }
     el.innerHTML = this.harbor.spots
       .map((p) => {
         const x = Math.max(56, Math.min(innerWidth - 50, (p.x + p.w / 2) * this.px))
         const below = p.id === 'baten'
         const y = (below ? p.y + p.h : p.y) * this.px
-        return `<span class="label${below ? ' below' : ''}" style="left:${x}px;top:${y}px">${names[p.id]}${badges.includes(p.id) ? '<span class="badge">!</span>' : ''}</span>`
+        return `<span class="label${below ? ' below' : ''}" style="left:${x}px;top:${y}px">${this.placeName(p.id)}${badges.includes(p.id) ? '<span class="badge">!</span>' : ''}</span>`
       })
       .join('')
   }
@@ -380,6 +419,14 @@ class Game implements SeaHost {
   badges(): SpotId[] {
     const f = this.s.flags
     const out: SpotId[] = []
+    if (this.ak) {
+      if (!f.ak_metAstrid || (this.s.bucket.length && !f.ak_sold1) || (f.ak_askCreek && !f.ak_confessed) || (f.ak_king && !f.ak_ending)) out.push('krambua')
+      if (f.ak_sold1 && !f.ak_metRay) out.push('havnebua')
+      if (f.ak_selma && (!f.ak_metSelma || this.bookClaimable() || this.s.hydro.placed > this.s.hydro.heard)) out.push('stasjon')
+      return out
+    }
+    if (f.ending && !f.akLetter) out.push('krambua')
+    if (f.akLetter && !f.akRead) out.push('fyret')
     if ((f.catPending && !f.cat) || (this.s.bucket.length && !f.sold1)) out.push('krambua')
     if (f.sold1 && !f.metHalvor) out.push('havnebua')
     if (f.selma && (!f.metSelma || this.bookClaimable())) out.push('stasjon')
@@ -393,13 +440,19 @@ class Game implements SeaHost {
 
   bookClaimable() {
     const n = bookCount(this.s)
-    return BOOK_REWARDS.find((r) => n >= r.n && !this.s.bookClaimed.includes(r.n))
+    return BOOK_REWARDS.find((r) => n >= r.n && !this.s.bookClaimed.includes(this.rewardKey(r.n)))
+  }
+
+  /** Book rewards are remembered by count; Alaska's are kept apart from home's */
+  private rewardKey(n: number) {
+    return this.ak ? 1000 + n : n
   }
 
   // ---------- events from the sea ----------
 
   caught(sp: Species, cm: number, kg: number, perfect: boolean, chest: boolean) {
     const s = this.s
+    if (sp.id === 'kongen') return this.kingCaught()
     const k = (cm - sp.cm[0]) / Math.max(1, sp.cm[1] - sp.cm[0])
     const value = Math.round(sp.value * (0.7 + 0.6 * k))
     const isNew = !s.book[sp.id]
@@ -420,6 +473,24 @@ class Game implements SeaHost {
     this.checkStory()
     this.save()
     this.catchCard(sp, { cm, kg, value }, isNew, perfect, bonus, prev?.best)
+  }
+
+  /** The king salmon is never kept: you let him swim home */
+  private async kingCaught() {
+    const s = this.s
+    sfx.fanfare()
+    s.book.kongen = { n: 1, best: 140 }
+    s.flags.ak_king = true
+    s.stats.released++
+    this.save()
+    await this.ui.talk(AK_KING)
+    this.ui.toast('Gå til Astrid på kaia.', 'house')
+  }
+
+  hydroPlaced() {
+    sfx.chest()
+    this.save()
+    this.ui.toast('Hydrofonen sitter! Gå til Selma og lytt.', 'sea')
   }
 
   escaped() {
@@ -486,10 +557,11 @@ class Game implements SeaHost {
     const s = this.s
     s.done.push(q.id)
     if (q.money) s.money += q.money
-    if (q.unlock === 'reel3') s.gear.reel = 3
-    else if (q.unlock === 'goldpaint') {
-      s.flags.goldpaint = true
-      if (!s.paints.includes('gull')) s.paints.push('gull')
+    if (q.unlock === 'reel3' || q.unlock === 'gift:reel:3') s.gear.reel = 3
+    else if (q.unlock === 'goldpaint' || q.unlock === 'ak_goldpaint') {
+      s.flags[q.unlock] = true
+      const id = q.unlock === 'goldpaint' ? 'gull' : 'ak_gull'
+      if (!s.paints.includes(id)) s.paints.push(id)
     } else if (q.unlock) s.flags[q.unlock] = true
     sfx.coin()
     this.save()
@@ -499,6 +571,13 @@ class Game implements SeaHost {
 
   checkStory() {
     const s = this.s
+    if (this.ak) {
+      if (!s.flags.ak_selma && bookCount(s) >= 5) {
+        s.flags.ak_selma = true
+        this.ui.toast('Selma har landet med sjøflyet!', 'house')
+      }
+      return
+    }
     if (!s.flags.selma && bookCount(s) >= 5) {
       s.flags.selma = true
       this.ui.toast('En forskningsbåt har lagt til ved Havstasjonen.', 'house')
@@ -513,8 +592,16 @@ class Game implements SeaHost {
     sfx.click()
     const s = this.s
     const f = s.flags
+    if (this.ak) return this.openSpotAk(id)
     if (id === 'baten') return this.go('sea')
     if (id === 'krambua') {
+      if (f.ending && !f.akLetter) {
+        await this.ui.talk(AK_LETTER_MARIT)
+        f.akLetter = true
+        this.save()
+        this.ui.toast('Ta brevet med til bestefar i fyret.', 'letter')
+        return
+      }
       if (f.catPending && !f.cat) {
         await this.ui.talk(CAT)
         f.cat = true
@@ -532,6 +619,7 @@ class Game implements SeaHost {
       return this.openHalvor()
     }
     if (id === 'stasjon') {
+      if (f.ak_selma) return this.openSelma(true)
       if (!f.selma) return this.ui.talk([{ who: null, text: 'Huset står tomt. På døra henger en lapp: «Ledig. Passer for forsker eller annen rar person.»' }])
       if (!f.metSelma) {
         await this.ui.talk(MEET_SELMA)
@@ -556,6 +644,31 @@ class Game implements SeaHost {
       this.save()
       return
     }
+    if (f.akLetter && !f.akRead) {
+      await this.ui.talk([{ who: 'edvard', text: 'Et brev fra Amerika? Til meg? Les det høyt, vennen.' }])
+      this.showLetter(AK_LETTER, async () => {
+        await this.ui.talk(AK_LETTER_KNUT)
+        f.akRead = true
+        this.save()
+        this.openTravel('alaska')
+      }, 'Fra Petersburg')
+      return
+    }
+    if (f.akRead) {
+      // home on a visit from Alaska
+      if (f.ak_moved && !f.welcomedHome) {
+        f.welcomedHome = true
+        this.save()
+        await this.ui.talk(BACK_HOME)
+      }
+      return this.openTravel('alaska')
+    }
+    return this.knutChat()
+  }
+
+  private async knutChat() {
+    const s = this.s
+    const f = s.flags
     if (s.letters.found > s.letters.delivered) {
       const i = s.letters.delivered
       const L = LETTERS[i]
@@ -591,8 +704,147 @@ class Game implements SeaHost {
     await this.ui.talk([{ who: 'edvard', text: pool[Math.floor(Math.random() * pool.length)] }, ...hint])
   }
 
-  private showLetter(text: string, then: () => void) {
-    const b = this.ui.sheet('Til Den gamle', `<div class="letter">${esc(text)}</div><div class="stack" style="margin-top:14px"><button class="btn" data-a="ok">Brett sammen brevet</button></div>`, then)
+  // ---------- Alaska ----------
+
+  private async openSpotAk(id: SpotId) {
+    const s = this.s
+    const f = s.flags
+    if (id === 'baten') return this.go('sea')
+    if (id === 'krambua') {
+      if (!f.ak_metAstrid) {
+        await this.ui.talk(MEET_ASTRID)
+        f.ak_metAstrid = true
+        this.save()
+        return
+      }
+      if (f.ak_askCreek && !f.ak_confessed) {
+        await this.ui.talk(AK_CREEK)
+        f.ak_confessed = true
+        this.save()
+      }
+      if (f.ak_king && !f.ak_ending) {
+        await this.ui.talk(AK_ENDING)
+        f.ak_ending = true
+        sfx.fanfare()
+        this.save()
+        return
+      }
+      return this.openShop()
+    }
+    if (id === 'havnebua') {
+      if (!f.ak_sold1) return this.ui.talk([{ who: 'ray', text: 'Hei, hei! Selg litt fisk til Astrid først, så har jeg en liste til deg.' }])
+      if (!f.ak_metRay) {
+        await this.ui.talk(MEET_RAY)
+        f.ak_metRay = true
+        this.save()
+      }
+      return this.openHalvor()
+    }
+    if (id === 'stasjon') {
+      if (!f.ak_selma) return this.ui.talk([{ who: null, text: 'Hytta er grønn og tom. På døra henger en lapp: «Til leie. Bjørner må banke på.»' }])
+      if (!f.ak_metSelma) {
+        await this.ui.talk(AK_SELMA_ARRIVES)
+        f.ak_metSelma = true
+        f.ak_hydro = true
+        s.gear.lamp = Math.max(s.gear.lamp, 1)
+        if (!s.bookClaimed.includes(1005)) s.bookClaimed.push(1005)
+        this.ui.toast('Du fikk en pannelampe og fire hydrofoner!', 'gear')
+        this.save()
+      }
+      const h = s.hydro
+      if (h.placed > h.heard) {
+        const i = h.heard
+        sfx.creak()
+        await this.ui.talk(HYDRO_HEARD[i])
+        h.heard = i + 1
+        if (i === 1) f.ak_askCreek = true
+        if (i === 2) {
+          s.gear.line = Math.max(s.gear.line, 5)
+          this.ui.toast('Du fikk Arnes snøre. Det rekker ned i Juvet!', 'gear')
+        }
+        if (i === 3) {
+          f.ak_finale = true
+          sfx.fanfare()
+        }
+        this.save()
+        return
+      }
+      return this.openSelma()
+    }
+    if (id === 'fyret') return this.openTravel('norge')
+  }
+
+  /** The way between home and Alaska: the lighthouse at home, the floatplane in Petersburg */
+  private openTravel(to: WorldId) {
+    const s = this.s
+    const home = to === 'alaska'
+    const first = home && !s.flags.ak_moved
+    const text = first
+      ? 'Du tar med deg Pus, ryggsekken og Fiskeboka. Måken, utstyret og kronene dine blir igjen hos bestefar til du kommer hjem på besøk.'
+      : home
+        ? 'Astrid, Ray og Selma venter i Petersburg. Ternen og utstyret ditt ligger der du forlot dem.'
+        : 'Postflyet til Juneau går hver morgen. Derfra kommer du deg hjem til Skjærvik. Ternen og dollarene dine blir liggende her til du kommer tilbake.'
+    const title = home ? 'Fyret' : 'Sjøflyet'
+    const b = this.ui.sheet(
+      title,
+      `${home ? this.placeHead('edvard', first ? 'Astrid trenger deg mer enn jeg gjør nå. Fyret passer jeg på.' : 'Skal du tilbake til Astrid? Hils henne fra meg.') : '<p>Et lite gult sjøfly ligger og vugger ved flytebrygga. Piloten drikker kaffe hos Astrid.</p>'}
+      <p>${esc(text)}</p>
+      <div class="stack">
+        <button class="btn green" data-a="go">${iconImg('sea')}${home ? 'Reis til Alaska' : 'Fly hjem til Skjærvik'}</button>
+        ${home ? '<button class="btn plain" data-a="talk">Snakk med bestefar</button>' : ''}
+      </div>`,
+    )
+    b.querySelector<HTMLElement>('[data-a=go]')!.onclick = () => this.travel(to)
+    const t = b.querySelector<HTMLElement>('[data-a=talk]')
+    if (t)
+      t.onclick = () => {
+        this.ui.closeSheet()
+        this.knutChat()
+      }
+  }
+
+  private async travel(to: WorldId) {
+    const s = this.s
+    if (s.world === to) return
+    if (['reel', 'land', 'bite', 'snag'].includes(this.sea.mode)) return
+    this.ui.closeSheet()
+    this.sea.reset()
+    const first = to === 'alaska' && !s.flags.ak_moved
+    await this.fade(async () => {
+      switchWorld(s, to)
+      if (to === 'alaska') s.flags.ak_moved = true
+      this.view = 'harbor'
+      this.sea.newWorld()
+      this.navKey = ''
+      this.labelKey = ''
+      this.hudKey = ''
+      this.save()
+    })
+    if (to === 'alaska') await this.ui.talk(first ? AK_TRAVEL : BACK_TO_ALASKA)
+    else {
+      await this.ui.talk(FLY_HOME)
+      s.flags.welcomedHome = false
+    }
+    if (to === 'alaska' && !s.flags.ak_metAstrid) await this.openSpotAk('krambua')
+    else if (to === 'norge') this.ui.toast('Bestefar venter i fyret.', 'house')
+  }
+
+  /** A short fade to black around `mid`, for travelling */
+  private async fade(mid: () => Promise<void> | void) {
+    const el = document.createElement('div')
+    el.className = 'fade'
+    $('#app').appendChild(el)
+    await new Promise((r) => setTimeout(r, 30))
+    el.classList.add('on')
+    await new Promise((r) => setTimeout(r, 650))
+    await mid()
+    await new Promise((r) => setTimeout(r, 250))
+    el.classList.remove('on')
+    setTimeout(() => el.remove(), 700)
+  }
+
+  private showLetter(text: string, then: () => void, title = 'Til Den gamle') {
+    const b = this.ui.sheet(title, `<div class="letter">${esc(text)}</div><div class="stack" style="margin-top:14px"><button class="btn" data-a="ok">Brett sammen brevet</button></div>`, then)
     b.querySelector<HTMLElement>('[data-a=ok]')!.onclick = () => this.ui.closeSheet()
   }
 
@@ -602,18 +854,22 @@ class Game implements SeaHost {
     return `<div class="who"><img class="px" src="${face(who)}" alt=""><p>${esc(line)}</p></div>`
   }
 
-  private chatter(who: 'marit' | 'halvor' | 'selma') {
+  private chatter(who: 'marit' | 'halvor' | 'selma' | 'astrid' | 'ray' | 'selmaAk') {
     const pool = CHATTER[who]
     return pool[Math.floor(Math.random() * pool.length)]
   }
 
   openShop(tab: 'main' | 'gear' | 'paint' = 'main') {
     const s = this.s
-    const greet = s.bucket.length ? `Det ser ut som du har ${s.bucket.length} fisk til meg!` : this.chatter('marit')
+    const who = this.ak ? 'astrid' : 'marit'
+    const ending = this.ak && s.flags.ak_ending ? AFTER_AK_ENDING[Math.floor(Math.random() * AFTER_AK_ENDING.length)] : null
+    const greet = s.bucket.length ? `Det ser ut som du har ${s.bucket.length} fisk til meg!` : (ending ?? this.chatter(who))
+    const dam = this.ak && s.flags.ak_confessed && !s.flags.ak_dam
     if (tab === 'main') {
       const b = this.ui.sheet(
-        'Krambua',
-        `${this.placeHead('marit', greet)}<div class="stack">
+        this.placeName('krambua'),
+        `${this.placeHead(who, greet)}<div class="stack">
+          ${dam ? `<button class="btn green" data-a="dam" ${s.money >= 1500 ? '' : 'disabled'}>${iconImg('sea')}Riv demningen<span class="right">${kr(1500)}</span></button>` : ''}
           <button class="btn green" data-a="sell" ${s.bucket.length ? '' : 'disabled'}>${iconImg('coin')}Selg fangsten<span class="right">${kr(bucketValue(s))}</span></button>
           <button class="btn" data-a="gear">${iconImg('gear')}Utstyr</button>
           <button class="btn plain" data-a="paint">${iconImg('sea')}Båtmaling</button>
@@ -622,6 +878,17 @@ class Game implements SeaHost {
       b.querySelector<HTMLElement>('[data-a=sell]')!.onclick = () => this.sell()
       b.querySelector<HTMLElement>('[data-a=gear]')!.onclick = () => this.openShop('gear')
       b.querySelector<HTMLElement>('[data-a=paint]')!.onclick = () => this.openShop('paint')
+      const d = b.querySelector<HTMLElement>('[data-a=dam]')
+      if (d)
+        d.onclick = async () => {
+          if (s.money < 1500) return
+          s.money -= 1500
+          s.flags.ak_dam = true
+          this.ui.closeSheet()
+          sfx.fanfare()
+          this.save()
+          await this.ui.talk(AK_DAM)
+        }
       return
     }
     if (tab === 'gear') {
@@ -635,7 +902,23 @@ class Game implements SeaHost {
         let sub = now.text
         if (next) {
           if (next.gift) {
-            sub = `Neste: ${k === 'lamp' ? (cur === 0 ? 'Kanskje noen på Havstasjonen har en lykt?' : 'Selma har noe spesielt.') : k === 'line' ? 'Bestefar har det siste snøret.' : 'Halvor har en snelle han aldri låner bort.'}`
+            sub = `Neste: ${
+              this.ak
+                ? k === 'lamp'
+                  ? cur === 0
+                    ? 'Kanskje Selma har med seg en lykt?'
+                    : 'Selma bygger på noe.'
+                  : k === 'line'
+                    ? 'Astrid har noe hun ikke har vist deg ennå.'
+                    : 'Ray har en snelle han er veldig stolt av.'
+                : k === 'lamp'
+                  ? cur === 0
+                    ? 'Kanskje noen på Havstasjonen har en lykt?'
+                    : 'Selma har noe spesielt.'
+                  : k === 'line'
+                    ? 'Bestefar har det siste snøret.'
+                    : 'Halvor har en snelle han aldri låner bort.'
+            }`
           } else if (!needsMet(s, next.needs)) {
             sub = `Neste: ${next.name}. ${next.needsText}.`
           } else {
@@ -645,7 +928,7 @@ class Game implements SeaHost {
         }
         return `<div class="row"><div class="info"><b>${GEAR[k].title}: ${now.name}${pips}</b><small>${esc(sub)}</small></div>${right}</div>`
       }).join('')
-      const b = this.ui.sheet('Utstyr', `${this.placeHead('marit', 'Alt du trenger for å komme dypere. Og kaffen er gratis.')}${rows}<div class="stack" style="margin-top:12px"><button class="btn plain" data-a="back">Tilbake</button></div>`)
+      const b = this.ui.sheet('Utstyr', `${this.placeHead(who, this.ak ? 'Alt her var Arnes en gang. Nå er det ditt, hvis du betaler.' : 'Alt du trenger for å komme dypere. Og kaffen er gratis.')}${rows}<div class="stack" style="margin-top:12px"><button class="btn plain" data-a="back">Tilbake</button></div>`)
       b.querySelectorAll<HTMLElement>('[data-buy]').forEach(
         (el) =>
           (el.onclick = () => {
@@ -675,7 +958,7 @@ class Game implements SeaHost {
         return `<div class="row"><span style="width:34px;height:22px;background:${p.hull};box-shadow:0 0 0 2px var(--ink), inset 0 -7px 0 ${p.stripe}"></span><div class="info"><b>${p.name}</b></div>${btn}</div>`
       })
       .join('')
-    const b = this.ui.sheet('Båtmaling', `${this.placeHead('marit', 'Måken fortjener litt farge.')}${rows}<div class="stack" style="margin-top:12px"><button class="btn plain" data-a="back">Tilbake</button></div>`)
+    const b = this.ui.sheet('Båtmaling', `${this.placeHead(who, `${WORLDS[s.world].boat} fortjener litt farge.`)}${rows}<div class="stack" style="margin-top:12px"><button class="btn plain" data-a="back">Tilbake</button></div>`)
     b.querySelectorAll<HTMLElement>('[data-paint]').forEach(
       (el) =>
         (el.onclick = () => {
@@ -706,27 +989,29 @@ class Game implements SeaHost {
     this.progress('sell', { kr: total })
     this.ui.toast(`Solgte ${n} fisk for ${kr(total)}`, 'coin')
     this.save()
-    if (!s.flags.sold1) {
-      s.flags.sold1 = true
+    const first = this.ak ? 'ak_sold1' : 'sold1'
+    if (!s.flags[first]) {
+      s.flags[first] = true
       this.save()
       this.ui.closeSheet()
-      await this.ui.talk(FIRST_SALE)
+      await this.ui.talk(this.ak ? AK_FIRST_SALE : FIRST_SALE)
       return
     }
     this.openShop()
   }
 
   openHalvor() {
+    const who = this.ak ? 'ray' : 'halvor'
     const b = this.ui.sheet(
-      'Havnebua',
-      `${this.placeHead('halvor', this.chatter('halvor'))}<div class="stack"><button class="btn" data-a="q">${iconImg('scroll')}Oppdrag${this.claimable() ? `<span class="right">${this.claimable()} klar</span>` : ''}</button></div>`,
+      this.placeName('havnebua'),
+      `${this.placeHead(who, this.chatter(who))}<div class="stack"><button class="btn" data-a="q">${iconImg('scroll')}Oppdrag${this.claimable() ? `<span class="right">${this.claimable()} klar</span>` : ''}</button></div>`,
     )
     b.querySelector<HTMLElement>('[data-a=q]')!.onclick = () => this.openQuests()
   }
 
   openQuests() {
     const s = this.s
-    if (!s.flags.metHalvor) return
+    if (!questsOpen(s)) return
     const list = activeQuests(s)
     const rows = list.length
       ? list
@@ -739,8 +1024,8 @@ class Game implements SeaHost {
             return `<div class="row"><div class="info"><b>${esc(q.title)}</b><small>Belønning: ${esc(reward)}</small><div class="progress"><i style="width:${Math.min(100, (p / t) * 100)}%"></i></div><small>${shown}</small></div>${done ? `<button class="btn green" data-claim="${q.id}">Hent</button>` : ''}</div>`
           })
           .join('')
-      : '<p>Du har klart alle oppdragene mine. Jeg er nesten litt rørt.</p>'
-    const b = this.ui.sheet('Oppdrag', `${this.placeHead('halvor', 'Gjør det jeg sier, så skal du få betalt.')}${rows}<p class="muted" style="margin-top:12px">Fullført: ${s.done.length} av ${QUESTS.length}</p>`)
+      : `<p>${this.ak ? 'Du har klart hele lista! Uff da, nå må jeg lage en ny.' : 'Du har klart alle oppdragene mine. Jeg er nesten litt rørt.'}</p>`
+    const b = this.ui.sheet('Oppdrag', `${this.ak ? this.placeHead('ray', 'Gjør det som står på lista, så betaler havna.') : this.placeHead('halvor', 'Gjør det jeg sier, så skal du få betalt.')}${rows}<p class="muted" style="margin-top:12px">Fullført: ${s.done.length} av ${QUESTS.length}</p>`)
     b.querySelectorAll<HTMLElement>('[data-claim]').forEach(
       (el) =>
         (el.onclick = () => {
@@ -752,13 +1037,28 @@ class Game implements SeaHost {
     )
   }
 
-  openSelma() {
+  /** `away`: Selma has gone to Alaska and left her rewards in a box by the door */
+  openSelma(away = false) {
     const s = this.s
     const reward = this.bookClaimable()
-    const next = BOOK_REWARDS.find((r) => !s.bookClaimed.includes(r.n))
+    const next = BOOK_REWARDS.find((r) => !s.bookClaimed.includes(this.rewardKey(r.n)))
+    const h = s.hydro
+    const hydro =
+      this.ak && s.flags.ak_hydro
+        ? h.placed >= 4
+          ? '<p>Alle fire hydrofonene ligger ute og lytter.</p>'
+          : h.placed > h.heard
+            ? '<p>Hydrofonen er ute. Lytt til den sammen med Selma.</p>'
+            : h.placed === 2 && !s.flags.ak_dam
+              ? '<p class="muted">Neste hydrofon må vente til elva er fri.</p>'
+              : `<p>Neste hydrofon: <b>${HYDRO_DEPTHS[h.placed]} m</b>. Ta den med på kroken og hold den stille der.${gearValue(s, 'line') < HYDRO_DEPTHS[h.placed] ? ' Snøret ditt rekker ikke så langt ennå.' : ''}</p>`
+        : ''
+    const head = away
+      ? '<p>Havstasjonen er låst. På døra henger en lapp: «I Alaska. Mat fiskene. Belønningene ligger i kassa. Hilsen Selma.»</p>'
+      : this.placeHead('selma', this.chatter(this.ak ? 'selmaAk' : 'selma'))
     const b = this.ui.sheet(
-      'Havstasjonen',
-      `${this.placeHead('selma', this.chatter('selma'))}
+      away ? 'Havstasjonen' : this.placeName('stasjon'),
+      `${head}${hydro}
       <p>Fiskeboka: <b>${bookCount(s)} av ${BOOK.length}</b> arter.${next && !reward ? ` Ved ${next.n} arter: ${next.text}.` : ''}</p>
       <div class="stack">
         ${reward ? `<button class="btn green" data-a="claim">Hent belønning: ${esc(reward.text)}</button>` : ''}
@@ -769,14 +1069,14 @@ class Game implements SeaHost {
     const c = b.querySelector<HTMLElement>('[data-a=claim]')
     if (c && reward)
       c.onclick = () => {
-        s.bookClaimed.push(reward.n)
+        s.bookClaimed.push(this.rewardKey(reward.n))
         if (reward.money) s.money += reward.money
         if (reward.gift) s.gear[reward.gift[0]] = Math.max(s.gear[reward.gift[0]], reward.gift[1])
         if (reward.flag) s.flags[reward.flag] = true
         sfx.fanfare()
         this.ui.toast(`Du fikk: ${reward.text}`, 'book')
         this.save()
-        this.openSelma()
+        this.openSelma(away)
       }
   }
 
@@ -800,12 +1100,13 @@ class Game implements SeaHost {
     return this.imgCache.get(key)!
   }
 
-  openBook(detail?: string) {
+  openBook(detail?: string, w: WorldId = this.s.world) {
     const s = this.s
+    const zones = WORLDS[w].zones
     if (detail) {
       const sp = SPECIES_BY_ID[detail]
       const rec = s.book[sp.id]
-      const z = ZONES[sp.zone]
+      const z = zones[sp.zone]
       const when = sp.time === 'night' ? 'Bare om natta' : sp.time === 'day' ? 'Bare om dagen' : 'Hele døgnet'
       const b = this.ui.sheet(
         rec ? sp.name : '???',
@@ -814,13 +1115,15 @@ class Game implements SeaHost {
          <p class="muted">${z.name}, ${z.from}–${z.to} m. ${when}.${sp.rare ? ' Sjelden.' : ''}</p>
          <div class="stack"><button class="btn plain" data-a="back">Tilbake</button></div>`,
       )
-      b.querySelector<HTMLElement>('[data-a=back]')!.onclick = () => this.openBook()
+      b.querySelector<HTMLElement>('[data-a=back]')!.onclick = () => this.openBook(undefined, w)
       return
     }
-    const sections = ZONES.map((z, i) => {
-      const list = BOOK.filter((sp) => sp.zone === i)
+    const book = WORLDS[w].species.filter((sp) => !sp.special)
+    const here = w === s.world
+    const sections = zones.map((z, i) => {
+      const list = book.filter((sp) => sp.zone === i)
       if (!list.length) return ''
-      const reach = gearValue(s, 'line') >= z.from || list.some((sp) => s.book[sp.id])
+      const reach = (here && gearValue(s, 'line') >= z.from) || list.some((sp) => s.book[sp.id])
       return `<p class="cat">${z.name} · ${z.from}–${z.to} m</p><div class="book-grid">${list
         .map((sp) => {
           const rec = s.book[sp.id]
@@ -828,9 +1131,14 @@ class Game implements SeaHost {
         })
         .join('')}</div>`
     }).join('')
-    const n = bookCount(s)
-    const b = this.ui.sheet('Fiskeboka', `<p>${n} av ${BOOK.length} arter funnet</p><div class="progress"><i style="width:${(n / BOOK.length) * 100}%"></i></div>${sections}`)
-    b.querySelectorAll<HTMLElement>('[data-sp]').forEach((el) => (el.onclick = () => this.openBook(el.dataset.sp)))
+    const n = book.filter((sp) => s.book[sp.id]).length
+    // once you have lived in both places, the book has a chapter for each
+    const tabs = s.flags.ak_moved
+      ? `<div class="two" style="margin-bottom:10px">${(['norge', 'alaska'] as WorldId[]).map((id) => `<button class="btn ${id === w ? '' : 'plain'}" data-w="${id}">${WORLDS[id].place}</button>`).join('')}</div>`
+      : ''
+    const b = this.ui.sheet('Fiskeboka', `${tabs}<p>${WORLDS[w].place}: ${n} av ${book.length} arter funnet</p><div class="progress"><i style="width:${(n / book.length) * 100}%"></i></div>${sections}`)
+    b.querySelectorAll<HTMLElement>('[data-sp]').forEach((el) => (el.onclick = () => this.openBook(el.dataset.sp, w)))
+    b.querySelectorAll<HTMLElement>('[data-w]').forEach((el) => (el.onclick = () => this.openBook(undefined, el.dataset.w as WorldId)))
   }
 
   private catchCard(sp: Species, c: { cm: number; kg: number; value: number }, isNew: boolean, perfect: boolean, bonus: number, prevBest?: number) {
@@ -846,7 +1154,7 @@ class Game implements SeaHost {
         <div class="facts"><span><small>Lengde</small>${c.cm} cm</span><span><small>Vekt</small>${String(c.kg).replace('.', ',')} kg</span><span><small>Verdi</small>${kr(c.value)}</span></div>
         ${isNew ? `<p class="muted">${esc(sp.text)}</p>` : ''}
         ${bonus ? `<p><b>Skattekiste!</b> Du fant ${kr(bonus)}.</p>` : ''}
-        ${room ? '' : '<p class="muted">Kassa er full. Selg fangsten hos Marit på Bryggen.</p>'}
+        ${room ? '' : `<p class="muted">Kassa er full. Selg fangsten hos ${this.ak ? 'Astrid på kaia' : 'Marit på Bryggen'}.</p>`}
       </div>
       <div class="two"><button class="btn plain" data-a="rel">Slipp ut</button><button class="btn green" data-a="keep" ${room ? '' : 'disabled'}>Ha i kassa</button></div>`,
     )
@@ -859,6 +1167,7 @@ class Game implements SeaHost {
       this.save()
       this.ui.closeSheet()
       if (s.stats.caught === 1) this.ui.toast('Fin fangst! Selg fisken hos Marit i Krambua på Bryggen.', 'house')
+      if (this.ak && !s.flags.ak_sold1 && s.bucket.length === 1) this.ui.toast('Fin fangst! Astrid på Bakke Fisk kjøper den.', 'house')
     }
     b.querySelector<HTMLElement>('[data-a=keep]')!.onclick = keep
     b.querySelector<HTMLElement>('[data-a=rel]')!.onclick = () => {
@@ -891,7 +1200,7 @@ class Game implements SeaHost {
       : '<p class="muted">Kassa er tom. Ut og fisk!</p>'
     const b = this.ui.sheet(
       `Fiskekassa ${s.bucket.length}/${gearValue(s, 'bucket')}`,
-      `${rows}${s.bucket.length ? `<p style="margin-top:10px">Til sammen: <b>${kr(bucketValue(s))}</b></p><div class="stack"><button class="btn" data-a="go">${iconImg('house')}Ro inn til Krambua</button></div>` : ''}`,
+      `${rows}${s.bucket.length ? `<p style="margin-top:10px">Til sammen: <b>${kr(bucketValue(s))}</b></p><div class="stack"><button class="btn" data-a="go">${iconImg('house')}Ro inn til ${this.placeName('krambua')}</button></div>` : ''}`,
     )
     const go = b.querySelector<HTMLElement>('[data-a=go]')
     if (go)

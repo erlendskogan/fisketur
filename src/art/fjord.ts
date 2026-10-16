@@ -288,19 +288,44 @@ export class Backdrop {
    * @param seed changes the shape of the hills
    * @param scale height of the hills; lower looks further away
    */
-  resize(W: number, H: number, seed = 0, scale = 1) {
+  /** 'alaska' gives the Coast Mountains: higher, sharper, glaciers and a thick spruce forest */
+  private style: 'norge' | 'alaska' = 'norge'
+  private hills = { day: PAL.hills, night: PAL.nightHills, snow: [0.55, 0.82] }
+
+  resize(W: number, H: number, seed = 0, scale = 1, style: 'norge' | 'alaska' = 'norge') {
     this.W = W
     this.H = H
+    this.style = style
+    const ak = style === 'alaska'
+    this.hills = ak
+      ? { day: ['#6a86b0', '#3a5868', '#173a30'], night: ['#22285a', '#161e40', '#0a1820'], snow: [0.3, 0.6] }
+      : { day: PAL.hills, night: PAL.nightHills, snow: [0.55, 0.82] }
     const deck = H - 24
-    this.ridges = {
-      far: ridgeLine(W, 21 + seed, (deck * 0.4 + 28) * scale, deck * 0.12 * scale, 0.65),
-      mid: ridgeLine(W, 8 + seed, (deck * 0.24 + 26) * scale, deck * 0.07 * scale, 0.4),
-      near: ridgeLine(W, 4 + seed, 34 * scale, 8 * scale, 0.1),
+    this.ridges = ak
+      ? {
+          far: ridgeLine(W, 31 + seed, (deck * 0.46 + 30) * scale, deck * 0.2 * scale, 0.9),
+          mid: ridgeLine(W, 18 + seed, (deck * 0.27 + 26) * scale, deck * 0.1 * scale, 0.7),
+          near: ridgeLine(W, 14 + seed, 40 * scale, 7 * scale, 0.2),
+        }
+      : {
+          far: ridgeLine(W, 21 + seed, (deck * 0.4 + 28) * scale, deck * 0.12 * scale, 0.65),
+          mid: ridgeLine(W, 8 + seed, (deck * 0.24 + 26) * scale, deck * 0.07 * scale, 0.4),
+          near: ridgeLine(W, 4 + seed, 34 * scale, 8 * scale, 0.1),
+        }
+    if (ak) {
+      // the Devil's Thumb: a needle of rock standing up out of the icefield
+      const tx = Math.round(W * 0.68)
+      for (let x = tx - 7; x <= tx + 7; x++) {
+        const d = Math.abs(x - tx)
+        const spike = Math.round((deck * 0.07 + 6) * scale * Math.max(0, 1 - d / 7) ** 1.4)
+        if (x >= 0 && x < W) this.ridges.far[x] = Math.max(this.ridges.far[x], this.ridges.far[tx] + spike)
+      }
     }
     this.ridgeTop = H - this.ridges.far.reduce((a, b) => a + b, 0) / W
     const r = rng(11 + seed)
     this.pines = []
-    for (let x = 0; x < W; x += 2 + Math.floor(r() * 3)) if (r() < 0.75) this.pines.push({ x, h: 3 + Math.floor(r() * 6 * Math.min(1, scale + 0.2)) })
+    if (ak) for (let x = 0; x < W; x += 1 + Math.floor(r() * 2)) this.pines.push({ x, h: 6 + Math.floor(r() * 7 * Math.min(1, scale + 0.2)) })
+    else for (let x = 0; x < W; x += 2 + Math.floor(r() * 3)) if (r() < 0.75) this.pines.push({ x, h: 3 + Math.floor(r() * 6 * Math.min(1, scale + 0.2)) })
     this.shoreLights = Array.from({ length: 5 }, () => {
       const x = Math.floor(r() * W)
       return { x, y: H - 2 - Math.floor(r() * Math.min(10, this.ridges.near[x] - 4)), on: 0.3 + r() * 0.4 }
@@ -342,12 +367,12 @@ export class Backdrop {
     const g = this.hillsC.g
     g.clearRect(0, 0, W, H)
     const layers = [
-      { r: this.ridges.far, i: 0, haze: 0.42, snow: 0.55 },
-      { r: this.ridges.mid, i: 1, haze: 0.22, snow: 0.82 },
+      { r: this.ridges.far, i: 0, haze: 0.42, snow: this.hills.snow[0] },
+      { r: this.ridges.mid, i: 1, haze: 0.22, snow: this.hills.snow[1] },
       { r: this.ridges.near, i: 2, haze: 0.04, snow: 0 },
     ]
     for (const ly of layers) {
-      let base = mix(PAL.hills[ly.i], PAL.nightHills[ly.i], night)
+      let base = mix(this.hills.day[ly.i], this.hills.night[ly.i], night)
       base = mix(base, hor, ly.haze * (1 - night * 0.5))
       base = mix(base, amb, ambA * 0.55)
       // fog swallows the far hills first
@@ -385,7 +410,7 @@ export class Backdrop {
         for (const p of this.pines) {
           const y0 = H - ly.r[p.x] - p.h + 1
           for (let k = 0; k < p.h; k++) {
-            const hw = Math.floor(k * 0.45) + (k > 1 && k % 2 === 0 ? 1 : 0)
+            const hw = this.style === 'alaska' ? Math.floor(k * 0.28) + (k > 2 && k % 3 === 0 ? 1 : 0) : Math.floor(k * 0.45) + (k > 1 && k % 2 === 0 ? 1 : 0)
             g.fillRect(p.x - hw, y0 + k, hw * 2 + 1, 1)
           }
         }

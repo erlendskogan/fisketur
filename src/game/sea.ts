@@ -15,11 +15,13 @@ import {
   jellySprites,
   LANTERN,
   tinSprite,
+  hydroSprite,
 } from '../art/sprites'
 import { buildWater, drawBeam, drawDeco, farLighthouse, nightness, SEABED, type Water } from '../art/scenery'
 import { ambientAt, Backdrop, drawGlitter, drawReflection, drawRipples, glow, golden, light, rippleColour, skyAt, tintAmbient, type Sky } from '../art/fjord'
 import { sfx } from '../audio'
-import { depthToY, PAINTS, WORLD_BOTTOM, SPECIES, SPECIES_BY_ID, yToDepth, ZONE_H, ZONES, zoneAt, type Species } from './data'
+import { depthToY, PAINTS, WORLD, WORLD_BOTTOM, SPECIES, SPECIES_BY_ID, yToDepth, ZONE_H, ZONES, zoneAt, type Species } from './data'
+import { HYDRO_DEPTHS } from './alaska'
 import { dev } from './harbor'
 import { Reel } from './reel'
 import { Rain, weatherAt } from './weather'
@@ -60,6 +62,7 @@ export interface SeaHost {
   caught(sp: Species, cm: number, kg: number, perfect: boolean, chest: boolean): void
   escaped(): void
   letterFound(): void
+  hydroPlaced(): void
   gamleCaught(): void
   modeChanged(): void
 }
@@ -108,13 +111,17 @@ export class Sea {
   private farLamp = { x: 0, y: 0 }
   private farLit: boolean | null = null
   private windows: { x: number; y: number; on: number }[] = []
+  private whales: { x: number; t0: number; dir: 1 | -1 }[] = []
+  private nextWhale = 6
+  private net: { x: number; t0: number } | null = null
   private boatImg!: HTMLCanvasElement
   private paint = ''
-  private fisherImg = fisherSprite()
+  private fisherImg = fisherSprite(WORLD)
   private cats = catSprites()
   private heart = heartSprite()
   private bang = bangSprite()
   private tin = tinSprite()
+  private hydro = hydroSprite()
   private gulls = gullSprites()
   private jellyImgs = jellySprites()
   private dark = canvas(1, 1)
@@ -136,7 +143,7 @@ export class Sea {
     this.W = W
     this.H = H
     if (rebuild) {
-      this.water = buildWater(W)
+      this.water = buildWater(W, WORLD)
       const r = rng(5)
       this.snow = Array.from({ length: 60 }, () => ({ x: r() * W, y: r() * H, z: 0.3 + r() * 0.7, ph: r() * 6 }))
       this.jellies = Array.from({ length: 5 }, () => ({ x: 20 + r() * (W - 40), y: 2 * ZONE_H + r() * ZONE_H * 2, ph: r() * 6 }))
@@ -145,7 +152,7 @@ export class Sea {
     }
     this.dark = canvas(W, H)
     this.hz = Math.round(H * 0.42)
-    this.bd.resize(W, this.hz, 5, 0.72)
+    this.bd.resize(W, this.hz, WORLD === 'alaska' ? 45 : 5, 0.72, WORLD === 'alaska' ? 'alaska' : 'norge')
     this.rain.resize(W, H)
     this.sc = canvas(W, this.hz)
     this.work = canvas(W, this.hz)
@@ -279,7 +286,7 @@ export class Sea {
     this.t += dt
     if (this.paint !== this.s.paint) {
       const p = PAINTS.find((x) => x.id === this.s.paint) ?? PAINTS[0]
-      this.boatImg = boatSprite(p.hull, p.stripe)
+      this.boatImg = boatSprite(p.hull, p.stripe, WORLD === 'alaska' ? 'troller' : 'faering')
       this.paint = this.s.paint
     }
     this.bd.update(dt)
@@ -569,8 +576,30 @@ export class Sea {
     this.fish = this.fish.filter((f) => !(f.state === 'flee' && (f.alpha <= 0 || f.x < -80 || f.x > this.W + 80)))
   }
 
+  /** Rebuild the water for the place you have just moved to */
+  newWorld() {
+    const W = this.W
+    this.W = 0
+    this.resize(W, this.H)
+    this.farLit = null
+    this.paint = ''
+    this.fisherImg = fisherSprite(WORLD)
+    this.whales = []
+    this.net = null
+  }
+
+  /** Where the next of Selma's hydrophones should go, if you are carrying one */
+  hydroTarget() {
+    const s = this.s
+    const h = s.hydro
+    if (WORLD !== 'alaska' || !s.flags.ak_hydro || h.placed !== h.heard || h.placed >= HYDRO_DEPTHS.length) return null
+    if (h.placed === 2 && !s.flags.ak_dam) return null
+    return Math.round(depthToY(HYDRO_DEPTHS[h.placed]))
+  }
+
   private letterItem() {
     const s = this.s
+    if (WORLD !== 'norge') return null
     if (!s.flags.metKnut || s.letters.found > s.letters.delivered || s.letters.delivered >= 4 || this.carrying) return null
     const y = Math.round(depthToY(LETTER_DEPTHS[s.letters.delivered]))
     const side = s.letters.delivered % 2 === 0 ? 1 : -1
@@ -579,6 +608,21 @@ export class Sea {
   }
 
   private lookForBite(dt: number) {
+    // hold a hydrophone still at its depth and it fastens itself to the rock
+    const hy = this.hydroTarget()
+    if (hy !== null && Math.abs(this.lure.y - hy) < 14) {
+      this.snagT += dt
+      if (this.snagT > 1.5) {
+        this.snagT = 0
+        this.releaseInterest()
+        this.s.hydro.placed++
+        this.mode = 'retrieve'
+        sfx.plop()
+        this.host.hydroPlaced()
+        this.host.modeChanged()
+      }
+      return
+    }
     const item = this.letterItem()
     if (item && Math.abs(this.lure.y - item.y) < 22) {
       this.snagT += dt
@@ -597,6 +641,15 @@ export class Sea {
 
     // Den gamle comes before anything else when she is expected
     const s = this.s
+    // and in Alaska, the king salmon comes in to the shallows on his way home
+    if (WORLD === 'alaska' && s.flags.ak_finale && !s.flags.ak_king && this.lure.y < depthToY(60)) {
+      if (this.waitT > 2 && !this.fish.some((f) => f.sp.special)) {
+        const k = this.spawn(1, SPECIES_BY_ID.kongen, this.lure.y + 20)
+        k.x = this.W + 50
+        k.state = 'approach'
+      }
+      return
+    }
     if (s.flags.finale && !s.flags.scale && this.lure.y > SEABED - 150) {
       if (this.waitT > 2 && !this.fish.some((f) => f.sp.special)) {
         const g = this.spawn(5, SPECIES_BY_ID.gamle, this.lure.y + 30)
@@ -617,6 +670,18 @@ export class Sea {
   /** Fish schools in the distance, plankton and the far scenery */
   private updateLife(dt: number) {
     const W = this.W
+    if (WORLD === 'alaska') {
+      // whales come up now and then; when the herring are in they come often and feed together
+      const feeding = !!this.s.flags.ak_finale
+      this.nextWhale -= dt
+      if (this.nextWhale <= 0) {
+        this.nextWhale = feeding ? 5 + Math.random() * 6 : 14 + Math.random() * 22
+        const x = W * (0.45 + Math.random() * 0.45)
+        if (feeding && !this.net && Math.random() < 0.5) this.net = { x, t0: this.t }
+        else this.whales.push({ x, t0: this.t, dir: Math.random() < 0.5 ? 1 : -1 })
+      }
+      this.whales = this.whales.filter((w) => this.t - w.t0 < 7.5)
+    }
     for (const sc of this.schools) {
       sc.x += sc.dir * sc.speed * dt
       if (sc.x < -40) sc.dir = 1
@@ -640,6 +705,7 @@ export class Sea {
 
   /** The distant shore: a few houses on the left and the lighthouse on its skerry */
   private paintFar() {
+    if (WORLD === 'alaska') return this.paintFarAk()
     const lit = dev.ending ?? !!this.s.flags.ending
     if (this.farLit === lit) return
     this.farLit = lit
@@ -692,6 +758,169 @@ export class Sea {
     this.farLamp = { x: lx + lh.lamp.x, y: hz - lh.c.height + lh.lamp.y }
   }
 
+  /** Petersburg on its pilings to the left, and icebergs from the LeConte Glacier drifting by */
+  private paintFarAk() {
+    if (this.farLit === false) return
+    this.farLit = false
+    const { W, hz } = this
+    this.farC = canvas(W, hz)
+    const g = this.farC.g
+    const r = rng(8)
+    const landW = Math.round(W * 0.36)
+    for (let x = 0; x < landW; x++) {
+      const h = Math.round(4 + 2 * Math.cos((x / landW) * Math.PI * 0.5) + Math.sin(x * 0.5) * 0.6)
+      g.fillStyle = '#173a30'
+      g.fillRect(x, hz - h - 2, 1, h)
+      // spruce right down to the water
+      if (x % 2 === 0) {
+        const t = 3 + Math.floor(r() * 4)
+        g.fillRect(x, hz - h - 2 - t, 1, t)
+      }
+    }
+    // the town on pilings along the water
+    this.windows = []
+    const houses: [number, number, number, string][] = [
+      [3, 9, 6, '#e4e0d4'],
+      [14, 5, 5, '#c8423a'],
+      [21, 6, 6, '#5a7a9a'],
+      [29, 8, 5, '#e4e0d4'],
+      [39, 5, 4, '#f0b43c'],
+      [46, 6, 5, '#c8423a'],
+    ]
+    for (const [x, w, h, c] of houses) {
+      if (x + w > landW) continue
+      const base = hz - 4
+      g.fillStyle = '#4a3a2e'
+      for (let px = x; px < x + w; px += 2) g.fillRect(px, base, 1, 4)
+      g.fillStyle = c
+      g.fillRect(x, base - h, w, h)
+      g.fillStyle = w > 7 ? '#a8343a' : '#2a2438'
+      for (let i = 0; i < Math.ceil(w / 2) + 1; i++) g.fillRect(x - 1 + i, base - h - i, w + 2 - i * 2, 1)
+      g.fillStyle = '#26304e'
+      g.fillRect(x + 1, base - h + 2, 1, 1)
+      this.windows.push({ x: x + 1, y: base - h + 2, on: 0.15 + r() * 0.5 })
+      if (w > 5) {
+        g.fillRect(x + w - 2, base - h + 2, 1, 1)
+        this.windows.push({ x: x + w - 2, y: base - h + 2, on: 0.15 + r() * 0.5 })
+      }
+    }
+    g.fillStyle = '#5a4230'
+    g.fillRect(0, hz - 4, landW + 4, 1)
+    // icebergs, white above and glassy blue where the water has worn them
+    const berg = (bx: number, bw: number, bh: number) => {
+      for (let x = 0; x < bw; x++) {
+        const u = x / (bw - 1)
+        const h = Math.round(bh * (0.55 + 0.45 * Math.sin(Math.PI * u)) * (0.85 + 0.15 * Math.sin(x * 1.7)))
+        for (let y = 0; y < h; y++) {
+          const yy = hz - h + y
+          let c = y === 0 ? '#ffffff' : u < 0.45 ? '#e8f4fa' : '#bcdcec'
+          if (y > h - 3) c = '#7ab8d8'
+          if ((x * 3 + y) % 11 === 0 && y > 1) c = '#9ad0e8'
+          g.fillStyle = c
+          g.fillRect(bx + x, yy, 1, 1)
+        }
+      }
+    }
+    berg(W - 34, 16, 9)
+    berg(W - 14, 8, 5)
+    berg(Math.round(W * 0.5), 6, 3)
+  }
+
+  /** Humpbacks: a blow, the long back with its little fin, and the tail as it dives */
+  private drawWhales(g: CanvasRenderingContext2D, hz: number, sky: Sky) {
+    if (WORLD !== 'alaska') return
+    const t = this.t
+    const dark = mix('#3e4658', sky.hor, 0.2)
+    const rim = mix('#8a96aa', sky.hor, 0.3)
+    const pale = mix('#f0f4f8', sky.hor, 0.25)
+    for (const w of this.whales) {
+      const k = (t - w.t0) / 7
+      if (k < 0 || k > 1) continue
+      const x = Math.round(w.x + w.dir * k * 18)
+      // the blow
+      if (k < 0.18) {
+        const q = k / 0.18
+        g.fillStyle = rgba(pale, 0.7 * (1 - q))
+        for (let i = 0; i < 14 * q + 2; i++) g.fillRect(x + Math.round(Math.sin(i * 1.3) * (i / 4)), hz - 2 - i, 1 + (i > 6 ? 2 : 1), 1)
+      }
+      // the back rolling over
+      if (k > 0.08 && k < 0.5) {
+        const q = (k - 0.08) / 0.42
+        const lift = Math.sin(Math.PI * q) * 5.5
+        for (let i = -13; i <= 13; i++) {
+          const h = Math.round(lift * Math.cos((i / 13) * (Math.PI / 2)))
+          if (h <= 0) continue
+          const bx = x + i * w.dir - Math.round(q * 10) * w.dir
+          g.fillStyle = dark
+          g.fillRect(bx, hz - h, 1, h)
+          g.fillStyle = rim
+          g.fillRect(bx, hz - h, 1, 1)
+        }
+        if (q > 0.4) {
+          const fx = x - Math.round(q * 10) * w.dir - 7 * w.dir
+          g.fillStyle = dark
+          g.fillRect(fx, hz - Math.round(lift) - 2, 1, 3)
+          g.fillRect(fx - w.dir, hz - Math.round(lift) - 3, 1, 2)
+        }
+      }
+      // the tail lifting before the dive
+      if (k > 0.55 && k < 0.95) {
+        const q = (k - 0.55) / 0.4
+        const up = Math.sin(Math.PI * q) * 14
+        const tx = x - 6 * w.dir
+        g.fillStyle = dark
+        for (let y = 0; y < up - 4; y++) g.fillRect(tx - 1, hz - y - 1, 3 - (y > 6 ? 1 : 0), 1)
+        const top = Math.round(hz - up)
+        // the flukes, black on top and white underneath, spread like a swallow's tail
+        for (let i = -8; i <= 8; i++) {
+          const a = Math.abs(i)
+          const yy = top + Math.round(a * 0.35) - (a > 5 ? 1 : 0)
+          g.fillStyle = a < 2 ? dark : (i + 9) % 3 === 0 ? dark : pale
+          g.fillRect(tx + i, yy, 1, a > 6 ? 1 : 3)
+          g.fillStyle = rim
+          g.fillRect(tx + i, yy - 1, 1, 1)
+        }
+        if (q > 0.5 && Math.floor(t * 8) % 2) {
+          g.fillStyle = rgba(pale, 0.8)
+          g.fillRect(tx - 3, top + 4, 1, 1)
+          g.fillRect(tx + 4, top + 5, 1, 1)
+        }
+      }
+    }
+    // bubble netting: a ring of bubbles, then mouths bursting up through the middle
+    if (this.net) {
+      const k = (t - this.net.t0) / 5
+      const x = this.net.x
+      if (k > 1) this.net = null
+      else {
+        const rad = 6 + Math.min(1, k * 2) * 8
+        g.fillStyle = rgba(pale, 0.85)
+        for (let i = 0; i < 18; i++) {
+          const a = (i / 18) * Math.PI * 2 + t
+          if (Math.sin(t * 9 + i) > -0.2) g.fillRect(Math.round(x + Math.cos(a) * rad), hz - 1 + Math.round(Math.sin(a) * 0.8), 1, 1)
+        }
+        if (k > 0.5) {
+          const q = (k - 0.5) / 0.5
+          const lift = Math.sin(Math.PI * q) * 11
+          for (const [ox, d] of [
+            [-5, 0],
+            [0, 0.15],
+            [5, 0.05],
+          ]) {
+            const h = Math.round(lift * (1 - d))
+            for (let y = 0; y < h; y++) {
+              const wdt = Math.max(1, 3 - Math.floor(y / 4))
+              g.fillStyle = y > h - 3 ? '#e88a9a' : y % 3 === 1 ? pale : dark
+              g.fillRect(Math.round(x + ox - wdt / 2), hz - y - 1, wdt, 1)
+            }
+          }
+          g.fillStyle = rgba(pale, 0.7 * (1 - q))
+          for (let i = 0; i < 10; i++) g.fillRect(Math.round(x + Math.sin(i * 2.1) * 9), hz - 2 - Math.round(q * 8 * ((i % 3) + 1) * 0.5), 1, 1)
+        }
+      }
+    }
+  }
+
   /** The world above the surface, painted into `sc` with its waterline on the bottom edge */
   private paintSurface(time: number): Sky {
     const { W, hz } = this
@@ -712,6 +941,7 @@ export class Sea {
         const gy = Math.round(hz * (0.2 + i * 0.12) + Math.sin(this.t + i) * 3)
         wg.drawImage(this.gulls[Math.floor(this.t * 3 + i) % 2], Math.round(gx), gy)
       }
+    this.drawWhales(wg, hz, sky)
     this.drawBoat(wg, hz)
     tintAmbient(wg, time, W, hz)
     if (wx.rain > 0) {
@@ -827,6 +1057,24 @@ export class Sea {
     const item = this.letterItem()
     if (item) g.drawImage(this.tin, item.x, item.y - cam - 4)
 
+    // Selma's hydrophones on the rock, and a mark where the next one goes
+    const hy = this.hydroTarget()
+    if (WORLD === 'alaska') {
+      for (let i = 0; i < this.s.hydro.placed; i++) {
+        const y = Math.round(depthToY(HYDRO_DEPTHS[i]))
+        if (y - cam < -10 || y - cam > H + 10) continue
+        g.drawImage(this.hydro, this.water.wallL[y] - 1, y - cam - 4)
+      }
+      if (hy !== null && this.mode !== 'idle' && hy - cam > -4 && hy - cam < H + 4) {
+        const y = hy - cam
+        const on = Math.sin(this.t * 4) > 0
+        g.fillStyle = on ? 'rgba(255,216,74,0.7)' : 'rgba(255,216,74,0.35)'
+        const xl = this.water.wallL[hy]
+        const xr = W - this.water.wallR[hy]
+        for (let x = xl + 2; x < xr - 2; x += 5) g.fillRect(x, y, 2, 1)
+      }
+    }
+
     // fish
     for (const f of this.fish) this.drawFish(g, f, cam, false)
 
@@ -846,6 +1094,7 @@ export class Sea {
     g.fillStyle = ['#d86a6a', '#e8eef4', '#ffd84a', '#7affd8'][this.s.gear.lure]
     g.fillRect(lx - 1, ly + 1, 2, 2)
     if (this.carrying) g.drawImage(this.tin, lx - 4, ly + 3)
+    if (hy !== null && ly > surf) g.drawImage(this.hydro, lx - 2, ly + 3)
 
     for (const b of this.bubbles) {
       const by = Math.round(b.y - cam)
@@ -924,6 +1173,12 @@ export class Sea {
       if (y < -20 || y > H + 20) continue
       glow(g, j.x + Math.sin(this.t * 0.3 + j.ph) * 8 + 4, y + 3, 9, '#ff7ac0', 0.22 + 0.08 * Math.sin(this.t * 2 + j.ph))
     }
+    if (WORLD === 'alaska')
+      for (let i = 0; i < this.s.hydro.placed; i++) {
+        const y = Math.round(depthToY(HYDRO_DEPTHS[i]))
+        if (y - cam < -10 || y - cam > H + 10 || Math.sin(this.t * 3 + i) < 0.3) continue
+        glow(g, this.water.wallL[y] + 1, y - cam - 4, 3, '#6aff8a', 0.7)
+      }
     for (const p of this.sparks) {
       const y = p.y - cam
       const a = (1 - p.t / 1.4) * (p.t < 0.15 ? p.t / 0.15 : 1)

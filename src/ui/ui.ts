@@ -4,6 +4,7 @@ import { iconCanvas, portrait } from '../art/sprites'
 import { toURL } from '../art/pixel'
 import { sfx } from '../audio'
 import { NAMES, type Line } from '../game/story'
+import { WORLD, WORLDS } from '../game/data'
 
 export const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T
 
@@ -28,7 +29,11 @@ export const face = (id: string) => {
   return faceCache.get(id)!
 }
 
-export const kr = (n: number) => `${Math.round(n).toLocaleString('nb-NO')} kr`
+/** Money in the currency of the place you are in */
+export const kr = (n: number) => {
+  const v = Math.round(n).toLocaleString('nb-NO')
+  return WORLDS[WORLD].currency === '$' ? `$${v}` : `${v} kr`
+}
 
 export class UI {
   private talkEl = $('#talk')
