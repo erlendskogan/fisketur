@@ -396,21 +396,21 @@ img.px {
 .label {
   position: absolute;
   transform: translate(-50%, -100%);
-  padding: 1px 8px 2px;
-  font-size: 18px;
-  color: #fff8e8;
-  text-shadow: 0 2px 0 var(--wood-dk);
-  /* a small wooden sign on a post */
+  padding: 1px 7px 2px;
+  font-size: 17px;
+  color: var(--sign-text, #fff8e8);
+  text-shadow: 0 2px 0 var(--sign-grain, #3e2a1e);
+  /* a small wooden plank; the colours follow the light of the scene (set from main.ts) */
   background:
-    repeating-linear-gradient(180deg, transparent 0 6px, rgba(62, 42, 30, 0.4) 6px 8px),
-    var(--wood-mid);
+    repeating-linear-gradient(180deg, transparent 0 6px, color-mix(in srgb, var(--sign-grain, #3e2a1e) 40%, transparent) 6px 8px),
+    var(--sign, #7a5232);
   box-shadow:
-    0 -2px 0 0 var(--ink),
-    0 2px 0 0 var(--ink),
-    -2px 0 0 0 var(--ink),
-    2px 0 0 0 var(--ink),
-    inset 0 2px 0 0 var(--wood-hi),
-    inset 0 -2px 0 0 var(--wood-lo);
+    0 -2px 0 0 var(--sign-ink, #2a1d2e),
+    0 2px 0 0 var(--sign-ink, #2a1d2e),
+    -2px 0 0 0 var(--sign-ink, #2a1d2e),
+    2px 0 0 0 var(--sign-ink, #2a1d2e),
+    inset 0 2px 0 0 var(--sign-hi, #b07c4e),
+    inset 0 -2px 0 0 var(--sign-lo, #5a3a22);
   white-space: nowrap;
 }
 

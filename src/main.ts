@@ -1,7 +1,8 @@
 import '@fontsource/jersey-10/index.css'
 import './style.css'
 
-import { canvas, toURL } from './art/pixel'
+import { canvas, mix, toURL } from './art/pixel'
+import { ambientAt, skyAt } from './art/fjord'
 import { nightness } from './art/scenery'
 import { initAudio, setRain, setSound, sfx } from './audio'
 import {
@@ -327,6 +328,7 @@ class Game implements SeaHost {
       this.labelKey = ''
       return
     }
+    this.lightLabels(el)
     const badges = this.badges()
     const key = `${this.W}|${badges.join(',')}|${!!this.s.flags.selma}|${this.harbor.spots.length}`
     if (key === this.labelKey) return
@@ -346,6 +348,32 @@ class Game implements SeaHost {
         return `<span class="label${below ? ' below' : ''}" style="left:${x}px;top:${y}px">${names[p.id]}${badges.includes(p.id) ? '<span class="badge">!</span>' : ''}</span>`
       })
       .join('')
+  }
+
+  private labelLight = ''
+  /** The signs take the same light as the houses, so they sit in the scene instead of on top of it */
+  private lightLabels(el: HTMLElement) {
+    const s = this.s
+    const wx = weatherAt(s.day, s.time)
+    const key = `${Math.round(s.time * 400)}|${Math.round(wx.rain * 10)}|${Math.round(wx.fog * 10)}`
+    if (key === this.labelLight) return
+    this.labelLight = key
+    const [amb, a] = ambientAt(s.time)
+    const hor = skyAt(s.time, wx)[1]
+    const night = nightness(s.time)
+    const lit = (c: string) => {
+      let out = mix(c, amb, a)
+      out = mix(out, '#2a3048', wx.rain * 0.3)
+      // fog and distance wash the colours towards the horizon
+      return mix(out, hor, 0.12 + wx.fog * 0.35)
+    }
+    const v = (name: string, c: string) => el.style.setProperty(name, c)
+    v('--sign', lit('#7a5232'))
+    v('--sign-hi', lit('#b07c4e'))
+    v('--sign-lo', lit('#5a3a22'))
+    v('--sign-grain', lit('#3e2a1e'))
+    v('--sign-ink', lit('#2a1d2e'))
+    v('--sign-text', mix(lit('#fff8e8'), lit('#c8b8a0'), night * 0.6))
   }
 
   /** Places with something new waiting */
