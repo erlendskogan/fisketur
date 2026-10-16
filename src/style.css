@@ -932,3 +932,9 @@ body.intro #dock {
   width: 100%;
   height: auto;
 }
+
+.catch h3,
+.panel-head h2 {
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
