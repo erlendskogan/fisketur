@@ -18,11 +18,12 @@ export function weatherAt(day: number, time: number): Weather {
   // the very first day is always fine
   // Petersburg gets more than twice the rain of home, and its mornings are often grey
   const ak = WORLD === 'alaska'
-  const showers = day > 0 && r() < (ak ? 0.55 : 0.32)
+  const hi = WORLD === 'hawaii'
+  const showers = day > 0 && r() < (ak ? 0.55 : hi ? 0.5 : 0.32)
   const start = 0.3 + r() * 0.4
   const len = 0.08 + r() * 0.14
   const heavy = 0.5 + r() * 0.5
-  const foggy = day > 0 && r() < (ak ? 0.45 : 0.35)
+  const foggy = day > 0 && r() < (ak ? 0.45 : hi ? 0.12 : 0.35)
   const thick = 0.6 + r() * 0.4
   const rain = showers ? ease(start, start + len, 0.03, time) * heavy : 0
   // fog settles before dawn and burns off in the morning

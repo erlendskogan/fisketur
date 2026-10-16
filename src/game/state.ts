@@ -1,4 +1,4 @@
-import { BOOK, GEAR, QUESTS, setWorld, type GearKind, type WorldId } from './data'
+import { BOOK, GEAR, QUESTS, WORLDS, setWorld, type GearKind, type WorldId } from './data'
 
 export interface Catch {
   id: string
@@ -34,6 +34,12 @@ export interface Save {
   away: Partial<Record<WorldId, Part>>
   /** Selma's hydrophones in Alaska: set out and listened to */
   hydro: { placed: number; heard: number }
+  /** Selma's song buoys in Hawaii */
+  buoys: { placed: number; heard: number }
+  /** young fish let into Tūtū's pond */
+  pond: number
+  /** money by currency, so dollars follow you between Alaska and Hawaii */
+  purse: Partial<Record<'kr' | '$', number>>
 }
 
 /** The things that belong to one place */
@@ -49,18 +55,22 @@ const freshGear = (): Record<GearKind, number> => ({ line: 0, rod: 0, reel: 0, b
 
 /** What you have when you first arrive somewhere: the change in your pocket and an old boat */
 export function freshPart(w: WorldId): Part {
-  return w === 'alaska'
-    ? { money: 60, gear: freshGear(), bucket: [], paint: 'ak_hvit', paints: ['ak_hvit'] }
-    : { money: 0, gear: freshGear(), bucket: [], paint: 'hvit', paints: ['hvit'] }
+  if (w === 'alaska') return { money: 60, gear: freshGear(), bucket: [], paint: 'ak_hvit', paints: ['ak_hvit'] }
+  if (w === 'hawaii') return { money: 0, gear: freshGear(), bucket: [], paint: 'hi_hvit', paints: ['hi_hvit'] }
+  return { money: 0, gear: freshGear(), bucket: [], paint: 'hvit', paints: ['hvit'] }
 }
 
 /** Pack up what belongs here and pick up what you left in the other place */
 export function switchWorld(s: Save, to: WorldId) {
   if (s.world === to) return
+  const cur = (w: WorldId) => WORLDS[w].currency
+  s.purse ??= {}
+  s.purse[cur(s.world)] = s.money
   s.away[s.world] = { money: s.money, gear: { ...s.gear }, bucket: s.bucket, paint: s.paint, paints: s.paints }
   const p = s.away[to] ?? freshPart(to)
   delete s.away[to]
-  s.money = p.money
+  // money stays in its own currency: kroner wait at home, dollars come along to Hawaii
+  s.money = s.purse[cur(to)] ?? p.money
   s.gear = { ...freshGear(), ...p.gear }
   s.bucket = p.bucket
   s.paint = p.paint
@@ -93,6 +103,9 @@ export function fresh(): Save {
     world: 'norge',
     away: {},
     hydro: { placed: 0, heard: 0 },
+    buoys: { placed: 0, heard: 0 },
+    pond: 0,
+    purse: {},
   }
 }
 
@@ -132,7 +145,7 @@ export const needsMet = (s: Save, needs?: string) =>
   !needs ? true : needs === 'lamp1' ? s.gear.lamp >= 1 : needs === 'lamp2' ? s.gear.lamp >= 2 : !!s.flags[needs]
 
 /** Whether you have met the one who hands out quests where you are */
-export const questsOpen = (s: Save) => !!(s.world === 'alaska' ? s.flags.ak_metRay : s.flags.metHalvor)
+export const questsOpen = (s: Save) => !!(s.world === 'alaska' ? s.flags.ak_metRay : s.world === 'hawaii' ? s.flags.hi_metKimo : s.flags.metHalvor)
 
 /** The three earliest unfinished quests are active */
 export function activeQuests(s: Save) {

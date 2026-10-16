@@ -112,7 +112,7 @@ export function drawBeam(g: CanvasRenderingContext2D, x: number, y: number, angl
 export interface Deco {
   x: number
   y: number
-  kind: 'kelp' | 'grass' | 'glowplant' | 'vent' | 'anemone' | 'bullkelp' | 'crab'
+  kind: 'kelp' | 'grass' | 'glowplant' | 'vent' | 'anemone' | 'bullkelp' | 'crab' | 'turtle' | 'fan'
   len: number
   side: 1 | -1
   seed: number
@@ -186,7 +186,7 @@ const zoneMix = (y: number, pick: (i: number) => string) => {
   return mix(pick(i), pick(Math.min(ZONES.length - 1, i + 1)), Math.max(0, (y - i * ZONE_H) / ZONE_H))
 }
 
-export function buildWater(W: number, world: 'norge' | 'alaska' = 'norge'): Water {
+export function buildWater(W: number, world = 'norge'): Water {
   const Hh = WORLD_BOTTOM + 40
   const { c, g } = canvas(W, Hh)
   const r = rng(7)
@@ -263,6 +263,10 @@ export function buildWater(W: number, world: 'norge' | 'alaska' = 'norge'): Wate
 
   if (world === 'alaska') {
     alaskaLife(g, W, r, deco, glows, onWall, px)
+    return { bg: c, wallL, wallR, deco, glows }
+  }
+  if (world === 'hawaii') {
+    hawaiiLife(g, W, r, deco, glows, onWall, px)
     return { bg: c, wallL, wallR, deco, glows }
   }
 
@@ -473,6 +477,78 @@ function alaskaLife(
   }
 }
 
+/** Hilo Bay: coral heads and urchins on black lava, turtles, sea fans, and vents on the volcano below */
+function hawaiiLife(
+  g: CanvasRenderingContext2D,
+  W: number,
+  r: () => number,
+  deco: Deco[],
+  glows: Water['glows'],
+  onWall: (y: number, side: 1 | -1) => number,
+  px: (x: number, y: number, c: string) => void,
+) {
+  const side = () => (r() < 0.5 ? 1 : -1) as 1 | -1
+  // Revet and Lavakanten: lobe and cauliflower coral growing on the lava
+  const coral = (x: number, y: number, dir: number, col: string, n: number) => {
+    for (let k = 0; k < n; k++) {
+      const cx = x + dir * Math.round(r() * 5)
+      const cy = y - Math.round(r() * 4)
+      g.fillStyle = k % 3 === 0 ? shade(col, 0.25) : col
+      g.fillRect(cx, cy, 2, 2)
+      g.fillStyle = shade(col, -0.2)
+      g.fillRect(cx, cy + 2, 2, 1)
+    }
+  }
+  for (let i = 0; i < 40; i++) {
+    const y = Math.round(90 + r() * 480)
+    const sd = side()
+    coral(onWall(y, sd) - (sd === 1 ? 0 : 6), y, sd, ['#e8a87a', '#c8b06a', '#a8c08a', '#f0c8a0', '#d8889a'][Math.floor(r() * 5)], 5 + Math.floor(r() * 4))
+  }
+  // spiny black urchins and a few pink ones
+  for (let i = 0; i < 26; i++) {
+    const y = Math.round(100 + r() * 500)
+    const sd = side()
+    const x = onWall(y, sd) - sd * 2
+    const c = r() < 0.7 ? '#1e1a2a' : '#c85a8a'
+    px(x, y, c)
+    for (const [dx, dy] of [[-1, -1], [1, -1], [-2, 0], [2, 0], [0, -2], [-1, 1], [1, 1]]) px(x + dx, y + dy, c)
+  }
+  for (let i = 0; i < 8; i++) {
+    const y = 60 + r() * 400
+    const sd = side()
+    deco.push({ x: onWall(y, sd), y, kind: 'grass', len: 4 + r() * 5, side: sd, seed: r() * 10, color: '#5aa84a' })
+  }
+  // honu: green sea turtles gliding up and down the reef
+  for (let i = 0; i < 4; i++) deco.push({ x: W * (0.2 + r() * 0.6), y: 80 + r() * 420, kind: 'turtle', len: 0, side: r() < 0.5 ? 1 : -1, seed: r() * 10, color: '#5a7a3a' })
+  // Stupet and Dypbanken: sea fans and black coral on the drop-off
+  for (let i = 0; i < 20; i++) {
+    const y = 620 + r() * 560
+    const sd = side()
+    deco.push({ x: onWall(y, sd), y, kind: 'fan', len: 6 + r() * 6, side: sd, seed: r() * 10, color: r() < 0.6 ? '#d84a5a' : '#2a2a34' })
+  }
+  // Det blå: glass sponges and lanterns of light
+  for (let i = 0; i < 14; i++) {
+    const y = Math.round(1220 + r() * 280)
+    const sd = side()
+    const x = onWall(y, sd) + sd * 2
+    for (let k = 0; k < 4; k++) px(x, y - k, k === 3 ? '#e8e4d8' : '#a8a498')
+    if (r() < 0.4) glows.push({ x, y: y - 4, c: '#b8f0ff', r: 1 })
+  }
+  // Lavadypet: glows on the walls and hot vents on the young volcano below Hawaiʻi
+  for (let i = 0; i < 18; i++) {
+    const y = 1520 + r() * 260
+    const sd = side()
+    glows.push({ x: onWall(y, sd) + sd * 3, y: Math.round(y), c: ['#8affd8', '#d0a8ff', '#ffb46a'][Math.floor(r() * 3)], r: 1 })
+  }
+  deco.push({ x: W * 0.3, y: SEABED, kind: 'vent', len: 12, side: 1, seed: 3, color: '#2a1a1a' })
+  deco.push({ x: W * 0.55, y: SEABED, kind: 'vent', len: 9, side: 1, seed: 5, color: '#2a1a1a' })
+  deco.push({ x: W * 0.8, y: SEABED, kind: 'vent', len: 15, side: 1, seed: 7, color: '#2a1a1a' })
+  for (let i = 0; i < 10; i++) {
+    const x = 6 + r() * (W - 12)
+    deco.push({ x, y: SEABED + 1, kind: 'glowplant', len: 4 + r() * 8, side: 1, seed: r() * 10, color: '#ffb46a' })
+  }
+}
+
 /** Swaying seaweed and other animated decorations */
 export function drawDeco(g: CanvasRenderingContext2D, d: Deco, camY: number, t: number) {
   const y0 = d.y - camY
@@ -532,6 +608,37 @@ export function drawDeco(g: CanvasRenderingContext2D, d: Deco, camY: number, t: 
         g.fillStyle = j > len - 3 ? '#c8a84a' : b % 2 ? '#a8903a' : '#8a7a32'
         g.fillRect(Math.round(x + (b - 1.5) * 1.2 + j * 0.9 * (b % 2 ? 1 : -1) * 0.5 + wav), Math.round(y - 2 - j * 0.6), 1, 1)
       }
+    }
+  } else if (d.kind === 'turtle') {
+    // a green sea turtle paddling slowly along the reef
+    const span = 260
+    const k = ((t * 3 + d.seed * 40) % span) / span
+    const X = Math.round(d.side === 1 ? -20 + k * 240 : 220 - k * 240)
+    const Y = Math.round(y0 + Math.sin(t * 0.4 + d.seed) * 10)
+    const flap = Math.floor(t * 2 + d.seed) % 2
+    const f = d.side
+    g.fillStyle = '#4a6a32'
+    g.fillRect(X - 4, Y - 2, 9, 4)
+    g.fillStyle = '#8a9a4a'
+    g.fillRect(X - 3, Y - 2, 7, 1)
+    g.fillRect(X - 2, Y, 2, 1)
+    g.fillRect(X + 1, Y, 2, 1)
+    g.fillStyle = '#9aa86a'
+    g.fillRect(X + f * 5 - (f === 1 ? 0 : 1), Y - 1, 2, 2)
+    g.fillStyle = '#7a8a5a'
+    g.fillRect(X + f * 2, Y + 2 + flap, 3, 1)
+    g.fillRect(X - f * 3, Y + 2 - flap, 2, 1)
+  } else if (d.kind === 'fan') {
+    // a sea fan swaying on the wall
+    const n = Math.round(d.len)
+    for (let i = 0; i < n; i++) {
+      const k = i / n
+      const sway = Math.sin(t * 0.8 + d.seed) * k * 1.5
+      for (let j = -Math.round(k * 3); j <= Math.round(k * 3); j++)
+        if ((i + j) % 2 === 0) {
+          g.fillStyle = i === n - 1 ? shade(d.color, 0.3) : d.color
+          g.fillRect(Math.round(d.x + d.side * (1 + i) + sway), Math.round(y0 + j - i * 0.3), 1, 1)
+        }
     }
   } else if (d.kind === 'crab') {
     // a Dungeness crab shuffling sideways along its ledge

@@ -1,6 +1,6 @@
 // Everything people say. `who` is a portrait id, or null for narration.
 
-export type Who = 'marit' | 'halvor' | 'selma' | 'edvard' | 'pus' | 'astrid' | 'ray' | null
+export type Who = 'marit' | 'halvor' | 'selma' | 'edvard' | 'pus' | 'astrid' | 'ray' | 'leilani' | 'kimo' | 'tutu' | null
 export interface Line {
   who: Who
   text: string
@@ -13,6 +13,9 @@ const s = (text: string): Line => ({ who: 'selma', text })
 const e = (text: string): Line => ({ who: 'edvard', text })
 const a = (text: string): Line => ({ who: 'astrid', text })
 const r = (text: string): Line => ({ who: 'ray', text })
+const l = (text: string): Line => ({ who: 'leilani', text })
+const k = (text: string): Line => ({ who: 'kimo', text })
+const t = (text: string): Line => ({ who: 'tutu', text })
 
 export const NAMES: Record<string, string> = {
   marit: 'Marit',
@@ -22,6 +25,9 @@ export const NAMES: Record<string, string> = {
   pus: 'Pus',
   astrid: 'Astrid',
   ray: 'Ray',
+  leilani: 'Leilani',
+  kimo: 'Kimo',
+  tutu: 'Tūtū',
 }
 
 export const INTRO: Line[] = [
@@ -135,7 +141,7 @@ export const ENDING: Line[] = [
   n('Slutt. Men fjorden er full av fisk, og Måken venter.'),
 ]
 
-export const CHATTER: Record<'marit' | 'halvor' | 'selma' | 'edvard' | 'astrid' | 'ray' | 'selmaAk', string[]> = {
+export const CHATTER: Record<'marit' | 'halvor' | 'selma' | 'edvard' | 'astrid' | 'ray' | 'selmaAk' | 'leilani' | 'kimo' | 'selmaHi', string[]> = {
   marit: [
     'Har du prøvd å fiske om natta? Noen fisker våkner først når månen kommer opp.',
     'Bedre agn lokker fram de sjeldne fiskene. Bare så du vet det.',
@@ -188,6 +194,28 @@ export const CHATTER: Record<'marit' | 'halvor' | 'selma' | 'edvard' | 'astrid' 
     'Ringbuker lever dypere enn noen annen fisk. Over åtte tusen meter ned!',
     'Sølvlaksen hopper. Ingen vet helt hvorfor. Jeg tror den synes det er gøy.',
     'Laksen lukter seg fram til elva den ble født i. Over tusen kilometer, bare med nesa.',
+  ],
+  leilani: [
+    'Fiskeauksjonen starter klokka seks om morgenen. Kjøperne kjenner på fisken som om den var en melon.',
+    'Poke er rå fisk med salt, tang og sesamolje. Hvis du ikke liker det, er det noe galt med deg.',
+    'Regner det? Det regner alltid i Hilo. Det er derfor alt er så grønt.',
+    'Kassa full? Kom med den. Jeg kjøper alt som svømmer, unntatt honu. Skilpaddene lar vi være.',
+    'Om natta kommer menpachi og sverdfisken opp. Ta med lykta.',
+    'Tūtū spør etter deg. Hun sier du har gamle øyne. Jeg tror det er et kompliment.',
+  ],
+  kimo: [
+    'Ser du fugler som stuper, er det tunfisk under dem. Det har fiskerne her visst i tusen år.',
+    'Mauna Kea har snø på toppen om vinteren. Folk tror ikke på meg når jeg sier det, før de ser det.',
+    'Ulua er sta. Hold inne lenge, slipp aldri. Som en god ukulele-akkord.',
+    'Hold fisken i det grønne feltet hele veien, så skriver jeg perfekt i boka. Med stor P.',
+    'Ray ringte igjen. Han sa «uff da» elleve ganger. Jeg har begynt å si det selv.',
+  ],
+  selmaHi: [
+    'Det er bare hannene som synger. Hvorfor, vet ingen sikkert. Jeg tror de skryter.',
+    'Knølhvalene spiser ingenting mens de er på Hawaii. De lever på fettet fra Alaska hele vinteren.',
+    'Under oss ligger en undersjøisk vulkan som vokser. Om noen tusen år blir den en ny øy.',
+    'Rødt lys forsvinner først i dypet. Derfor er så mange av de dype snapperne røde.',
+    'Papegøyefisken lager sand. En stor en kan lage flere hundre kilo i året. Tenk på det neste gang du ligger på stranda.',
   ],
 }
 
@@ -342,3 +370,123 @@ export const AFTER_ENDING: Record<'edvard', string[]> = {
     'Du er en bedre fisker enn meg. Ikke si det til Halvor.',
   ],
 }
+
+// ---------- Hawaii ----------
+
+export const HI_INVITE: Line[] = [
+  s('Kjenner du at det har blitt kaldt? Om noen uker legger isen seg i vikene, og hvalene drar.'),
+  s('Knølhvalene herfra svømmer helt til Hawaii om vinteren. Der får de kalvene sine, og der synger hannene mer enn noe annet sted.'),
+  s('Og sangen endrer seg der. Hver vinter får den nye vers. Jeg har fått penger til å følge den og ta den opp.'),
+  s('Problemet er at jeg trenger en skipper. Han jeg hadde, brakk foten på en ukulele. Ikke spør.'),
+  a('Dra, vennen. Fisket stenger om en måned uansett, og Ternen skal på land for vinteren.'),
+  a('Utstyret blir hos meg til våren. Dollarene dine kan du ta med deg. De er like mye verdt der nede, sier Ray, men det tror jeg ikke på.'),
+  r('Hilo! Fetteren til kona mi bor i Hilo. Han heter Kimo og er havnefogd der. Han er nesten like flink som meg.'),
+  n('Nå kan du fly til Hawaii fra sjøflyet.'),
+]
+
+export const HI_TRAVEL: Line[] = [
+  n('Astrid trekker Ternen opp på slippen og legger en presenning over henne, som et teppe.'),
+  n('Mange timer med fly, og Pus i en kurv hun aldri kommer til å tilgi deg for.'),
+  n('Det regner varmt i Hilo. Over byen står Mauna Kea med snø på toppen, og i bukta ligger en liten øy full av palmer.'),
+  n('Selma venter allerede på kaia, ved en hvit båt med turkis stripe. Hun har solbriller på hodet og et mikrofonstativ under armen.'),
+]
+
+export const MEET_LEILANI: Line[] = [
+  l('Aloha! Du må være skipperen til Selma. Jeg er Leilani, og jeg har fiskeboden her på kaia.'),
+  l('Fisken du får, kjøper jeg. Til poke, til restaurantene og til auksjonen tidlig om morgenen. Alt har en kjøper i Hilo.'),
+  l('Du har vel ikke snøre som passer her? Nei. Alaska-utstyr på et korallrev, det hadde vært noe.'),
+  l('Her har du et håndsnøre og en bambusstang. Fisk på revet først, så snakkes vi.'),
+  s('Og båten heter Koholā. Det betyr knølhval. Jeg valgte henne på grunn av navnet.'),
+]
+
+export const HI_FIRST_SALE: Line[] = [
+  l('Den første fisken fra Hilo! Tūtū ville sagt at den første fisken skal gis tilbake til havet. Men hun er snill, så hun lar deg selge den.'),
+  l('Gå bort til havnekontoret og si hei til onkel Kimo. Han vet alt om bankene her ute, og han forteller det gjerne. Lenge.'),
+]
+
+export const MEET_KIMO: Line[] = [
+  k('Aloha, aloha! Du er den nye. Ray i Alaska ringte meg. Han snakket i tjue minutter, og jeg forsto halvparten.'),
+  k('Jeg er Kimo. Havnefogd, fisker og den beste ukulelespilleren i denne bygningen.'),
+  k('Jeg har en liste med ting som må fiskes. Gjør dem, så betaler havna. Og gjør du dem bra, viser jeg deg de dype bankene.'),
+]
+
+export const HI_SELMA_PLAN: Line[] = [
+  s('Velkommen til hvalstasjonen! Den er liten, men den har kaffe og strøm. Noen ganger begge deler samtidig.'),
+  s('Her er planen. Jeg har tre sangbøyer. De skal ned på 20, 120 og 330 meter.'),
+  s('Men hvalene synger mest om natta, så bøyene må settes ut når det er mørkt. Om dagen hører de bare båtmotorer og reker.'),
+  s('Fiskeboka har fått et nytt kapittel også, og her er en pannelampe. Hawaii har fisk du aldri har sett maken til.'),
+]
+
+export const BUOY_HEARD: Line[][] = [
+  [
+    s('Hør. Det er sangen, men hør på slutten. Den har fått et nytt vers.'),
+    s('Hannene bytter vers med hverandre, som barn som lærer en sang i skolegården.'),
+    s('Leilani var innom mens du var ute, og hun var lei seg. Bestemoren hennes har en gammel fiskedam i Keaukaha. Stormen i høst knuste muren.'),
+    s('Gå og snakk med henne. Jeg tror hun trenger hjelp mer enn hun vil si.'),
+  ],
+  [
+    s('Der! Hør på den lange, lave tonen. Det er en mor som kaller på kalven sin. Hun synger ikke, hun nynner.'),
+    s('Kimo sier en mor med kalv har holdt seg i Hilo-bukta hele uka. Det skjer nesten aldri så nær land.'),
+    s('Den siste bøya må ned på 330 meter, langt ute på Dypbanken. Om natta, som de andre.'),
+  ],
+  [
+    n('Bøya i dypet er stille lenge. Så kommer sangen, og den er annerledes enn alt Selma har spilt av før.'),
+    s('Hør på begynnelsen. Det er Den gamle, fra Skjærvik. Midten er hvalene fra Frederick Sound.'),
+    s('Og slutten er ny. Den ble til her, i vinter. Tre steder i én sang.'),
+    s('Moren og kalven er inne i bukta nå, rett ved fiskedammen. Ro ut og ligg stille ved overflaten. Kanskje de vil hilse.'),
+  ],
+]
+
+export const HI_POND: Line[] = [
+  l('Selma har fortalt deg om dammen, har hun?'),
+  l('Tūtū er åttiseks. Familien hennes har passet på fiskedammen i Keaukaha i flere hundre år. Muren er bygd av lavastein, stein for stein, for hånd.'),
+  l('Stormen i høst rev et stort hull i den. Multene svømte ut, og havet tok sanden.'),
+  l('Vi trenger lavastein og folk til en dugnad. Det koster rundt 1500 dollar. Jeg har ikke 1500 dollar. Jeg har en fiskebod og en bestemor.'),
+  n('Hos Leilani kan du nå betale for å få bygd opp muren igjen.'),
+]
+
+export const HI_WALL: Line[] = [
+  n('På lørdag kommer halve Keaukaha med arbeidshansker og kjølebager. Kimo spiller ukulele i stedet for å bære stein.'),
+  n('Stein for stein blir muren bygd opp igjen. Til slutt setter Tūtū den siste steinen på plass selv.'),
+  t('Mahalo. Takk. Muren har stått i flere hundre år. Nå står den hundre år til.'),
+  t('Men en dam uten fisk er bare et basseng. Fang unge fisk til meg: multe, manini eller papegøyefisk. Fire stykker. Så slipper vi dem inn gjennom slusa.'),
+  n('Når du fanger multe, manini eller papegøyefisk, kan du nå slippe dem ut i dammen.'),
+]
+
+export const HI_POND_FULL: Line[] = [
+  t('Fire unge fisk i dammen. Om noen år er de hundre.'),
+  t('Mannen min fisket med dette snøret. Det er laget av olonā, den sterkeste planten på øya. Det har ligget i en kiste i førti år.'),
+  n('Tūtū gir deg en snelle med mørkt, skinnende snøre. Det rekker helt ned i Lavadypet.'),
+  t('Selma sier hun trenger deg på havet om natta. Gå, gå. Gamle damer trenger søvn.'),
+]
+
+export const HI_CALF: Line[] = [
+  n('Ved siden av Koholā stiger en liten, grå rygg opp. Så en til, mye større. En mor og en kalv.'),
+  n('Kalven blåser en liten, sprutende fontene. Moren ligger stille og ser på båten med ett stort øye.'),
+  n('Så synker de, og gjennom skroget hører du det. Sangen, alle tre versene.'),
+  n('Ro inn til kaia. Tūtū og Leilani venter.'),
+]
+
+export const HI_ENDING: Line[] = [
+  n('Om kvelden samles alle ved fiskedammen i Keaukaha. Månen er full, og multene glinser bak den nye muren.'),
+  t('Da jeg var liten, sa bestemoren min at hvalene kommer tilbake til de stedene der folk tar vare på havet.'),
+  t('Jeg trodde det var et eventyr. Nå tror jeg hun bare visste mer enn meg.'),
+  l('Tūtū vil at du skal ha en stein fra muren. Den kan stå på kaia hjemme, sier hun. Hvor nå enn hjemme er.'),
+  k('Hjemme er der fisken biter! Det sier jeg alltid. Ingen har hørt meg si det før, men jeg sier det.'),
+  s('Jeg sender opptaket til Skjærvik i kveld. Og til Petersburg.'),
+  n('Samme natt ringer telefonen. Det er bestefar, og bak ham hører du noen le.'),
+  e('Hun er her, vennen. Astrid kom med flyet i går, for første gang på sekstito år.'),
+  e('Og i natt sang Den gamle det nye verset. Hvordan kan hun vite det?'),
+  a('Havet er mindre enn folk tror, Knut. Det har jeg alltid sagt.'),
+  n('Slutt på tredje kapittel. Men revet er fullt av fisk, og Koholā venter.'),
+]
+
+export const AFTER_HI_ENDING: string[] = [
+  'Tūtū sitter ved dammen hver morgen nå og teller multer. Hun er oppe i tjueen.',
+  'Folk kommer fra hele øya for å se fiskedammen. Jeg selger poke til alle sammen.',
+  'Kimo har skrevet en sang om deg. Den er veldig lang og rimer ikke.',
+]
+
+export const BACK_TO_HAWAII: Line[] = [n('Flyet senker seg over regnskogen, og der ligger Hilo. Leilani vinker fra fiskeboden med en hel fisk.')]
+
+export const FLY_HOME_HI: Line[] = [n('Fra Hilo til Honolulu, og videre over hele jorda. Tre dager senere står du på kaia i Skjærvik med solbrent nese.')]

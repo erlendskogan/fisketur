@@ -289,19 +289,34 @@ export class Backdrop {
    * @param scale height of the hills; lower looks further away
    */
   /** 'alaska' gives the Coast Mountains: higher, sharper, glaciers and a thick spruce forest */
-  private style: 'norge' | 'alaska' = 'norge'
+  private style = 'norge'
   private hills = { day: PAL.hills, night: PAL.nightHills, snow: [0.55, 0.82] }
 
-  resize(W: number, H: number, seed = 0, scale = 1, style: 'norge' | 'alaska' = 'norge') {
+  resize(W: number, H: number, seed = 0, scale = 1, style = 'norge') {
     this.W = W
     this.H = H
     this.style = style
     const ak = style === 'alaska'
+    const hi = style === 'hawaii'
     this.hills = ak
       ? { day: ['#6a86b0', '#3a5868', '#173a30'], night: ['#22285a', '#161e40', '#0a1820'], snow: [0.3, 0.6] }
-      : { day: PAL.hills, night: PAL.nightHills, snow: [0.55, 0.82] }
+      : hi
+        ? { day: ['#6a6aa0', '#3a8a52', '#1e5a32'], night: ['#2a2a5a', '#14302a', '#0a1e16'], snow: [0.86, 1.1] }
+        : { day: PAL.hills, night: PAL.nightHills, snow: [0.55, 0.82] }
     const deck = H - 24
-    this.ridges = ak
+    this.ridges = hi
+      ? {
+          // Mauna Kea: a huge, gentle shield volcano, with a few cinder cones on its back
+          far: Array.from({ length: W }, (_, x) => {
+            const u = (x - W * 0.58) / (W * 0.6)
+            const dome = Math.max(0, 1 - u * u)
+            const cone = Math.max(0, 1 - Math.abs(x - W * 0.46) / 5) * 4 + Math.max(0, 1 - Math.abs(x - W * 0.7) / 4) * 3
+            return Math.max(2, Math.round(((deck * 0.27 + 14) * Math.pow(dome, 0.85) + cone) * scale))
+          }),
+          mid: ridgeLine(W, 51 + seed, (deck * 0.16 + 22) * scale, deck * 0.05 * scale, 0.2),
+          near: ridgeLine(W, 54 + seed, 30 * scale, 6 * scale, 0.1),
+        }
+      : ak
       ? {
           far: ridgeLine(W, 31 + seed, (deck * 0.46 + 30) * scale, deck * 0.2 * scale, 0.9),
           mid: ridgeLine(W, 18 + seed, (deck * 0.27 + 26) * scale, deck * 0.1 * scale, 0.7),
@@ -324,7 +339,8 @@ export class Backdrop {
     this.ridgeTop = H - this.ridges.far.reduce((a, b) => a + b, 0) / W
     const r = rng(11 + seed)
     this.pines = []
-    if (ak) for (let x = 0; x < W; x += 1 + Math.floor(r() * 2)) this.pines.push({ x, h: 6 + Math.floor(r() * 7 * Math.min(1, scale + 0.2)) })
+    if (hi) for (let x = 2; x < W; x += 5 + Math.floor(r() * 7)) this.pines.push({ x, h: 7 + Math.floor(r() * 6 * Math.min(1, scale + 0.2)) })
+    else if (ak) for (let x = 0; x < W; x += 1 + Math.floor(r() * 2)) this.pines.push({ x, h: 6 + Math.floor(r() * 7 * Math.min(1, scale + 0.2)) })
     else for (let x = 0; x < W; x += 2 + Math.floor(r() * 3)) if (r() < 0.75) this.pines.push({ x, h: 3 + Math.floor(r() * 6 * Math.min(1, scale + 0.2)) })
     this.shoreLights = Array.from({ length: 5 }, () => {
       const x = Math.floor(r() * W)
@@ -427,7 +443,29 @@ export class Backdrop {
           }
         }
       }
-      if (ly.i === 2) {
+      if (ly.i === 0 && this.style === 'hawaii' && night < 0.9) {
+        // the white domes of the observatories on the summit
+        let tx = 0
+        for (let x = 0; x < W; x++) if (ly.r[x] > ly.r[tx]) tx = x
+        g.fillStyle = mix('#f4f4f8', '#8a8ab8', night)
+        for (const dx of [-6, -2, 3]) {
+          const y = H - ly.r[tx + dx] - 2
+          g.fillRect(tx + dx, y, 2, 2)
+          g.fillRect(tx + dx - 1, y + 1, 4, 1)
+        }
+      }
+      if (ly.i === 2 && this.style === 'hawaii') {
+        // palm trees along the shore instead of spruce
+        for (const p of this.pines) {
+          const y0 = H - ly.r[p.x]
+          g.fillStyle = shade(base, -0.2)
+          for (let k = 0; k < p.h; k++) g.fillRect(p.x + Math.round(Math.sin(k * 0.3) * 1.2), y0 - k, 1, 1)
+          const tx = p.x + Math.round(Math.sin(p.h * 0.3) * 1.2)
+          const ty = y0 - p.h
+          g.fillStyle = shade(base, -0.1)
+          for (const [dx, dy] of [[-3, 1], [-2, 0], [-1, 0], [1, 0], [2, 0], [3, 1], [-4, 2], [4, 2], [0, -1], [0, 0]]) g.fillRect(tx + dx, ty + dy, 1, 1)
+        }
+      } else if (ly.i === 2) {
         g.fillStyle = shade(base, -0.14)
         for (const p of this.pines) {
           const y0 = H - ly.r[p.x] - p.h + 1
@@ -529,6 +567,22 @@ export class Backdrop {
       }
     }
 
+    // a rainbow when a shower is passing and the sun is out
+    const bow = wx.rain > 0.02 && wx.rain < 0.6 && night < 0.3 && sun ? Math.min(1, (0.6 - wx.rain) * 3) * Math.min(1, wx.rain * 12) * (1 - night) : 0
+    if (bow > 0 && sun) {
+      const cx = W - sun.x
+      const cy = H + 10
+      const R = H * 0.62
+      const cols = ['#ff4a4a', '#ffa03a', '#ffe84a', '#5ad86a', '#4a9aff', '#8a5aff']
+      sg.globalCompositeOperation = 'lighter'
+      cols.forEach((c, i) => {
+        sg.fillStyle = rgba(c, 0.16 * bow)
+        sg.beginPath()
+        for (let a = Math.PI * 1.05; a < Math.PI * 1.95; a += 0.012) sg.rect(Math.round(cx + Math.cos(a) * (R - i * 2)), Math.round(cy + Math.sin(a) * (R - i * 2)), 1, 2)
+        sg.fill()
+      })
+      sg.globalCompositeOperation = 'source-over'
+    }
     if (wx.rain > 0) this.drawStorm(sg, t, night, wx.rain)
     sg.drawImage(this.hillsC.c, 0, 0)
     // the low sun lights up the haze over the ridges

@@ -37,7 +37,7 @@ export const AK_SPECIES: Species[] = [
   },
   {
     id: 'stjerneflyndre', name: 'Stjerneflyndre', zone: 0, weight: 10, value: 8, cm: [30, 60], kg: [0.5, 3], difficulty: 3, behavior: 'sinker',
-    look: { shape: 'flat', len: 18, h: 11, top: '#5a5a3e', mid: '#7a7650', belly: '#8a8660', fin: '#f2a83a', pattern: 'bars', pat: '#2a2418', tail: 'round', dorsal: 'long' },
+    look: { shape: 'flat', len: 18, h: 11, top: '#5a5a3e', mid: '#7a7650', belly: '#8a8660', fin: '#f2a83a', pattern: 'mottled', pat: '#3a3424', tail: 'round', dorsal: 'long' },
     text: 'Finnene har oransje og svarte striper. Den kan ha øynene på høyre eller venstre side, akkurat som den vil.',
   },
   {
@@ -182,7 +182,7 @@ export const AK_SPECIES: Species[] = [
   },
   {
     id: 'ringbuk', name: 'Ringbuk', zone: 5, weight: 14, value: 70, cm: [10, 30], kg: [0.05, 0.4], difficulty: 4, behavior: 'floater',
-    look: { shape: 'eel', len: 20, h: 8, top: '#e8b0b8', mid: '#f4c8cc', belly: '#fae0e0', fin: '#e0a0a8', tail: 'point', dorsal: 'long', eye: 2 },
+    look: { shape: 'chimaera', len: 20, h: 9, top: '#e8a8b4', mid: '#f4c8cc', belly: '#fae0e0', fin: '#f0c0c8', tail: 'point', dorsal: 'long', eye: 1 },
     text: 'Rosa, gjennomsiktig og helt uten skjell. Ringbuker finnes dypere enn noen annen fisk i havet.',
   },
   {

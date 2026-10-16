@@ -897,3 +897,15 @@ body.intro #dock {
   opacity: 1;
   pointer-events: auto;
 }
+
+.tabs3 {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tabs3 .btn {
+  flex: 1;
+  padding: 6px 4px;
+  min-height: 40px;
+}

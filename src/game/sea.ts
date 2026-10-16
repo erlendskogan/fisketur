@@ -22,6 +22,7 @@ import { ambientAt, Backdrop, drawGlitter, drawReflection, drawRipples, glow, go
 import { sfx } from '../audio'
 import { depthToY, PAINTS, WORLD, WORLD_BOTTOM, SPECIES, SPECIES_BY_ID, yToDepth, ZONE_H, ZONES, zoneAt, type Species } from './data'
 import { HYDRO_DEPTHS } from './alaska'
+import { BUOY_DEPTHS } from './hawaii'
 import { dev } from './harbor'
 import { Reel } from './reel'
 import { Rain, weatherAt } from './weather'
@@ -63,6 +64,7 @@ export interface SeaHost {
   escaped(): void
   letterFound(): void
   hydroPlaced(): void
+  calfVisit(): void
   gamleCaught(): void
   modeChanged(): void
 }
@@ -111,7 +113,10 @@ export class Sea {
   private farLamp = { x: 0, y: 0 }
   private farLit: boolean | null = null
   private windows: { x: number; y: number; on: number }[] = []
-  private whales: { x: number; t0: number; dir: 1 | -1 }[] = []
+  private whales: { x: number; t0: number; dir: 1 | -1; breach?: boolean }[] = []
+  private calf: { t0: number; told: boolean } | null = null
+  private calfT = 0
+  private flyers: { x: number; t0: number; y: number }[] = []
   private nextWhale = 6
   private net: { x: number; t0: number } | null = null
   private boatImg!: HTMLCanvasElement
@@ -152,7 +157,7 @@ export class Sea {
     }
     this.dark = canvas(W, H)
     this.hz = Math.round(H * 0.42)
-    this.bd.resize(W, this.hz, WORLD === 'alaska' ? 45 : 5, 0.72, WORLD === 'alaska' ? 'alaska' : 'norge')
+    this.bd.resize(W, this.hz, WORLD === 'alaska' ? 45 : WORLD === 'hawaii' ? 60 : 5, 0.72, WORLD)
     this.rain.resize(W, H)
     this.sc = canvas(W, this.hz)
     this.work = canvas(W, this.hz)
@@ -286,7 +291,7 @@ export class Sea {
     this.t += dt
     if (this.paint !== this.s.paint) {
       const p = PAINTS.find((x) => x.id === this.s.paint) ?? PAINTS[0]
-      this.boatImg = boatSprite(p.hull, p.stripe, WORLD === 'alaska' ? 'troller' : 'faering')
+      this.boatImg = boatSprite(p.hull, p.stripe, WORLD === 'alaska' ? 'troller' : WORLD === 'hawaii' ? 'research' : 'faering')
       this.paint = this.s.paint
     }
     this.bd.update(dt)
@@ -587,11 +592,20 @@ export class Sea {
     this.jellyImgs = jellySprites(WORLD)
     this.whales = []
     this.net = null
+    this.calf = null
+    this.calfT = 0
   }
 
   /** Where the next of Selma's hydrophones should go, if you are carrying one */
   hydroTarget() {
     const s = this.s
+    if (WORLD === 'hawaii') {
+      // Selma's song buoys only hear the whales at night
+      const b = s.buoys
+      if (!s.flags.hi_buoys || b.placed !== b.heard || b.placed >= BUOY_DEPTHS.length || nightness(s.time) < 0.5) return null
+      if (b.placed === 1 && !s.flags.hi_pondFull) return null
+      return Math.round(depthToY(BUOY_DEPTHS[b.placed]))
+    }
     const h = s.hydro
     if (WORLD !== 'alaska' || !s.flags.ak_hydro || h.placed !== h.heard || h.placed >= HYDRO_DEPTHS.length) return null
     if (h.placed === 2 && !s.flags.ak_dam) return null
@@ -616,7 +630,8 @@ export class Sea {
       if (this.snagT > 1.5) {
         this.snagT = 0
         this.releaseInterest()
-        this.s.hydro.placed++
+        if (WORLD === 'hawaii') this.s.buoys.placed++
+        else this.s.hydro.placed++
         this.mode = 'retrieve'
         sfx.plop()
         this.host.hydroPlaced()
@@ -668,18 +683,35 @@ export class Sea {
     f.state = 'approach'
   }
 
+  /** Hawaii: the mother and calf come to the boat when the song is complete, and flying fish */
+  private updateHawaii(dt: number) {
+    const f = this.s.flags
+    if (f.hi_finale && !f.hi_calf && this.mode === 'idle') {
+      this.calfT += dt
+      if (this.calfT > 2 && !this.calf) this.calf = { t0: this.t, told: false }
+    }
+    if (this.calf && !this.calf.told && this.t - this.calf.t0 > 6) {
+      this.calf.told = true
+      this.host.calfVisit()
+    }
+    if (f.hi_calf && this.calf && this.t - this.calf.t0 > 30) this.calf = null
+    if (nightness(this.s.time) < 0.4 && Math.random() < dt * 0.15) this.flyers.push({ x: 0, t0: this.t, y: Math.random() * 3 })
+    this.flyers = this.flyers.filter((x) => this.t - x.t0 < 2)
+  }
+
   /** Fish schools in the distance, plankton and the far scenery */
   private updateLife(dt: number) {
     const W = this.W
-    if (WORLD === 'alaska') {
+    if (WORLD === 'hawaii') this.updateHawaii(dt)
+    if (WORLD !== 'norge') {
       // whales come up now and then; when the herring are in they come often and feed together
-      const feeding = !!this.s.flags.ak_finale
+      const feeding = WORLD === 'alaska' && !!this.s.flags.ak_finale
       this.nextWhale -= dt
       if (this.nextWhale <= 0) {
         this.nextWhale = feeding ? 5 + Math.random() * 6 : 14 + Math.random() * 22
         const x = W * (0.45 + Math.random() * 0.45)
         if (feeding && !this.net && Math.random() < 0.5) this.net = { x, t0: this.t }
-        else this.whales.push({ x, t0: this.t, dir: Math.random() < 0.5 ? 1 : -1 })
+        else this.whales.push({ x, t0: this.t, dir: Math.random() < 0.5 ? 1 : -1, breach: WORLD === 'hawaii' && Math.random() < 0.4 })
       }
       this.whales = this.whales.filter((w) => this.t - w.t0 < 7.5)
     }
@@ -707,6 +739,7 @@ export class Sea {
   /** The distant shore: a few houses on the left and the lighthouse on its skerry */
   private paintFar() {
     if (WORLD === 'alaska') return this.paintFarAk()
+    if (WORLD === 'hawaii') return this.paintFarHi()
     const lit = dev.ending ?? !!this.s.flags.ending
     if (this.farLit === lit) return
     this.farLit = lit
@@ -854,9 +887,74 @@ export class Sea {
     }
   }
 
+  /** Hilo's old wooden bayfront on the left and Coconut Island with its palms out in the bay */
+  private paintFarHi() {
+    if (this.farLit === false) return
+    this.farLit = false
+    const { W, hz } = this
+    this.farC = canvas(W, hz)
+    const g = this.farC.g
+    const r = rng(12)
+    const landW = Math.round(W * 0.4)
+    for (let x = 0; x < landW; x++) {
+      const h = Math.round(5 + 2 * Math.cos((x / landW) * Math.PI * 0.5))
+      g.fillStyle = '#2a5a2e'
+      g.fillRect(x, hz - h - 1, 1, h)
+      g.fillStyle = '#4a8a3a'
+      g.fillRect(x, hz - h - 1, 1, 1)
+    }
+    g.fillStyle = '#1e1e26'
+    g.fillRect(0, hz - 2, landW + 2, 2)
+    // the bayfront: old two-storey shops with false fronts in faded colours
+    this.windows = []
+    let x = 2
+    const cols = ['#e8c87a', '#8ac0b0', '#e89a7a', '#f0ece0', '#a8b8e0', '#e8b0c0']
+    while (x < landW - 8) {
+      const w = 6 + Math.floor(r() * 4)
+      const h = 6 + Math.floor(r() * 4)
+      const base = hz - 3
+      g.fillStyle = cols[Math.floor(r() * cols.length)]
+      g.fillRect(x, base - h, w, h)
+      g.fillStyle = '#5a4a3e'
+      g.fillRect(x, base - h, w, 1)
+      g.fillRect(x, base - 3, w, 1)
+      g.fillStyle = '#26304e'
+      for (let wx = x + 1; wx < x + w - 1; wx += 2) {
+        g.fillRect(wx, base - h + 2, 1, 2)
+        this.windows.push({ x: wx, y: base - h + 2, on: 0.15 + r() * 0.5 })
+      }
+      x += w + 1
+    }
+    // a few palms along the waterfront
+    const palm = (px: number, py: number, h: number) => {
+      g.fillStyle = '#6a5038'
+      for (let i = 0; i < h; i++) g.fillRect(px + Math.round(Math.sin(i * 0.25) * 1.2), py - i, 1, 1)
+      const tx = px + Math.round(Math.sin(h * 0.25) * 1.2)
+      const ty = py - h
+      g.fillStyle = '#2e7a3a'
+      for (const [dx, dy] of [[-3, 1], [-2, 0], [-1, 0], [1, 0], [2, 0], [3, 1], [-4, 2], [4, 2], [0, -1], [-1, 1], [1, 1]]) g.fillRect(tx + dx, ty + dy, 1, 1)
+    }
+    palm(landW - 4, hz - 3, 10)
+    palm(landW - 12, hz - 3, 8)
+    // Coconut Island: a small round island with a bridge and tall palms
+    const ix = Math.round(W * 0.66)
+    for (let i = -12; i <= 12; i++) {
+      const h = Math.round(4 * Math.sqrt(Math.max(0, 1 - (i / 12) ** 2)))
+      g.fillStyle = '#2e6a32'
+      g.fillRect(ix + i, hz - h - 1, 1, h)
+      g.fillStyle = '#e8d8a8'
+      g.fillRect(ix + i, hz - 1, 1, 1)
+    }
+    palm(ix - 6, hz - 3, 11)
+    palm(ix + 1, hz - 4, 14)
+    palm(ix + 7, hz - 3, 10)
+    g.fillStyle = '#8a7a6a'
+    for (let i = 0; i < 16; i++) g.fillRect(ix - 28 + i, hz - 2 - (i % 4 === 0 ? 1 : 0), 1, 1)
+  }
+
   /** Humpbacks: a blow, the long back with its little fin, and the tail as it dives */
   private drawWhales(g: CanvasRenderingContext2D, hz: number, sky: Sky) {
-    if (WORLD !== 'alaska') return
+    if (WORLD === 'norge') return
     const t = this.t
     const dark = mix('#3e4658', sky.hor, 0.2)
     const rim = mix('#8a96aa', sky.hor, 0.3)
@@ -865,6 +963,31 @@ export class Sea {
       const k = (t - w.t0) / 7
       if (k < 0 || k > 1) continue
       const x = Math.round(w.x + w.dir * k * 18)
+      if (w.breach) {
+        // a humpback throwing itself out of the water and crashing back on its side
+        if (k < 0.45) {
+          const q = k / 0.45
+          const up = Math.sin(Math.PI * q) * 20
+          const tilt = q * 1.2
+          for (let i = 0; i < 22; i++) {
+            const by = hz - Math.round(i * Math.cos(tilt) * (up / 20))
+            const bx = x + Math.round(i * Math.sin(tilt) * w.dir)
+            if (by >= hz) continue
+            const wdt = i < 4 ? 3 : i > 16 ? 2 : 4
+            g.fillStyle = i % 4 === 1 ? pale : dark
+            g.fillRect(bx - 1, by, wdt, 1)
+            if (i === 12) {
+              g.fillStyle = pale
+              g.fillRect(bx + 3 * w.dir, by + 1, 3 * w.dir, 1)
+            }
+          }
+        } else if (k < 0.7) {
+          const q = (k - 0.45) / 0.25
+          g.fillStyle = rgba(pale, 0.9 * (1 - q))
+          for (let i = 0; i < 16; i++) g.fillRect(x + 8 * w.dir + Math.round(Math.sin(i * 2.3) * (4 + q * 10)), hz - 1 - Math.round(Math.abs(Math.cos(i * 1.7)) * (1 - q) * 10), 1, 1)
+        }
+        continue
+      }
       // the blow
       if (k < 0.18) {
         const q = k / 0.18
@@ -914,6 +1037,42 @@ export class Sea {
           g.fillRect(tx + 4, top + 5, 1, 1)
         }
       }
+    }
+    // a mother and her calf resting at the surface next to the boat
+    if (this.calf) {
+      const k = Math.min(1, (t - this.calf.t0) / 2)
+      for (const [ox, len, lift] of [
+        [64, 15, 5],
+        [44, 8, 3],
+      ]) {
+        const bx = this.boatX + ox
+        const h0 = lift * k + Math.sin(t * 0.8 + ox) * 0.6
+        for (let i = -len; i <= len; i++) {
+          const h = Math.round(h0 * Math.cos((i / len) * (Math.PI / 2)))
+          if (h <= 0) continue
+          g.fillStyle = dark
+          g.fillRect(bx + i, hz - h, 1, h)
+          g.fillStyle = rim
+          g.fillRect(bx + i, hz - h, 1, 1)
+        }
+        // blows now and then, the calf more often
+        const ph = (t * (len < 10 ? 0.5 : 0.3) + ox) % 1
+        if (ph < 0.2 && k >= 1) {
+          g.fillStyle = rgba(pale, 0.7 * (1 - ph / 0.2))
+          for (let i = 0; i < (len < 10 ? 6 : 11); i++) g.fillRect(bx + 4 + Math.round(Math.sin(i) * (i / 4)), hz - lift - 1 - i, 1, 1)
+        }
+      }
+    }
+    // flying fish gliding low over the waves
+    for (const f of this.flyers) {
+      const k = (t - f.t0) / 1.6
+      if (k < 0 || k > 1) continue
+      const fx = Math.round(this.W * 0.95 - k * 70)
+      const fy = Math.round(hz - 2 - Math.sin(Math.PI * k) * 5 - f.y)
+      g.fillStyle = '#c8d8e8'
+      g.fillRect(fx, fy, 3, 1)
+      g.fillStyle = '#6a8ab8'
+      g.fillRect(fx + 1, fy - 1 + (Math.floor(t * 20) % 2), 2, 1)
     }
     // bubble netting: a ring of bubbles, then mouths bursting up through the middle
     if (this.net) {
@@ -1061,7 +1220,7 @@ export class Sea {
     for (const d of this.water.deco) if (d.y - cam > -80 && d.y - cam < H + 10) drawDeco(g, d, cam, this.t)
 
     // a humpback gliding past far behind everything, just a long shadow
-    if (WORLD === 'alaska') {
+    if (WORLD !== 'norge') {
       const span = W + 160
       const wx = ((this.t * 4) % span) - 80
       const wy = 170 + Math.sin(this.t * 0.05) * 40 - cam
@@ -1107,9 +1266,10 @@ export class Sea {
 
     // Selma's hydrophones on the rock, and a mark where the next one goes
     const hy = this.hydroTarget()
-    if (WORLD === 'alaska') {
-      for (let i = 0; i < this.s.hydro.placed; i++) {
-        const y = Math.round(depthToY(HYDRO_DEPTHS[i]))
+    const devices = WORLD === 'alaska' ? HYDRO_DEPTHS.slice(0, this.s.hydro.placed) : WORLD === 'hawaii' ? BUOY_DEPTHS.slice(0, this.s.buoys.placed) : []
+    if (WORLD !== 'norge') {
+      for (const depth of devices) {
+        const y = Math.round(depthToY(depth))
         if (y - cam < -10 || y - cam > H + 10) continue
         g.drawImage(this.hydro, this.water.wallL[y] - 1, y - cam - 4)
       }
@@ -1221,12 +1381,11 @@ export class Sea {
       if (y < -20 || y > H + 20) continue
       glow(g, j.x + Math.sin(this.t * 0.3 + j.ph) * 8 + 4, y + 3, 9, WORLD === 'alaska' ? '#ff8a5a' : '#ff7ac0', 0.22 + 0.08 * Math.sin(this.t * 2 + j.ph))
     }
-    if (WORLD === 'alaska')
-      for (let i = 0; i < this.s.hydro.placed; i++) {
-        const y = Math.round(depthToY(HYDRO_DEPTHS[i]))
-        if (y - cam < -10 || y - cam > H + 10 || Math.sin(this.t * 3 + i) < 0.3) continue
+    devices.forEach((depth, i) => {
+        const y = Math.round(depthToY(depth))
+        if (y - cam < -10 || y - cam > H + 10 || Math.sin(this.t * 3 + i) < 0.3) return
         glow(g, this.water.wallL[y] + 1, y - cam - 4, 3, '#6aff8a', 0.7)
-      }
+      })
     for (const p of this.sparks) {
       const y = p.y - cam
       const a = (1 - p.t / 1.4) * (p.t < 0.15 ? p.t / 0.15 : 1)

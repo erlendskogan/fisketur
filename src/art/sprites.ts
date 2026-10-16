@@ -11,7 +11,7 @@ export const BOAT_H = 24
  * Måken: a small double-ended clinker-built boat. Ternen, in Alaska, is the same kind of
  * hull with a little wheelhouse at the stern. The water line is at y = 15.
  */
-export function boatSprite(hull: string, stripe: string, kind: 'faering' | 'troller' = 'faering') {
+export function boatSprite(hull: string, stripe: string, kind: 'faering' | 'troller' | 'research' = 'faering') {
   const p = new Pix(BOAT_W, BOAT_H)
   const L = 44
   const ox = 2
@@ -51,6 +51,14 @@ export function boatSprite(hull: string, stripe: string, kind: 'faering' | 'trol
   p.set(ox - 1, 7, wood)
   // oarlocks
   for (const x of [15, 29]) p.set(ox + x, Math.round(11 - 5 * Math.pow(x / 43, 5) - 2.5 * Math.pow(1 - x / 43, 4)) - 1, '#4a4458')
+  if (kind === 'research') {
+    // Koholā: an open research boat with a canvas sun roof on four poles
+    for (const x of [ox + 2, ox + 12]) for (let y = 3; y < 10; y++) p.set(x, y, '#8a8a96')
+    p.rect(ox + 1, 2, 13, 1, stripe)
+    p.rect(ox + 1, 3, 13, 1, shade(stripe, -0.25))
+    p.rect(ox + 5, 7, 4, 3, '#4a4a58')
+    p.set(ox + 6, 7, '#8ab8e0')
+  }
   if (kind === 'troller') {
     // a wheelhouse with two windows and a tin roof
     const wall = shade(hull, -0.06)
@@ -68,7 +76,7 @@ export function boatSprite(hull: string, stripe: string, kind: 'faering' | 'trol
     p.rect(ox + 1, 9, 11, 1, stripe)
   }
   // lantern pole at the stern
-  for (let y = 0; y < (kind === 'troller' ? 3 : 8); y++) p.set(ox + 4, y + 1, y < 3 ? '#4a3428' : '#6a4a32')
+  for (let y = 0; y < (kind === 'faering' ? 8 : 3); y++) p.set(ox + 4, y + 1, y < 3 ? '#4a3428' : '#6a4a32')
   p.rect(ox + 3, 0, 3, 3, '#3a3a4a')
   p.outline(0.6)
   // lantern glass, drawn after the outline so it stays bright
@@ -124,13 +132,18 @@ const FISHER = [
   '.kyYyyyyyk....',
 ]
 
-/** At home a yellow sou'wester coat and a red hat; in Alaska orange rain gear and a green beanie */
-export const fisherSprite = (world: 'norge' | 'alaska' = 'norge') =>
+/**
+ * At home a yellow sou'wester coat and a red hat; in Alaska orange rain gear and a green
+ * beanie; in Hawaii a straw hat and a red shirt with white flowers
+ */
+export const fisherSprite = (world = 'norge') =>
   grid(
     FISHER,
     world === 'alaska'
       ? { ...FISHER_PAL, r: '#3a7a52', R: '#24543a', h: '#5aa070', p: '#e8e0cc', y: '#f07a2a', Y: '#b8521c', l: '#ffa860', c: '#d8641e', d: '#5a2e18', g: '#2a2a34' }
-      : FISHER_PAL,
+      : world === 'hawaii'
+        ? { ...FISHER_PAL, r: '#e8c878', R: '#b8964a', h: '#f8e0a0', p: '#e8c878', P: '#b8964a', w: '#f8e0a0', y: '#e8484a', Y: '#a8303a', l: '#fff0e8', c: '#f4ecdc', d: '#fff0e8', g: '#f2c29b' }
+        : FISHER_PAL,
   )
 /** Where the rod is held, relative to the fisher sprite */
 export const FISHER_HAND = { x: 10, y: 15 }
@@ -191,13 +204,22 @@ export const eagleSprites = () => {
   ]
 }
 
+/** A green sea turtle, honu, paddling at the surface */
+export const turtleSprite = () =>
+  grid(['...gg.....', '..gGgGg.hh', '.gGgGgGghk', 'f.gGgGg.hh', '.f.....f..'], { g: '#5a7a3a', G: '#8a9a4a', h: '#9aa86a', k: INK, f: '#7a8a5a' })
+
 /** A sea otter floating on its back, paws on its chest */
 export const otterSprite = () =>
   grid(['..ww......', '.wkwbbbb..', 'bbbBBbbbbb', '.bbbbbbbB.', '..b....b..'], { b: '#6a4a32', B: '#a88a6a', w: '#c8b8a0', k: INK })
 
 /** Pink jellies at home; in Alaska the big red lion's mane */
-export const jellySprites = (world: 'norge' | 'alaska' = 'norge') => {
-  const pal = world === 'alaska' ? { a: '#e8603a', b: '#ffb08a', c: '#c8402a' } : { a: '#ff9ad0', b: '#ffd0ea', c: '#d870b0' }
+export const jellySprites = (world = 'norge') => {
+  const pal =
+    world === 'alaska'
+      ? { a: '#e8603a', b: '#ffb08a', c: '#c8402a' }
+      : world === 'hawaii'
+        ? { a: '#8ab8ff', b: '#d0e4ff', c: '#6a8ae8' }
+        : { a: '#ff9ad0', b: '#ffd0ea', c: '#d870b0' }
   return [
     grid(['..aaaaa..', '.abbbbba.', 'aabbbbbaa', 'acaacaaca', '.c.c.c.c.', '.c.c.c.c.', 'c.c.c.c..', '.c...c...'], pal),
     grid(['.........', '.aaaaaaa.', 'abbbbbbba', 'acaacaaca', '.c.c.c.c.', 'c.c.c.c.c', '.c.c.c...', 'c...c....'], pal),
@@ -451,6 +473,9 @@ export const PORTRAITS: Record<string, Face> = {
   edvard: { skin: '#f0c2a0', hair: '#f2eee6', style: 'old', cloth: '#2e4a8a', cloth2: '#d8433a', brows: '#f8f6f0', beard: undefined },
   astrid: { skin: '#f2c4a4', hair: '#ece8e2', style: 'bun', cloth: '#b8323a', cloth2: '#f4ecdc', glasses: true, brows: '#d8d4ce' },
   ray: { skin: '#e0a882', hair: '#8a5a3a', style: 'cap', cloth: '#3a6a8a', cloth2: '#f2c24a', mustache: '#7a4a2e' },
+  leilani: { skin: '#c88a5e', hair: '#1e1418', style: 'bob', cloth: '#e84a6a', cloth2: '#fff0e8' },
+  kimo: { skin: '#b87a52', hair: '#d8d4ce', style: 'old', cloth: '#2a8ac8', cloth2: '#ffd84a', brows: '#e8e4de', mustache: '#d8d4ce' },
+  tutu: { skin: '#b07a52', hair: '#f4f2ee', style: 'bun', cloth: '#f4ecdc', cloth2: '#ffd84a', brows: '#e8e4de' },
 }
 
 /** Where each person is usually found, painted behind the portrait */
@@ -461,6 +486,9 @@ const BACKDROPS: Record<string, { sky: [string, string]; hill?: string; planks?:
   edvard: { sky: ['#2a2a6a', '#5a3a7a'], hill: '#161c40', stars: true },
   astrid: { sky: ['#e8c890', '#b8704a'], planks: true },
   ray: { sky: ['#9ab8c8', '#4a6a80'], hill: '#1e3a32' },
+  leilani: { sky: ['#ffd8a0', '#e87a6a'], planks: true },
+  kimo: { sky: ['#7ad0e8', '#2a8ab8'], hill: '#2a5a3a' },
+  tutu: { sky: ['#ffb07a', '#a85a8a'], hill: '#1e2a3a' },
   pus: { sky: ['#ffc080', '#e07a5a'], planks: true },
 }
 
@@ -508,6 +536,10 @@ function person(id: string) {
       if (f.cloth2 && id === 'edvard' && y === 19) c = '#f2eee6'
       // a Norwegian knitted sweater: a white yoke with red stars
       if (id === 'astrid' && y < 22 && (y === 18 || (x + y) % 2 === 0)) c = y === 20 && x % 4 === 1 ? f.cloth : f.cloth2!
+      // aloha shirts: big white flowers on red, yellow on blue
+      if ((id === 'leilani' || id === 'kimo') && y > 18 && (x * 3 + y * 5) % 7 === 0) c = f.cloth2!
+      // a lei of yellow flowers around the neck
+      if (id === 'tutu' && y === 18 && Math.abs(x - cx) < 6) c = (x % 2 ? '#ffd84a' : '#f8a83a')
       // a work jacket with a yellow collar
       if (id === 'ray' && y === 18 && Math.abs(x - cx) < 5) c = f.cloth2!
       if (f.cloth2 && id === 'marit' && dx < 3.5 && y > 18) c = shade(f.cloth, 0.05)
@@ -654,7 +686,11 @@ function person(id: string) {
   p.set(7, 14, blush)
   p.set(16, 14, blush)
   if (f.freckles) for (const [x, y] of [[8, 13], [9, 14], [15, 13], [14, 14]]) p.set(x, y, shade(f.skin, -0.25))
-  if (f.style === 'old' || id === 'astrid') {
+  if (id === 'leilani') {
+    // a hibiscus flower behind her ear
+    for (const [x, y, c] of [[4, 8, '#ff5a7a'], [5, 7, '#ff5a7a'], [3, 7, '#ff8aa0'], [4, 6, '#ff5a7a'], [4, 7, '#ffd84a']] as [number, number, string][]) p.set(x, y, c)
+  }
+  if (f.style === 'old' || id === 'astrid' || id === 'tutu') {
     p.set(7, 9, shade(f.skin, -0.12))
     p.set(16, 9, shade(f.skin, -0.12))
   }
