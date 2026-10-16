@@ -22,6 +22,7 @@ import { sfx } from '../audio'
 import { depthToY, PAINTS, WORLD_BOTTOM, SPECIES, SPECIES_BY_ID, yToDepth, ZONE_H, ZONES, zoneAt, type Species } from './data'
 import { dev } from './harbor'
 import { Reel } from './reel'
+import { Rain, weatherAt } from './weather'
 import { gearValue, type Save } from './state'
 
 const arts = new Map<string, FishArt>()
@@ -96,6 +97,7 @@ export class Sea {
   private schools: { x: number; y: number; dir: 1 | -1; speed: number; n: number; ph: number }[] = []
   private jellies: { x: number; y: number; ph: number }[] = []
   private bd = new Backdrop()
+  private rain = new Rain()
   /** height of the sky above the surface when the camera rests */
   private hz = 0
   private sc = canvas(1, 1)
@@ -142,6 +144,7 @@ export class Sea {
     this.dark = canvas(W, H)
     this.hz = Math.round(H * 0.42)
     this.bd.resize(W, this.hz, 5, 0.72)
+    this.rain.resize(W, H)
     this.sc = canvas(W, this.hz)
     this.work = canvas(W, this.hz)
     this.farLit = null
@@ -274,6 +277,8 @@ export class Sea {
       this.paint = this.s.paint
     }
     this.bd.update(dt)
+    const surf = -Math.round(this.camY)
+    this.rain.update(dt, weatherAt(this.s.day, this.s.time).rain, () => surf)
     this.updateFish(dt, paused)
     this.updateLife(dt)
     if (paused) return
@@ -582,7 +587,9 @@ export class Sea {
       }
       return
     }
-    if (Math.random() > dt * 1.4 * gearValue(this.s, 'lure')) return
+    // fish bite better when it rains
+    const rain = weatherAt(this.s.day, this.s.time).rain
+    if (Math.random() > dt * 1.4 * gearValue(this.s, 'lure') * (1 + rain * 0.5)) return
     const near = this.fish.filter((f) => f.state === 'swim' && !f.sp.special && Math.abs(f.y - this.lure.y) < 46 && Math.abs(f.x - this.lure.x) < this.W)
     if (!near.length) return
     const f = near[Math.floor(Math.random() * near.length)]
@@ -672,7 +679,8 @@ export class Sea {
     const { W, hz } = this
     const sg = this.sc.g
     sg.clearRect(0, 0, W, hz)
-    const sky = this.bd.draw(sg, this.t, time)
+    const wx = weatherAt(this.s.day, time)
+    const sky = this.bd.draw(sg, this.t, time, wx)
     this.paintFar()
 
     const wg = this.work.g
@@ -688,7 +696,14 @@ export class Sea {
       }
     this.drawBoat(wg, hz)
     tintAmbient(wg, time, W, hz)
+    if (wx.rain > 0) {
+      wg.globalCompositeOperation = 'source-atop'
+      wg.fillStyle = rgba('#2a3048', wx.rain * 0.3)
+      wg.fillRect(0, 0, W, hz)
+      wg.globalCompositeOperation = 'source-over'
+    }
     sg.drawImage(this.work.c, 0, 0)
+    this.bd.fogOver(sg, sky, wx.fog)
 
     // lights
     const night = sky.night
@@ -726,13 +741,14 @@ export class Sea {
     const night = nightness(time)
 
     // the world above water, and the light of the moment
+    const wx = weatherAt(this.s.day, time)
     let sky: Sky
     if (surf > -2) {
       sky = this.paintSurface(time)
       g.drawImage(this.sc.c, 0, surf - hz)
     } else {
-      const [top, hor] = skyAt(time)
-      sky = { top, hor, night, gold: golden(time) * (1 - night), sun: null }
+      const [top, hor] = skyAt(time, wx)
+      sky = { top, hor, night, gold: golden(time) * (1 - night) * (1 - wx.rain), sun: null }
     }
 
     // water background
@@ -748,6 +764,13 @@ export class Sea {
         g.fillRect(0, y, W, 3)
       }
 
+    // grey days make for murky water
+    const murk = wx.rain * 0.25 + wx.fog * 0.12
+    if (murk > 0 && surf < H) {
+      g.fillStyle = rgba('#1a2238', murk)
+      g.fillRect(0, Math.max(0, surf), W, H)
+    }
+
     // the sky and the boat mirrored on the underside of the surface
     const R = Math.min(34, H - surf - 1)
     if (surf > -R && R > 0) {
@@ -756,7 +779,7 @@ export class Sea {
       drawGlitter(g, this.t, sky, surf + 1, R)
     }
 
-    if (surf + 260 > 0) this.drawLightShafts(g, surf, sky)
+    if (surf + 260 > 0) this.drawLightShafts(g, surf, sky, 1 - wx.rain * 0.75 - wx.fog * 0.4)
 
     for (const d of this.water.deco) if (d.y - cam > -80 && d.y - cam < H + 10) drawDeco(g, d, cam, this.t)
 
@@ -827,13 +850,19 @@ export class Sea {
         g.globalAlpha = 1
       }
       const hi = rippleColour(sky)
-      for (let x = 0; x < W; x++) {
-        const w = Math.sin(x * 0.12 + this.t * 1.6) + Math.sin(x * 0.05 - this.t)
-        g.fillStyle = rgba(hi, w > 0.6 ? 0.75 : 0.35)
-        g.fillRect(x, surf + (w > -0.4 ? 0 : 1), 1, 1)
+      for (const crest of [false, true]) {
+        g.fillStyle = rgba(hi, crest ? 0.75 : 0.35)
+        g.beginPath()
+        for (let x = 0; x < W; x++) {
+          const w = Math.sin(x * 0.12 + this.t * 1.6) + Math.sin(x * 0.05 - this.t)
+          if (w > 0.6 === crest) g.rect(x, surf + (w > -0.4 ? 0 : 1), 1, 1)
+        }
+        g.fill()
       }
       g.fillStyle = rgba('#ffffff', 0.6)
-      for (let x = this.boatX + 3; x < this.boatX + 44; x++) if (Math.sin(x * 0.9 + this.t * 3) > 0.5) g.fillRect(x, surf + 1, 1, 1)
+      g.beginPath()
+      for (let x = this.boatX + 3; x < this.boatX + 44; x++) if (Math.sin(x * 0.9 + this.t * 3) > 0.5) g.rect(x, surf + 1, 1, 1)
+      g.fill()
     }
 
     // marine snow drifting past, with parallax
@@ -843,6 +872,15 @@ export class Sea {
       const sx = Math.round(m.x + Math.sin(this.t * 0.4 + m.ph) * 2)
       g.fillStyle = rgba('#d8e8f4', 0.1 + 0.28 * m.z)
       g.fillRect(sx, Math.round(sy), 1, 1)
+    }
+
+    if (surf > 0) {
+      g.save()
+      g.beginPath()
+      g.rect(0, 0, W, surf + 1)
+      g.clip()
+      this.rain.draw(g, wx.rain, night)
+      g.restore()
     }
 
     this.drawDarkness(g, cam, surf, night)
@@ -923,8 +961,8 @@ export class Sea {
   }
 
   /** Shafts of daylight slanting down from the surface, and the shimmer of caustics just below it */
-  private drawLightShafts(g: CanvasRenderingContext2D, surf: number, sky: Sky) {
-    const day = 1 - sky.night
+  private drawLightShafts(g: CanvasRenderingContext2D, surf: number, sky: Sky, clear: number) {
+    const day = (1 - sky.night) * clear
     if (day < 0.05) return
     const W = this.W
     const col = sky.sun ? mix('#e8fbff', sky.sun.c, 0.55) : '#e8fbff'
@@ -958,10 +996,12 @@ export class Sea {
       if (y < 0 || y >= this.H) continue
       const a = (1 - d / 30) * 0.32 * day
       g.fillStyle = rgba(col, a)
+      g.beginPath()
       for (let x = 0; x < W; x++) {
         const v = Math.sin(x * 0.21 + Math.sin(d * 0.5 + this.t * 0.9) * 2.2 + this.t * 0.8) * Math.sin(x * 0.07 - this.t * 0.5 + d * 0.2)
-        if (v > 0.72) g.fillRect(x, y, 1, 1)
+        if (v > 0.72) g.rect(x, y, 1, 1)
       }
+      g.fill()
     }
     g.globalCompositeOperation = 'source-over'
   }

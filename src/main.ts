@@ -25,6 +25,7 @@ import { activeQuests, bookCount, bucketValue, fresh, gearValue, load, needsMet,
 import { AFTER_ENDING, CAT, CHATTER, ENDING, FIRST_SALE, GAMLE, INTRO, LETTERS, LETTER_FOUND, MEET_EDVARD, MEET_HALVOR, MEET_MARIT, MEET_SELMA, type Line } from './game/story'
 import { $, esc, face, icon, iconImg, kr, UI } from './ui/ui'
 import { watchForUpdates } from './update'
+import { weatherAt } from './game/weather'
 
 if (import.meta.env.DEV) import('./dev/panel')
 
@@ -191,7 +192,10 @@ class Game implements SeaHost {
   private frame = (now: number) => {
     const dt = Math.max(0, Math.min(0.05, (now - this.last) / 1000))
     this.last = now
+    const before = this.s.time
     this.s.time = (this.s.time + dt / DAY_SECONDS) % 1
+    if (this.s.time < before) this.s.day = (this.s.day ?? 0) + 1
+    this.watchWeather()
     const paused = this.ui.busy || !this.started
     this.sea.update(dt, paused)
     this.harbor.update(dt)
@@ -228,6 +232,16 @@ class Game implements SeaHost {
     document.body.style.background = c
   }
 
+  private raining = false
+  /** A word when a shower starts, since the fish bite better in the rain */
+  private watchWeather() {
+    const rain = weatherAt(this.s.day, this.s.time).rain
+    if (!this.raining && rain > 0.3 && this.started && !this.ui.busy) {
+      this.raining = true
+      this.ui.toast('Det begynner å regne. Fisken biter bedre nå!', 'rain')
+    } else if (this.raining && rain < 0.05) this.raining = false
+  }
+
   // ---------- HUD and dock ----------
 
   private renderHud() {
@@ -235,7 +249,8 @@ class Game implements SeaHost {
     const hour = Math.floor(s.time * 24)
     const min = Math.floor((s.time * 24 * 60) % 60 / 10) * 10
     const depth = this.view === 'sea' ? Math.round(this.sea.depth) : -1
-    const key = `${s.money}|${s.bucket.length}|${gearValue(s, 'bucket')}|${depth}|${hour}:${min}|${this.view}|${s.gear.line}`
+    const wet = weatherAt(s.day, s.time).rain > 0.3
+    const key = `${s.money}|${s.bucket.length}|${gearValue(s, 'bucket')}|${depth}|${hour}:${min}|${this.view}|${s.gear.line}|${wet}`
     if (key === this.hudKey) return
     this.hudKey = key
     const night = nightness(s.time) > 0.5
@@ -244,7 +259,7 @@ class Game implements SeaHost {
       <button class="chip" data-hud="bucket">${iconImg('bucket')}${s.bucket.length}/${gearValue(s, 'bucket')}</button>
       <span class="grow"></span>
       ${depth >= 0 ? `<span class="chip depth">${depth} m<small>/ ${gearValue(s, 'line')}</small></span>` : ''}
-      <span class="chip">${iconImg(night ? 'moon' : 'sun')}${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}</span>
+      <span class="chip">${iconImg(wet ? 'rain' : night ? 'moon' : 'sun')}${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}</span>
       <button class="chip icon-only" data-hud="settings" aria-label="Innstillinger">${iconImg('gear')}</button>`
   }
 

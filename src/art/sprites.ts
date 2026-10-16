@@ -188,6 +188,7 @@ export const ICONS: Record<string, string[]> = {
   gear: ['...k.k...', '.kkkkkkk.', '.kgggggk.', 'kkgkkkgkk', '.kgk.kgk.', 'kkgkkkgkk', '.kgggggk.', '.kkkkkkk.', '...k.k...'],
   sun: ['....y....', '.y..y..y.', '..yyyyy..', '..yywyy..', 'yyywyyyyy', '..yyyyy..', '..yyyyy..', '.y..y..y.', '....y....'],
   moon: ['..kkk....', '.kmmk....', 'kmmk.....', 'kmmk.....', 'kmmk.....', 'kmmmk....', '.kmmmkkk.', '..kmmmmk.', '...kkkk..'],
+  rain: ['...kkk...', '..kwwwkk.', '.kwwwwwwk', 'kwwgwwwwk', 'kgggggggk', '.kkkkkkk.', '..s..s...', '.s..s..s.', '...s..s..'],
   letter: ['kkkkkkkkk', 'kpkpppkpk', 'kppkpkppk', 'kpppkpppk', 'kpppppppk', 'kpppprrpk', 'kpppprrpk', 'kkkkkkkkk'],
   lock: ['..kkkk..', '.kgggk..', '.kg..gk.', 'kkkkkkkk', 'kyyyyyyk', 'kyyYyyyk', 'kyyYyyyk', 'kkkkkkkk'],
 }
@@ -216,8 +217,42 @@ export const PORTRAITS: Record<string, Face> = {
   edvard: { skin: '#f0c2a0', hair: '#f2eee6', style: 'old', cloth: '#2e4a8a', cloth2: '#d8433a', brows: '#f8f6f0', beard: undefined },
 }
 
+/** Where each person is usually found, painted behind the portrait */
+const BACKDROPS: Record<string, { sky: [string, string]; hill?: string; planks?: boolean; stars?: boolean }> = {
+  marit: { sky: ['#f6c47a', '#c8644a'], planks: true },
+  halvor: { sky: ['#7ab8e0', '#3a78b0'], hill: '#2e5272' },
+  selma: { sky: ['#5ac8c0', '#1e6a7a'], hill: '#1c3e4a' },
+  edvard: { sky: ['#2a2a6a', '#5a3a7a'], hill: '#161c40', stars: true },
+  pus: { sky: ['#ffc080', '#e07a5a'], planks: true },
+}
+
+function withBackdrop(face: HTMLCanvasElement, id: string) {
+  const b = BACKDROPS[id] ?? BACKDROPS.halvor
+  const S = face.width
+  const p = new Pix(S, S)
+  const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const k = y / (S - 1) + (BAY[(y % 4) * 4 + (x % 4)] / 16 - 0.5) * 0.25
+      let c = mix(b.sky[0], b.sky[1], Math.round(Math.max(0, Math.min(1, k)) * 4) / 4)
+      if (b.planks) {
+        if (x % 6 === 0) c = shade(c, -0.12)
+        else if (x % 6 === 1) c = shade(c, 0.08)
+      }
+      if (b.hill && y > S - 9 + Math.round(2.5 * Math.sin(x * 0.35 + id.length) + Math.sin(x * 0.9))) c = b.hill
+      if (b.stars && (x * 7 + y * 13) % 37 === 0 && y < S - 10) c = '#f8f4e0'
+      p.set(x, y, c)
+    }
+  const c = p.toCanvas()
+  c.getContext('2d')!.drawImage(face, 0, 0)
+  return c
+}
+
 export function portrait(id: string) {
-  if (id === 'pus') return catPortrait()
+  return withBackdrop(id === 'pus' ? catPortrait() : person(id), id)
+}
+
+function person(id: string) {
   const f = PORTRAITS[id]
   const S = 24
   const p = new Pix(S, S)

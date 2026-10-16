@@ -54,8 +54,24 @@ function lerpTable(tab: SkyTable, t: number): [string, string] {
   return [tab[0][1], tab[0][2]]
 }
 
-/** Sky colour at the zenith and at the horizon */
-export const skyAt = (t: number) => lerpTable(PAL.sky, t)
+/** Sky colour at the zenith and at the horizon, greyed by rain and paled by fog */
+export function skyAt(t: number, wx: Weather = CLEAR): [string, string] {
+  let [top, hor] = lerpTable(PAL.sky, t)
+  if (wx.rain > 0 || wx.fog > 0) {
+    const night = nightness(t)
+    const grey = mix('#6a7488', '#1a1e34', night)
+    top = mix(top, grey, wx.rain * 0.55)
+    hor = mix(hor, mix(grey, '#dce2ea', 0.25 * (1 - night)), wx.rain * 0.5)
+    hor = mix(hor, mix('#c8d0dc', '#3a4064', night), wx.fog * 0.45)
+  }
+  return [top, hor]
+}
+
+export interface Weather {
+  rain: number
+  fog: number
+}
+export const CLEAR: Weather = { rain: 0, fog: 0 }
 
 /** Light falling on the world through the day: [time, colour, strength]; 'night' means the night tint */
 const AMBIENT: [number, string, number][] = [
@@ -116,6 +132,9 @@ const glowCache = new Map<string, HTMLCanvasElement>()
 
 /** A round glow with dithered falloff, so it stays pixelly when scaled up */
 export function glowSprite(r: number, col: string) {
+  // colours that drift with the time of day are rounded so the cache stays small
+  const [qr, qg, qb] = hex2rgb(col).map((v) => Math.round(v / 24) * 24)
+  col = '#' + [qr, qg, qb].map((v) => Math.min(255, v).toString(16).padStart(2, '0')).join('')
   const key = `${r}|${col}`
   const hit = glowCache.get(key)
   if (hit) return hit
@@ -260,6 +279,8 @@ export class Backdrop {
   private skyC = canvas(1, 1)
   private hillsC = canvas(1, 1)
   private cacheKey = ''
+  private wx: Weather = CLEAR
+  private storm: { c: HTMLCanvasElement; key: string } | null = null
   private shooting: { x: number; y: number; age: number } | null = null
   private r = rng(91)
 
@@ -306,13 +327,14 @@ export class Backdrop {
   }
 
   private paintCaches(t: number) {
-    const key = `${Math.round(t * 1000)}`
+    const wx = this.wx
+    const key = `${Math.round(t * 1000)}|${Math.round(wx.rain * 12)}|${Math.round(wx.fog * 12)}`
     if (key === this.cacheKey) return
     this.cacheKey = key
     const { W, H } = this
     const night = nightness(t)
     const gold = golden(t) * (1 - night)
-    const [top, hor] = skyAt(t)
+    const [top, hor] = skyAt(t, wx)
     const [amb, ambA] = ambientAt(t)
 
     bandGradient(this.skyC.g, W, H, top, hor, 28)
@@ -328,6 +350,8 @@ export class Backdrop {
       let base = mix(PAL.hills[ly.i], PAL.nightHills[ly.i], night)
       base = mix(base, hor, ly.haze * (1 - night * 0.5))
       base = mix(base, amb, ambA * 0.55)
+      // fog swallows the far hills first
+      base = mix(base, hor, wx.fog * (0.75 - ly.i * 0.2) + wx.rain * 0.2 * (2 - ly.i))
       const lit = shade(base, 0.12)
       const dark = shade(base, -0.12)
       const foot = mix(base, hor, 0.22 + ly.haze * 0.5)
@@ -382,18 +406,20 @@ export class Backdrop {
   }
 
   /** Draws the backdrop into `g` (which must be at least W×H) and returns the light of the moment */
-  draw(sg: CanvasRenderingContext2D, t: number, time: number): Sky {
+  draw(sg: CanvasRenderingContext2D, t: number, time: number, wx: Weather = CLEAR): Sky {
+    this.wx = wx
+    const clear = 1 - wx.rain * 0.85
     const { W, H } = this
     const night = nightness(time)
     const gold = golden(time) * (1 - night)
-    const [skyTop, hor] = skyAt(time)
+    const [skyTop, hor] = skyAt(time, wx)
     this.paintCaches(time)
 
     sg.drawImage(this.skyC.c, 0, 0)
     if (night > 0.05) {
       for (const st of this.stars) {
         const tw = Math.sin(t * (1 + st.b) + st.p)
-        sg.fillStyle = `rgba(255,250,230,${night * (0.35 + 0.65 * st.b) * (tw > 0.3 ? 1 : 0.45)})`
+        sg.fillStyle = `rgba(255,250,230,${night * clear * (1 - wx.fog * 0.6) * (0.35 + 0.65 * st.b) * (tw > 0.3 ? 1 : 0.45)})`
         const y = Math.round(st.y * H * 0.75)
         sg.fillRect(st.x, y, 1, 1)
         if (st.b > 0.93 && tw > 0.6) {
@@ -420,9 +446,11 @@ export class Backdrop {
       const y = this.ridgeTop + 6 - lift * (this.ridgeTop - 8)
       const c = mix('#fff4c8', '#ff7a3a', (1 - lift) ** 2)
       sun = { x, y, c }
-      light(sg, x, y, 34, c, 0.22 * PAL.sunGlow)
-      light(sg, x, y, 14, '#fff0c0', 0.4 * PAL.sunGlow)
+      light(sg, x, y, 34, c, 0.22 * PAL.sunGlow * (clear + wx.fog * 0.3))
+      light(sg, x, y, 14, '#fff0c0', 0.4 * PAL.sunGlow * clear)
+      sg.globalAlpha = Math.max(0.1, 1 - wx.rain * 0.9 - wx.fog * 0.5)
       disc(sg, x, y, 4, c, '#fffbe8')
+      sg.globalAlpha = 1
     }
     const mk = ((time - 0.74 + 1) % 1) / 0.52
     if (mk > 0 && mk < 1 && night > 0.05) {
@@ -440,7 +468,8 @@ export class Backdrop {
     }
 
     // clouds
-    const cBase = mix(mix('#f4f6ff', mix(hor, '#ffb890', 0.3), 0.15 + gold * 0.7), '#2e2e62', night * 0.85)
+    let cBase = mix(mix('#f4f6ff', mix(hor, '#ffb890', 0.3), 0.15 + gold * 0.7), '#2e2e62', night * 0.85)
+    cBase = mix(cBase, mix('#7a8296', '#2a2e48', night), wx.rain * 0.7)
     const cHi = mix(mix('#ffffff', '#ffd8a8', gold), mix(cBase, '#9aa0d8', 0.4), night)
     const cSh = mix(cBase, skyTop, 0.45)
     const cols = ['', cBase, cHi, cSh]
@@ -453,6 +482,7 @@ export class Backdrop {
       }
     }
 
+    if (wx.rain > 0) this.drawStorm(sg, t, night, wx.rain)
     sg.drawImage(this.hillsC.c, 0, 0)
     // the low sun lights up the haze over the ridges
     if (sun && gold > 0) light(sg, sun.x, Math.max(sun.y, this.ridgeTop), 44, sun.c, gold * 0.3 * PAL.sunGlow)
@@ -463,11 +493,13 @@ export class Backdrop {
       [6, 0.16, 0],
       [3.5, 0.3, 2],
     ]) {
-      sg.fillStyle = rgba(mc, PAL.mist * a)
+      sg.fillStyle = rgba(mc, Math.min(0.9, PAL.mist * a * (1 + wx.fog * 1.5)))
+      sg.beginPath()
       for (let x = 0; x < W; x++) {
-        const h = Math.round(amp + 2 * Math.sin(x * 0.06 + t * 0.25 + off) + 1.5 * Math.sin(x * 0.15 - t * 0.4 + off))
-        if (h > 0) sg.fillRect(x, H - h, 1, h)
+        const h = Math.round(amp * (1 + wx.fog * 2.5) + 2 * Math.sin(x * 0.06 + t * 0.25 + off) + 1.5 * Math.sin(x * 0.15 - t * 0.4 + off))
+        if (h > 0) sg.rect(x, H - h, 1, h)
       }
+      sg.fill()
     }
     if (night > 0.2)
       for (const l of this.shoreLights) {
@@ -476,7 +508,51 @@ export class Backdrop {
         sg.fillRect(l.x, l.y, 1, 1)
         light(sg, l.x, l.y, 3, '#ff9a40', a * 0.4)
       }
-    return { top: skyTop, hor, night, gold, sun }
+    return { top: skyTop, hor, night, gold: gold * clear, sun: wx.rain > 0.7 ? null : sun }
+  }
+
+  /** A heavy, dithered cloud deck that rolls in with the rain */
+  private drawStorm(g: CanvasRenderingContext2D, t: number, night: number, rain: number) {
+    const { W, H } = this
+    const key = `${W}x${H}|${Math.round(night * 4)}`
+    if (this.storm?.key !== key) {
+      const h = Math.round(H * 0.5)
+      const { c, g: sg } = canvas(W, h)
+      const img = sg.createImageData(W, h)
+      const dark = hex2rgb(mix('#4a5268', '#141830', night))
+      const lit = hex2rgb(mix('#8a94a8', '#2a3050', night))
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < W; x++) {
+          // puffy bumps along the underside of the deck
+          const lump = 0.45 + 0.3 * Math.abs(Math.sin(x * 0.055)) + 0.15 * Math.abs(Math.sin(x * 0.16 + 1)) + 0.05 * Math.sin(y * 0.3)
+          const k = y / h - lump * 0.6
+          const a = Math.max(0, Math.min(1, 0.6 - k * 5))
+          const q = Math.floor(a * 4 + bayer(x, y)) / 4
+          if (q <= 0) continue
+          const edge = q < 0.75
+          img.data.set([...(edge ? lit : dark), Math.round(q * 255)], (y * W + x) * 4)
+        }
+      sg.putImageData(img, 0, 0)
+      this.storm = { c, key }
+    }
+    const off = Math.round((t * 1.5) % W)
+    g.globalAlpha = Math.min(1, rain * 1.3)
+    g.drawImage(this.storm.c, off, 0)
+    g.drawImage(this.storm.c, off - W, 0)
+    g.globalAlpha = 1
+  }
+
+  /** Fog lying over the foreground, thickest near the water */
+  fogOver(g: CanvasRenderingContext2D, sky: Sky, fog: number) {
+    if (fog <= 0.02) return
+    const { W, H } = this
+    const c = mix(sky.hor, '#ffffff', 0.1 * (1 - sky.night))
+    for (let b = 0; b < 8; b++) {
+      const y = Math.floor(H * (0.3 + b * 0.0875))
+      const y1 = Math.floor(H * (0.3 + (b + 1) * 0.0875))
+      g.fillStyle = rgba(c, fog * 0.075 * (b + 1))
+      g.fillRect(0, y, W, y1 - y)
+    }
   }
 }
 
@@ -494,9 +570,12 @@ function bandGradient(g: CanvasRenderingContext2D, w: number, h: number, top: st
   }
 }
 
+const flipped = new Map<HTMLCanvasElement, ReturnType<typeof canvas>>()
+
 /**
  * The water below a scene, with the scene mirrored in it row by row (Kingdom style).
- * `src` holds the scene with its waterline on its bottom edge.
+ * `src` holds the scene with its waterline on its bottom edge. Rows that wobble by the
+ * same amount are drawn together, so this stays cheap.
  */
 export function drawReflection(
   g: CanvasRenderingContext2D,
@@ -510,23 +589,51 @@ export function drawReflection(
   const W = src.width
   const wl = src.height
   const { night, gold, hor } = sky
-  const w0 = mix(mix(PAL.water[0], PAL.nightWater[0], night), hor, 0.25 + gold * 0.2)
-  const w1 = mix(PAL.water[1], PAL.nightWater[1], night)
   const fade = opts.fade ?? 0.55
-  for (let d = 0; d < rows; d++) {
-    const y = y0 + d
-    const k = d / rows
-    if (opts.fill !== false) {
-      g.fillStyle = mix(w0, w1, Math.min(1, k * 1.2))
-      g.fillRect(0, y, W, 1)
+  if (opts.fill !== false) {
+    const w0 = mix(mix(PAL.water[0], PAL.nightWater[0], night), hor, 0.25 + gold * 0.2)
+    const w1 = mix(PAL.water[1], PAL.nightWater[1], night)
+    const bands = 24
+    for (let b = 0; b < bands; b++) {
+      const a = Math.floor((b * rows) / bands)
+      const e = Math.floor(((b + 1) * rows) / bands)
+      g.fillStyle = mix(w0, w1, Math.min(1, (a / rows) * 1.2))
+      g.fillRect(0, y0 + a, W, e - a)
     }
-    const s = wl - 1 - d
-    if (s < 0) continue
-    const wob = Math.round(Math.sin(t * 1.7 + d * 0.42) * PAL.wobble * (0.5 + k * 2) + Math.sin(t * 0.6 + d * 0.11) * 0.7)
-    g.globalAlpha = Math.max(0, PAL.reflect * (1 - k * fade))
-    g.drawImage(src, 0, s, W, 1, wob, y, W, 1)
-    g.globalAlpha = 1
   }
+  // the scene upside down, so mirrored rows run in the same direction as the water
+  let f = flipped.get(src)
+  if (!f || f.c.width !== W || f.c.height !== wl) {
+    f = canvas(W, wl)
+    flipped.set(src, f)
+  }
+  f.g.clearRect(0, 0, W, wl)
+  f.g.setTransform(1, 0, 0, -1, 0, wl)
+  f.g.drawImage(src, 0, 0)
+  f.g.setTransform(1, 0, 0, 1, 0, 0)
+  const n = Math.min(rows, wl)
+  let start = 0
+  let runWob = 0
+  let runA = -1
+  const flush = (end: number) => {
+    if (runA > 0 && end > start) {
+      g.globalAlpha = runA
+      g.drawImage(f!.c, 0, start, W, end - start, runWob, y0 + start, W, end - start)
+    }
+  }
+  for (let d = 0; d < n; d++) {
+    const k = d / rows
+    const wob = Math.round(Math.sin(t * 1.7 + d * 0.42) * PAL.wobble * (0.5 + k * 2) + Math.sin(t * 0.6 + d * 0.11) * 0.7)
+    const a = Math.round(Math.max(0, PAL.reflect * (1 - k * fade)) * 20) / 20
+    if (wob !== runWob || a !== runA) {
+      flush(d)
+      start = d
+      runWob = wob
+      runA = a
+    }
+  }
+  flush(n)
+  g.globalAlpha = 1
 }
 
 /** Glinting light on the water below the sun or moon */

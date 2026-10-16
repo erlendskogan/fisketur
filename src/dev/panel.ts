@@ -1,6 +1,7 @@
 // Dev-only panel for previewing the harbour: scrub the time of day, toggle story flags
 
 import { dev } from '../game/harbor'
+import { devWeather } from '../game/weather'
 
 const STAGES: [string, number][] = [
   ['Natt', 0.05],
@@ -33,7 +34,7 @@ function render() {
   el.innerHTML = `
     <div style="display:flex;gap:3px;flex-wrap:wrap">${STAGES.map(([n, v]) => btn(n, t !== null && Math.abs(t - v) < 0.004, `time:${v}`)).join('')}${btn('Auto', t === null, 'auto')}</div>
     <input type="range" min="0" max="1" step="0.0025" value="${t ?? 0.45}" data-k="slider">
-    <div style="display:flex;gap:3px;flex-wrap:wrap">${btn('Fyr tent', dev.ending === true, 'ending')}${btn('Selma', dev.selma === true, 'selma')}${btn('skjul', false, 'toggle')}</div>`
+    <div style="display:flex;gap:3px;flex-wrap:wrap">${btn('Fyr tent', dev.ending === true, 'ending')}${btn('Selma', dev.selma === true, 'selma')}${btn('Regn', devWeather.rain === 1, 'rain')}${btn('Tåke', devWeather.fog === 1, 'fog')}${btn('skjul', false, 'toggle')}</div>`
 }
 
 el.addEventListener('pointerdown', (e) => e.stopPropagation())
@@ -45,6 +46,8 @@ el.addEventListener('click', (e) => {
   else if (k === 'auto') dev.time = null
   else if (k === 'ending') dev.ending = dev.ending ? null : true
   else if (k === 'selma') dev.selma = dev.selma ? null : true
+  else if (k === 'rain') devWeather.rain = devWeather.rain === 1 ? null : 1
+  else if (k === 'fog') devWeather.fog = devWeather.fog === 1 ? null : 1
   else if (k.startsWith('time:')) dev.time = Number(k.slice(5))
   render()
 })
@@ -56,7 +59,7 @@ el.addEventListener('input', (e) => {
 render()
 
 // handy from the console: __dev.time = 0.7
-;(window as unknown as { __dev: typeof dev }).__dev = dev
+;(window as unknown as { __dev: typeof dev & { wx: typeof devWeather } }).__dev = Object.assign(dev, { wx: devWeather })
 
 // ?brygge or ?sjo skips the title and opens the harbour or the sea, for quick previews after a reload
 const q = new URLSearchParams(location.search)

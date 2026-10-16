@@ -23,6 +23,8 @@ export interface Save {
   stats: { caught: number; perfect: number; sold: number; night: number; released: number; treasure: number }
   bookClaimed: number[]
   time: number
+  /** days gone by, for the weather */
+  day: number
   paint: string
   paints: string[]
   sound: boolean
@@ -45,6 +47,7 @@ export function fresh(): Save {
     stats: { caught: 0, perfect: 0, sold: 0, night: 0, released: 0, treasure: 0 },
     bookClaimed: [],
     time: 0.3,
+    day: 0,
     paint: 'hvit',
     paints: ['hvit'],
     sound: true,

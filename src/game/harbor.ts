@@ -6,6 +6,7 @@ import { drawBeam } from '../art/scenery'
 import { Backdrop, drawGlitter, drawReflection, drawRipples, glow, makeVignette, PAL as L, rippleColour, tintAmbient, clamp01 } from '../art/fjord'
 import { PAINTS } from './data'
 import type { Save } from './state'
+import { Rain, weatherAt } from './weather'
 
 export type SpotId = 'krambua' | 'havnebua' | 'stasjon' | 'fyret' | 'baten'
 
@@ -602,6 +603,7 @@ export class Harbor {
   private nextSpray = 2
   private smokeT = 0
   private bd = new Backdrop()
+  private rain = new Rain()
   private r = rng(77)
 
   constructor(private host: { s: Save }) {}
@@ -614,6 +616,7 @@ export class Harbor {
     this.wl = this.deckY + 24
     const { deckY, wl } = this
     this.bd.resize(W, wl)
+    this.rain.resize(W, H)
     const r = rng(11)
     this.bugs = Array.from({ length: 16 }, () => ({ x: r() * W, y: deckY - 30 + r() * 50, ph: r() * 6 }))
     this.motes = Array.from({ length: 24 }, () => ({ x: r() * W, y: r() * wl, ph: r() * 6 }))
@@ -823,6 +826,9 @@ export class Harbor {
     this.rings = this.rings.filter((g) => g.age < 1)
 
     this.bd.update(dt)
+    const wx = weatherAt(this.host.s.day, this.host.s.time)
+    const quayW = Math.round(W * 0.8)
+    this.rain.update(dt, wx.rain, (x, k) => (k < 0.25 && x < quayW ? this.deckY : wl + 1 + k * (this.H - wl - 1)))
   }
 
   draw(g: CanvasRenderingContext2D) {
@@ -835,7 +841,8 @@ export class Harbor {
     // ---------- sky and hills ----------
     const sg = this.scene.g
     sg.clearRect(0, 0, W, wl)
-    const sky = this.bd.draw(sg, this.t, time)
+    const wx = weatherAt(s.day, time)
+    const sky = this.bd.draw(sg, this.t, time, wx)
     const { night, gold, sun } = sky
 
     // ---------- the lit world: houses, boat, smoke ----------
@@ -911,7 +918,14 @@ export class Harbor {
 
     // ambient light: blue at night, pink at dawn, gold and red around sunrise and sunset, violet at dusk
     tintAmbient(wg, time, W, wl)
+    if (wx.rain > 0) {
+      wg.globalCompositeOperation = 'source-atop'
+      wg.fillStyle = rgba('#2a3048', wx.rain * 0.3)
+      wg.fillRect(0, 0, W, wl)
+      wg.globalCompositeOperation = 'source-over'
+    }
     sg.drawImage(this.work.c, 0, 0)
+    this.bd.fogOver(sg, sky, wx.fog)
 
     // ---------- lights and glowing things ----------
     for (const l of this.lights) {
@@ -1042,6 +1056,7 @@ export class Harbor {
     }
 
     if (this.ending) drawBeam(g, this.lhPos.x, this.lhPos.y, this.t * 0.8, 200, Math.max(0.35, night))
+    this.rain.draw(g, wx.rain, night)
     if (this.vignette && L.vignette > 0) {
       g.globalAlpha = L.vignette
       g.drawImage(this.vignette, 0, 0)
