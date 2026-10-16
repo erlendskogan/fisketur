@@ -286,9 +286,11 @@ class Game implements SeaHost {
       : mode === 'reel'
         ? 'Hold inne for å løfte det grønne feltet'
         : mode === 'wait'
-          ? s.stats.caught < 3
-            ? 'Vent på napp. Hold på skjermen for å gå dypere.'
+          ? s.stats.caught < 5
+            ? 'Vent på napp. Trykk for å hale inn, hold for å gå dypere.'
             : ''
+          : mode === 'bite'
+            ? 'Trykk på skjermen!'
           : mode === 'idle' && s.stats.caught < 3
             ? 'Hold fingeren på skjermen for å slippe ut snøre'
             : mode === 'sink' && s.stats.caught < 3
@@ -298,6 +300,8 @@ class Game implements SeaHost {
     const actKey = `${sea}|${mode}|${hintText}`
     if (act.dataset.key !== actKey) {
       act.dataset.key = actKey
+      // once the line is out, the screen itself is the control: no button, no tabs
+      document.body.classList.toggle('fishing', sea && mode !== 'idle')
       act.classList.toggle('hidden', !sea || mode === 'reel')
       act.textContent = labels[mode]
       act.disabled = ['land', 'retrieve', 'snag'].includes(mode)

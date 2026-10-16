@@ -782,6 +782,15 @@ img.px {
   animation: bob 1s steps(2) infinite;
 }
 
+body.fishing #act,
+body.fishing #nav {
+  display: none;
+}
+
+body.fishing #dock {
+  padding-bottom: calc(max(6px, calc(var(--safe-bot) - 14px)) + 90px);
+}
+
 body.intro #hud,
 body.intro #dock {
   visibility: hidden;

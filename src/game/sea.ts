@@ -81,6 +81,8 @@ export class Sea {
   holding = false
   /** finger is down letting out line */
   letting = false
+  /** how long the finger has been down while waiting: a tap hauls in, a hold goes deeper */
+  private pressT = -1
   private waitT = 0
   private biteT = 0
   private cooldown = 0
@@ -184,18 +186,22 @@ export class Sea {
       this.holding = true
       return
     }
-    if (this.mode === 'idle') this.cast()
-    else if (this.mode === 'wait') {
-      this.targetY = this.maxY
-      this.mode = 'sink'
-      this.host.modeChanged()
+    if (this.mode === 'wait') {
+      this.pressT = 0
+      return
     }
+    if (this.mode === 'idle') this.cast()
     this.letting = true
   }
 
   /** Finger up anywhere */
   release() {
     this.holding = false
+    if (this.pressT >= 0) {
+      this.pressT = -1
+      if (this.mode === 'wait') this.retrieve()
+      return
+    }
     if (!this.letting) return
     this.letting = false
     // let go during the cast: stop just below the surface
@@ -282,6 +288,18 @@ export class Sea {
     this.updateFish(dt, paused)
     this.updateLife(dt)
     if (paused) return
+
+    if (this.pressT >= 0) {
+      this.pressT += dt
+      if (this.mode !== 'wait') this.pressT = -1
+      else if (this.pressT > 0.22) {
+        this.pressT = -1
+        this.targetY = this.maxY
+        this.mode = 'sink'
+        this.letting = true
+        this.host.modeChanged()
+      }
+    }
 
     const lure = this.lure
     const sway = Math.sin(this.t * 0.8) * 1.5
