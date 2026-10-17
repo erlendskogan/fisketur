@@ -1,8 +1,9 @@
 // The fishing scene: the boat on the surface and the cross-section of the fjord below
 
 import { genFish, type FishArt } from '../art/fishgen'
-import { canvas, rgba, shade, rng } from '../art/pixel'
+import { canvas, mix, rgba, rng } from '../art/pixel'
 import {
+  BOAT_H,
   BOAT_W,
   bangSprite,
   boatSprite,
@@ -14,12 +15,17 @@ import {
   jellySprites,
   LANTERN,
   tinSprite,
-  INK,
+  hydroSprite,
 } from '../art/sprites'
-import { bandGradient, buildWater, drawBeam, drawDeco, drawRidge, lighthouseSprite, nightness, ridge, skyAt, SEABED, type Water } from '../art/scenery'
+import { buildWater, drawBeam, drawDeco, farLighthouse, nightness, SEABED, type Water } from '../art/scenery'
+import { ambientAt, Backdrop, drawGlitter, drawReflection, drawRipples, glow, golden, light, rippleColour, skyAt, tintAmbient, type Sky } from '../art/fjord'
 import { sfx } from '../audio'
-import { depthToY, PAINTS, WORLD_BOTTOM, SPECIES, SPECIES_BY_ID, yToDepth, ZONE_H, ZONES, zoneAt, type Species } from './data'
+import { depthToY, PAINTS, WORLD, WORLD_BOTTOM, SPECIES, SPECIES_BY_ID, yToDepth, ZONE_H, ZONES, zoneAt, type Species } from './data'
+import { HYDRO_DEPTHS } from './alaska'
+import { BUOY_DEPTHS } from './hawaii'
+import { dev } from './harbor'
 import { Reel } from './reel'
+import { Rain, weatherAt } from './weather'
 import { gearValue, type Save } from './state'
 
 const arts = new Map<string, FishArt>()
@@ -57,6 +63,10 @@ export interface SeaHost {
   caught(sp: Species, cm: number, kg: number, perfect: boolean, chest: boolean): void
   escaped(): void
   letterFound(): void
+  hydroPlaced(): void
+  hint(text: string): void
+  calfVisit(): void
+  gamleVisit(): void
   gamleCaught(): void
   modeChanged(): void
 }
@@ -78,6 +88,8 @@ export class Sea {
   holding = false
   /** finger is down letting out line */
   letting = false
+  /** how long the finger has been down while waiting: a tap hauls in, a hold goes deeper */
+  private pressT = -1
   private waitT = 0
   private biteT = 0
   private cooldown = 0
@@ -87,21 +99,43 @@ export class Sea {
   private catT = 0
   private hearts: { x: number; y: number; t: number }[] = []
   private bubbles: { x: number; y: number; t: number }[] = []
-  private motes: { x: number; y: number; s: number }[] = []
+  /** marine snow, in screen space; z is how far away (parallax) */
+  private snow: { x: number; y: number; z: number; ph: number }[] = []
+  /** glowing plankton stirred up by the lure in the dark */
+  private sparks: { x: number; y: number; t: number; c: string }[] = []
+  private schools: { x: number; y: number; dir: 1 | -1; speed: number; n: number; ph: number }[] = []
   private jellies: { x: number; y: number; ph: number }[] = []
-  private ridges: { far: number[]; near: number[] } = { far: [], near: [] }
+  private bd = new Backdrop()
+  private rain = new Rain()
+  /** height of the sky above the surface when the camera rests */
+  private hz = 0
+  private sc = canvas(1, 1)
+  private work = canvas(1, 1)
+  private farC = canvas(1, 1)
+  private farLamp = { x: 0, y: 0 }
+  private farLit: boolean | null = null
+  private windows: { x: number; y: number; on: number }[] = []
+  private whales: { x: number; t0: number; dir: 1 | -1; breach?: boolean; orca?: boolean }[] = []
+  private gamle: { t0: number; told: boolean } | null = null
+  private gamleT = 0
+  private calf: { t0: number; told: boolean } | null = null
+  private calfT = 0
+  private dayHint = false
+  private flyers: { x: number; t0: number; y: number }[] = []
+  private nextWhale = 6
+  private net: { x: number; t0: number } | null = null
   private boatImg!: HTMLCanvasElement
   private paint = ''
-  private fisherImg = fisherSprite()
+  private fisherImg = fisherSprite(WORLD)
+  private knutImg = fisherSprite('knut')
   private cats = catSprites()
   private heart = heartSprite()
   private bang = bangSprite()
   private tin = tinSprite()
+  private hydro = hydroSprite()
   private gulls = gullSprites()
-  private jellyImgs = jellySprites()
-  private lhSmall = { off: lighthouseSprite(false, 'small'), on: lighthouseSprite(true, 'small') }
+  private jellyImgs = jellySprites(WORLD)
   private dark = canvas(1, 1)
-  private stars: { x: number; y: number; p: number }[] = []
   private landing: { fish: Fish; t: number; x0: number; y0: number } | null = null
   /** where the line and the boat sit, in world coordinates */
   tipX = 0
@@ -120,15 +154,20 @@ export class Sea {
     this.W = W
     this.H = H
     if (rebuild) {
-      this.water = buildWater(W)
-      this.ridges = { far: ridge(W, 3, 34, 14), near: ridge(W, 9, 18, 9) }
+      this.water = buildWater(W, WORLD)
       const r = rng(5)
-      this.stars = Array.from({ length: 40 }, () => ({ x: Math.floor(r() * W), y: r(), p: r() * 6 }))
-      this.motes = Array.from({ length: 46 }, () => ({ x: r() * W, y: r() * H, s: 0.5 + r() }))
+      this.snow = Array.from({ length: 60 }, () => ({ x: r() * W, y: r() * H, z: 0.3 + r() * 0.7, ph: r() * 6 }))
       this.jellies = Array.from({ length: 5 }, () => ({ x: 20 + r() * (W - 40), y: 2 * ZONE_H + r() * ZONE_H * 2, ph: r() * 6 }))
+      this.schools = Array.from({ length: 4 }, (_, i) => ({ x: r() * W, y: 50 + i * 120 + r() * 60, dir: r() < 0.5 ? 1 : -1, speed: 3 + r() * 4, n: 7 + Math.floor(r() * 6), ph: r() * 6 }))
       this.fish = []
     }
     this.dark = canvas(W, H)
+    this.hz = Math.round(H * 0.42)
+    this.bd.resize(W, this.hz, WORLD === 'alaska' ? 45 : WORLD === 'hawaii' ? 60 : 5, 0.72, WORLD)
+    this.rain.resize(W, H)
+    this.sc = canvas(W, this.hz)
+    this.work = canvas(W, this.hz)
+    this.farLit = null
     this.boatX = Math.round(W * 0.58) - 42
     this.tipX = this.boatX + 42
     this.tipY = -32
@@ -137,7 +176,7 @@ export class Sea {
   }
 
   get idleCam() {
-    return -Math.round(this.H * 0.42)
+    return -this.hz
   }
 
   get maxY() {
@@ -165,18 +204,22 @@ export class Sea {
       this.holding = true
       return
     }
-    if (this.mode === 'idle') this.cast()
-    else if (this.mode === 'wait') {
-      this.targetY = this.maxY
-      this.mode = 'sink'
-      this.host.modeChanged()
+    if (this.mode === 'wait') {
+      this.pressT = 0
+      return
     }
+    if (this.mode === 'idle') this.cast()
     this.letting = true
   }
 
   /** Finger up anywhere */
   release() {
     this.holding = false
+    if (this.pressT >= 0) {
+      this.pressT = -1
+      if (this.mode === 'wait') this.retrieve()
+      return
+    }
     if (!this.letting) return
     this.letting = false
     // let go during the cast: stop just below the surface
@@ -254,11 +297,27 @@ export class Sea {
     this.t += dt
     if (this.paint !== this.s.paint) {
       const p = PAINTS.find((x) => x.id === this.s.paint) ?? PAINTS[0]
-      this.boatImg = boatSprite(p.hull, p.stripe)
+      this.boatImg = boatSprite(p.hull, p.stripe, WORLD === 'alaska' ? 'troller' : WORLD === 'hawaii' ? 'research' : 'faering')
       this.paint = this.s.paint
     }
+    this.bd.update(dt)
+    const surf = -Math.round(this.camY)
+    this.rain.update(dt, weatherAt(this.s.day, this.s.time).rain, () => surf)
     this.updateFish(dt, paused)
+    this.updateLife(dt)
     if (paused) return
+
+    if (this.pressT >= 0) {
+      this.pressT += dt
+      if (this.mode !== 'wait') this.pressT = -1
+      else if (this.pressT > 0.22) {
+        this.pressT = -1
+        this.targetY = this.maxY
+        this.mode = 'sink'
+        this.letting = true
+        this.host.modeChanged()
+      }
+    }
 
     const lure = this.lure
     const sway = Math.sin(this.t * 0.8) * 1.5
@@ -528,8 +587,42 @@ export class Sea {
     this.fish = this.fish.filter((f) => !(f.state === 'flee' && (f.alpha <= 0 || f.x < -80 || f.x > this.W + 80)))
   }
 
+  /** Rebuild the water for the place you have just moved to */
+  newWorld() {
+    const W = this.W
+    this.W = 0
+    this.resize(W, this.H)
+    this.farLit = null
+    this.paint = ''
+    this.fisherImg = fisherSprite(WORLD)
+    this.jellyImgs = jellySprites(WORLD)
+    this.whales = []
+    this.net = null
+    this.calf = null
+    this.calfT = 0
+    this.gamle = null
+    this.gamleT = 0
+  }
+
+  /** Where the next of Selma's hydrophones should go, if you are carrying one */
+  hydroTarget() {
+    const s = this.s
+    if (WORLD === 'hawaii') {
+      // Selma's song buoys only hear the whales at night
+      const b = s.buoys
+      if (!s.flags.hi_buoys || b.placed !== b.heard || b.placed >= BUOY_DEPTHS.length || nightness(s.time) < 0.5) return null
+      if (b.placed === 1 && !s.flags.hi_pondFull) return null
+      return Math.round(depthToY(BUOY_DEPTHS[b.placed]))
+    }
+    const h = s.hydro
+    if (WORLD !== 'alaska' || !s.flags.ak_hydro || h.placed !== h.heard || h.placed >= HYDRO_DEPTHS.length) return null
+    if (h.placed === 2 && !s.flags.ak_dam) return null
+    return Math.round(depthToY(HYDRO_DEPTHS[h.placed]))
+  }
+
   private letterItem() {
     const s = this.s
+    if (WORLD !== 'norge') return null
     if (!s.flags.metKnut || s.letters.found > s.letters.delivered || s.letters.delivered >= 4 || this.carrying) return null
     const y = Math.round(depthToY(LETTER_DEPTHS[s.letters.delivered]))
     const side = s.letters.delivered % 2 === 0 ? 1 : -1
@@ -538,6 +631,32 @@ export class Sea {
   }
 
   private lookForBite(dt: number) {
+    // hold a hydrophone still at its depth and it fastens itself to the rock
+    const hy = this.hydroTarget()
+    if (hy !== null && Math.abs(this.lure.y - hy) < 14) {
+      this.snagT += dt
+      if (this.snagT > 1.5) {
+        this.snagT = 0
+        this.releaseInterest()
+        if (WORLD === 'hawaii') this.s.buoys.placed++
+        else this.s.hydro.placed++
+        this.mode = 'retrieve'
+        sfx.plop()
+        this.host.hydroPlaced()
+        this.host.modeChanged()
+      }
+      return
+    }
+    // a song buoy taken down in daylight: tell the player why nothing happens
+    if (WORLD === 'hawaii' && !this.dayHint) {
+      const b = this.s.buoys
+      if (this.s.flags.hi_buoys && b.placed === b.heard && b.placed < BUOY_DEPTHS.length && nightness(this.s.time) < 0.5 && (b.placed !== 1 || this.s.flags.hi_pondFull)) {
+        if (Math.abs(this.lure.y - depthToY(BUOY_DEPTHS[b.placed])) < 14) {
+          this.dayHint = true
+          this.host.hint('Sangbøyene hører bare hvalene om natta. Kom tilbake når det er mørkt.')
+        }
+      }
+    }
     const item = this.letterItem()
     if (item && Math.abs(this.lure.y - item.y) < 22) {
       this.snagT += dt
@@ -556,6 +675,15 @@ export class Sea {
 
     // Den gamle comes before anything else when she is expected
     const s = this.s
+    // and in Alaska, the king salmon comes in to the shallows on his way home
+    if (WORLD === 'alaska' && s.flags.ak_finale && !s.flags.ak_king && this.lure.y < depthToY(60)) {
+      if (this.waitT > 2 && !this.fish.some((f) => f.sp.special)) {
+        const k = this.spawn(1, SPECIES_BY_ID.kongen, this.lure.y + 20)
+        k.x = this.W + 50
+        k.state = 'approach'
+      }
+      return
+    }
     if (s.flags.finale && !s.flags.scale && this.lure.y > SEABED - 150) {
       if (this.waitT > 2 && !this.fish.some((f) => f.sp.special)) {
         const g = this.spawn(5, SPECIES_BY_ID.gamle, this.lure.y + 30)
@@ -564,47 +692,710 @@ export class Sea {
       }
       return
     }
-    if (Math.random() > dt * 1.4 * gearValue(this.s, 'lure')) return
+    // fish bite better when it rains
+    const rain = weatherAt(this.s.day, this.s.time).rain
+    if (Math.random() > dt * 1.4 * gearValue(this.s, 'lure') * (1 + rain * 0.5)) return
     const near = this.fish.filter((f) => f.state === 'swim' && !f.sp.special && Math.abs(f.y - this.lure.y) < 46 && Math.abs(f.x - this.lure.x) < this.W)
     if (!near.length) return
     const f = near[Math.floor(Math.random() * near.length)]
     f.state = 'approach'
   }
 
+  /** Lofoten: on a dark night at sea with the twelve skrei hung, Den gamle comes to see Knut */
+  private updateLofoten(dt: number) {
+    const f = this.s.flags
+    if (f.lo_finale && !f.lo_gamle && this.mode === 'idle' && nightness(this.s.time) > 0.5) {
+      this.gamleT += dt
+      if (this.gamleT > 2 && !this.gamle) {
+        this.gamle = { t0: this.t, told: false }
+        sfx.whale()
+      }
+    }
+    if (this.gamle && !this.gamle.told && this.t - this.gamle.t0 > 7) {
+      this.gamle.told = true
+      this.host.gamleVisit()
+    }
+    if (f.lo_gamle && this.gamle && this.t - this.gamle.t0 > 30) this.gamle = null
+  }
+
+  /** Hawaii: the mother and calf come to the boat when the song is complete, and flying fish */
+  private updateHawaii(dt: number) {
+    const f = this.s.flags
+    if (f.hi_finale && !f.hi_calf && this.mode === 'idle') {
+      this.calfT += dt
+      if (this.calfT > 2 && !this.calf) {
+        this.calf = { t0: this.t, told: false }
+        sfx.song()
+      }
+    }
+    if (this.calf && !this.calf.told && this.t - this.calf.t0 > 6) {
+      this.calf.told = true
+      this.host.calfVisit()
+    }
+    if (f.hi_calf && this.calf && this.t - this.calf.t0 > 30) this.calf = null
+    if (nightness(this.s.time) < 0.4 && Math.random() < dt * 0.15) this.flyers.push({ x: 0, t0: this.t, y: Math.random() * 3 })
+    this.flyers = this.flyers.filter((x) => this.t - x.t0 < 2)
+  }
+
+  /** Fish schools in the distance, plankton and the far scenery */
+  private updateLife(dt: number) {
+    const W = this.W
+    if (WORLD === 'hawaii') this.updateHawaii(dt)
+    if (WORLD === 'lofoten') this.updateLofoten(dt)
+    if (WORLD !== 'norge') {
+      // whales come up now and then; when the herring are in they come often and feed together
+      const feeding = WORLD === 'alaska' && !!this.s.flags.ak_finale
+      this.nextWhale -= dt
+      if (this.nextWhale <= 0) {
+        this.nextWhale = feeding ? 5 + Math.random() * 6 : 14 + Math.random() * 22
+        const x = W * (0.45 + Math.random() * 0.45)
+        if (feeding && !this.net && Math.random() < 0.5) this.net = { x, t0: this.t }
+        else if (WORLD === 'lofoten' && Math.random() < 0.6) {
+          // a pod of orcas following the herring into Vestfjorden
+          const dir = Math.random() < 0.5 ? 1 : -1
+          for (let i = 0; i < 3; i++) this.whales.push({ x: x + i * 9 * -dir, t0: this.t + i * 0.5, dir, orca: true })
+        } else this.whales.push({ x, t0: this.t, dir: Math.random() < 0.5 ? 1 : -1, breach: WORLD === 'hawaii' && Math.random() < 0.4 })
+        // you hear them through the hull when the surface is close
+        if (this.camY < 40 && WORLD !== 'lofoten') sfx.whale(true)
+      }
+      this.whales = this.whales.filter((w) => this.t - w.t0 < 7.5)
+    }
+    for (const sc of this.schools) {
+      sc.x += sc.dir * sc.speed * dt
+      if (sc.x < -40) sc.dir = 1
+      if (sc.x > W + 40) sc.dir = -1
+    }
+    // the lure stirs up glowing plankton where it is dark
+    const dark = Math.max(nightness(this.s.time), Math.min(1, Math.max(0, this.lure.y - 500) / 300))
+    const moving = this.mode === 'sink' || this.mode === 'retrieve' || this.mode === 'land' || this.mode === 'snag' || this.mode === 'reel'
+    if (dark > 0.3 && this.lure.y > 4 && moving && Math.random() < dt * 30 * dark)
+      this.sparks.push({ x: this.lure.x + (Math.random() - 0.5) * 8, y: this.lure.y + (Math.random() - 0.5) * 6, t: 0, c: Math.random() < 0.8 ? '#7affe8' : '#9ab8ff' })
+    for (const f of this.fish)
+      if (dark > 0.5 && f.state !== 'swim' && f.y > 4 && Math.random() < dt * 4) this.sparks.push({ x: f.x - f.dir * f.art.w * 0.4, y: f.y, t: 0, c: '#7affe8' })
+    for (const p of this.sparks) {
+      p.t += dt
+      p.y -= dt * 2
+    }
+    this.sparks = this.sparks.filter((p) => p.t < 1.4)
+  }
+
   // ---------- drawing ----------
 
+  /** The distant shore: a few houses on the left and the lighthouse on its skerry */
+  private paintFar() {
+    if (WORLD === 'alaska') return this.paintFarAk()
+    if (WORLD === 'hawaii') return this.paintFarHi()
+    if (WORLD === 'lofoten') return this.paintFarLo()
+    const lit = dev.ending ?? !!this.s.flags.ending
+    if (this.farLit === lit) return
+    this.farLit = lit
+    const { W, hz } = this
+    this.farC = canvas(W, hz)
+    const g = this.farC.g
+    const r = rng(3)
+    // a spit of land with a little hamlet
+    const landW = Math.round(W * 0.34)
+    for (let x = 0; x < landW; x++) {
+      const h = Math.round(3 + 2 * Math.cos((x / landW) * Math.PI * 0.5) + Math.sin(x * 0.4) * 0.6)
+      g.fillStyle = '#2e4a3a'
+      g.fillRect(x, hz - h, 1, h)
+      g.fillStyle = '#4a6a4a'
+      g.fillRect(x, hz - h, 1, 1)
+      g.fillStyle = '#3e3a52'
+      g.fillRect(x, hz - 1, 1, 1)
+    }
+    this.windows = []
+    const houses: [number, number, number, string][] = [
+      [4, 7, 5, '#c8423a'],
+      [13, 5, 4, '#f0b43c'],
+      [20, 6, 5, '#f4ecdc'],
+      [29, 5, 4, '#c8423a'],
+      [37, 4, 3, '#8a4a3a'],
+    ]
+    for (const [x, w, h, c] of houses) {
+      if (x + w > landW - 3) continue
+      const base = hz - 4
+      g.fillStyle = c
+      g.fillRect(x, base - h, w, h)
+      g.fillStyle = '#2a2438'
+      for (let i = 0; i < Math.ceil(w / 2) + 1; i++) g.fillRect(x - 1 + i, base - h - i, w + 2 - i * 2, 1)
+      g.fillStyle = '#26304e'
+      g.fillRect(x + 1, base - h + 2, 1, 1)
+      this.windows.push({ x: x + 1, y: base - h + 2, on: 0.2 + r() * 0.5 })
+      if (w > 4) {
+        g.fillRect(x + w - 2, base - h + 2, 1, 1)
+        this.windows.push({ x: x + w - 2, y: base - h + 2, on: 0.2 + r() * 0.5 })
+      }
+    }
+    // a little pier
+    g.fillStyle = '#5a3e2a'
+    g.fillRect(landW - 2, hz - 3, 9, 1)
+    for (const x of [landW, landW + 3, landW + 6]) g.fillRect(x, hz - 2, 1, 2)
+
+    const lh = farLighthouse(lit)
+    const lx = W - lh.c.width - 2
+    g.drawImage(lh.c, lx, hz - lh.c.height)
+    this.farLamp = { x: lx + lh.lamp.x, y: hz - lh.c.height + lh.lamp.y }
+  }
+
+  /** Petersburg on its pilings to the left, and icebergs from the LeConte Glacier drifting by */
+  private paintFarAk() {
+    if (this.farLit === false) return
+    this.farLit = false
+    const { W, hz } = this
+    this.farC = canvas(W, hz)
+    const g = this.farC.g
+    const r = rng(8)
+    const landW = Math.round(W * 0.36)
+    for (let x = 0; x < landW; x++) {
+      const h = Math.round(4 + 2 * Math.cos((x / landW) * Math.PI * 0.5) + Math.sin(x * 0.5) * 0.6)
+      g.fillStyle = '#173a30'
+      g.fillRect(x, hz - h - 2, 1, h)
+      // spruce right down to the water
+      if (x % 2 === 0) {
+        const t = 3 + Math.floor(r() * 4)
+        g.fillRect(x, hz - h - 2 - t, 1, t)
+      }
+    }
+    // the town on pilings along the water
+    this.windows = []
+    const houses: [number, number, number, string][] = [
+      [3, 9, 6, '#e4e0d4'],
+      [14, 5, 5, '#c8423a'],
+      [21, 6, 6, '#5a7a9a'],
+      [29, 8, 5, '#e4e0d4'],
+      [39, 5, 4, '#f0b43c'],
+      [46, 6, 5, '#c8423a'],
+    ]
+    for (const [x, w, h, c] of houses) {
+      if (x + w > landW) continue
+      const base = hz - 4
+      g.fillStyle = '#4a3a2e'
+      for (let px = x; px < x + w; px += 2) g.fillRect(px, base, 1, 4)
+      g.fillStyle = c
+      g.fillRect(x, base - h, w, h)
+      g.fillStyle = w > 7 ? '#a8343a' : '#2a2438'
+      for (let i = 0; i < Math.ceil(w / 2) + 1; i++) g.fillRect(x - 1 + i, base - h - i, w + 2 - i * 2, 1)
+      g.fillStyle = '#26304e'
+      g.fillRect(x + 1, base - h + 2, 1, 1)
+      this.windows.push({ x: x + 1, y: base - h + 2, on: 0.15 + r() * 0.5 })
+      if (w > 5) {
+        g.fillRect(x + w - 2, base - h + 2, 1, 1)
+        this.windows.push({ x: x + w - 2, y: base - h + 2, on: 0.15 + r() * 0.5 })
+      }
+    }
+    g.fillStyle = '#5a4230'
+    g.fillRect(0, hz - 4, landW + 4, 1)
+    // icebergs, white above and glassy blue where the water has worn them
+    const berg = (bx: number, bw: number, bh: number) => {
+      for (let x = 0; x < bw; x++) {
+        const u = x / (bw - 1)
+        const h = Math.round(bh * (0.55 + 0.45 * Math.sin(Math.PI * u)) * (0.85 + 0.15 * Math.sin(x * 1.7)))
+        for (let y = 0; y < h; y++) {
+          const yy = hz - h + y
+          let c = y === 0 ? '#ffffff' : u < 0.45 ? '#e8f4fa' : '#bcdcec'
+          if (y > h - 3) c = '#7ab8d8'
+          if ((x * 3 + y) % 11 === 0 && y > 1) c = '#9ad0e8'
+          g.fillStyle = c
+          g.fillRect(bx + x, yy, 1, 1)
+        }
+      }
+    }
+    berg(W - 34, 16, 9)
+    berg(W - 14, 8, 5)
+    berg(Math.round(W * 0.5), 6, 3)
+  }
+
+  /** Bakke Creek tumbling out of the forest: a trickle behind the dam, a white cascade once it is free */
+  private drawCreek(g: CanvasRenderingContext2D, hz: number, sky: Sky) {
+    const free = !!this.s.flags.ak_dam
+    const x0 = Math.round(this.W * 0.29)
+    const top = hz - 18
+    const c = mix('#e8f4fa', sky.hor, 0.35)
+    const w = free ? 3 : 1
+    for (let y = top; y < hz - 1; y++) {
+      const flow = Math.floor(this.t * 12 - y) % 4
+      g.fillStyle = rgba(c, free ? (flow === 0 ? 0.95 : 0.7) : flow === 0 ? 0.6 : 0.25)
+      g.fillRect(x0 + Math.round(Math.sin(y * 0.6) * 0.6), y, w, 1)
+    }
+    if (free) {
+      g.fillStyle = rgba(c, 0.8)
+      for (let i = 0; i < 5; i++) g.fillRect(x0 - 2 + ((i * 3 + Math.floor(this.t * 6)) % 7), hz - 2, 1, 1)
+      // salmon leaping at the mouth of the creek once they are home
+      if (this.s.flags.ak_king) {
+        const ph = (this.t * 0.7) % 1
+        if (ph < 0.35) {
+          const k = ph / 0.35
+          g.fillStyle = '#d8584a'
+          g.fillRect(x0 + 4 + Math.round(k * 6), hz - 2 - Math.round(Math.sin(Math.PI * k) * 6), 2, 1)
+        }
+      }
+    }
+  }
+
+  /** Snowy skerries with red rorbuer and drying racks on the left, a lone skerry out in Vestfjorden */
+  private paintFarLo() {
+    if (this.farLit === false) return
+    this.farLit = false
+    const { W, hz } = this
+    this.farC = canvas(W, hz)
+    const g = this.farC.g
+    const r = rng(14)
+    const landW = Math.round(W * 0.38)
+    for (let x = 0; x < landW; x++) {
+      const h = Math.round(5 + 2 * Math.cos((x / landW) * Math.PI * 0.5) + Math.sin(x * 0.7) * 0.8)
+      g.fillStyle = '#3a4250'
+      g.fillRect(x, hz - h - 1, 1, h)
+      g.fillStyle = '#eef2f8'
+      g.fillRect(x, hz - h - 1, 1, 2)
+    }
+    this.windows = []
+    // red and yellow rorbuer on poles at the water's edge
+    for (let x = 3; x < landW - 8; x += 8 + Math.floor(r() * 3)) {
+      const c = r() < 0.75 ? '#a8343a' : '#e8b83a'
+      const base = hz - 3
+      g.fillStyle = '#3e2e24'
+      for (let px = x; px < x + 6; px += 2) g.fillRect(px, base, 1, 3)
+      g.fillStyle = c
+      g.fillRect(x, base - 4, 6, 4)
+      g.fillStyle = '#eef2f8'
+      for (let i = 0; i < 4; i++) g.fillRect(x - 1 + i, base - 5 - i, 8 - i * 2, 1)
+      g.fillStyle = '#26304e'
+      g.fillRect(x + 2, base - 3, 1, 1)
+      this.windows.push({ x: x + 2, y: base - 3, on: 0.1 + r() * 0.4 })
+    }
+    // a drying rack full of fish
+    const hx = landW + 2
+    g.fillStyle = '#6a5040'
+    for (let x = hx; x < hx + 14; x += 4) g.fillRect(x, hz - 9, 1, 8)
+    g.fillRect(hx, hz - 9, 14, 1)
+    g.fillStyle = '#9a9488'
+    for (let x = hx + 1; x < hx + 14; x += 2) g.fillRect(x, hz - 8, 1, 3)
+    // a skerry with snow on it out in the fjord
+    const sx = Math.round(W * 0.78)
+    for (let i = -9; i <= 9; i++) {
+      const h = Math.round(5 * Math.sqrt(Math.max(0, 1 - (i / 9) ** 2)) + (i % 3 === 0 ? 1 : 0))
+      g.fillStyle = '#3a4250'
+      g.fillRect(sx + i, hz - h, 1, h)
+      g.fillStyle = '#eef2f8'
+      g.fillRect(sx + i, hz - h, 1, Math.min(2, h))
+    }
+  }
+
+  /** Hilo's old wooden bayfront on the left and Coconut Island with its palms out in the bay */
+  private paintFarHi() {
+    if (this.farLit === false) return
+    this.farLit = false
+    const { W, hz } = this
+    this.farC = canvas(W, hz)
+    const g = this.farC.g
+    const r = rng(12)
+    const landW = Math.round(W * 0.4)
+    for (let x = 0; x < landW; x++) {
+      const h = Math.round(5 + 2 * Math.cos((x / landW) * Math.PI * 0.5))
+      g.fillStyle = '#2a5a2e'
+      g.fillRect(x, hz - h - 1, 1, h)
+      g.fillStyle = '#4a8a3a'
+      g.fillRect(x, hz - h - 1, 1, 1)
+    }
+    g.fillStyle = '#1e1e26'
+    g.fillRect(0, hz - 2, landW + 2, 2)
+    // the bayfront: old two-storey shops with false fronts in faded colours
+    this.windows = []
+    let x = 2
+    const cols = ['#e8c87a', '#8ac0b0', '#e89a7a', '#f0ece0', '#a8b8e0', '#e8b0c0']
+    while (x < landW - 8) {
+      const w = 6 + Math.floor(r() * 4)
+      const h = 6 + Math.floor(r() * 4)
+      const base = hz - 3
+      g.fillStyle = cols[Math.floor(r() * cols.length)]
+      g.fillRect(x, base - h, w, h)
+      g.fillStyle = '#5a4a3e'
+      g.fillRect(x, base - h, w, 1)
+      g.fillRect(x, base - 3, w, 1)
+      g.fillStyle = '#26304e'
+      for (let wx = x + 1; wx < x + w - 1; wx += 2) {
+        g.fillRect(wx, base - h + 2, 1, 2)
+        this.windows.push({ x: wx, y: base - h + 2, on: 0.15 + r() * 0.5 })
+      }
+      x += w + 1
+    }
+    // a few palms along the waterfront
+    const palm = (px: number, py: number, h: number) => {
+      g.fillStyle = '#6a5038'
+      for (let i = 0; i < h; i++) g.fillRect(px + Math.round(Math.sin(i * 0.25) * 1.2), py - i, 1, 1)
+      const tx = px + Math.round(Math.sin(h * 0.25) * 1.2)
+      const ty = py - h
+      g.fillStyle = '#2e7a3a'
+      for (const [dx, dy] of [[-3, 1], [-2, 0], [-1, 0], [1, 0], [2, 0], [3, 1], [-4, 2], [4, 2], [0, -1], [-1, 1], [1, 1]]) g.fillRect(tx + dx, ty + dy, 1, 1)
+    }
+    palm(landW - 4, hz - 3, 10)
+    palm(landW - 12, hz - 3, 8)
+    // Coconut Island: a small round island with a bridge and tall palms
+    const ix = Math.round(W * 0.66)
+    for (let i = -12; i <= 12; i++) {
+      const h = Math.round(4 * Math.sqrt(Math.max(0, 1 - (i / 12) ** 2)))
+      g.fillStyle = '#2e6a32'
+      g.fillRect(ix + i, hz - h - 1, 1, h)
+      g.fillStyle = '#e8d8a8'
+      g.fillRect(ix + i, hz - 1, 1, 1)
+    }
+    palm(ix - 6, hz - 3, 11)
+    palm(ix + 1, hz - 4, 14)
+    palm(ix + 7, hz - 3, 10)
+    g.fillStyle = '#8a7a6a'
+    for (let i = 0; i < 16; i++) g.fillRect(ix - 28 + i, hz - 2 - (i % 4 === 0 ? 1 : 0), 1, 1)
+  }
+
+  /** Humpbacks: a blow, the long back with its little fin, and the tail as it dives */
+  private drawWhales(g: CanvasRenderingContext2D, hz: number, sky: Sky) {
+    if (WORLD === 'norge') return
+    const t = this.t
+    const dark = mix('#3e4658', sky.hor, 0.2)
+    const rim = mix('#8a96aa', sky.hor, 0.3)
+    const pale = mix('#f0f4f8', sky.hor, 0.25)
+    for (const w of this.whales) {
+      const k = (t - w.t0) / 7
+      if (k < 0 || k > 1) continue
+      const x = Math.round(w.x + w.dir * k * 18)
+      if (w.orca) {
+        // a tall black fin, a black back and the white patch behind the eye
+        if (k > 0.1 && k < 0.6) {
+          const q = (k - 0.1) / 0.5
+          const lift = Math.sin(Math.PI * q) * 3
+          const bx = x + Math.round(q * 6) * w.dir
+          g.fillStyle = '#14141c'
+          for (let i = -6; i <= 6; i++) {
+            const h = Math.round(lift * Math.cos((i / 6) * (Math.PI / 2)))
+            if (h > 0) g.fillRect(bx + i, hz - h, 1, h)
+          }
+          const fin = Math.round(lift * 2.6)
+          for (let y = 0; y < fin; y++) g.fillRect(bx - Math.round(y * 0.25) * w.dir, hz - Math.round(lift) - y, Math.max(1, 3 - Math.floor((y * 3) / fin)), 1)
+          if (lift > 1.5) {
+            g.fillStyle = '#f4f4f0'
+            g.fillRect(bx + 4 * w.dir, hz - Math.round(lift) + 1, 2, 1)
+          }
+        }
+        continue
+      }
+      if (w.breach) {
+        // a humpback throwing itself out of the water and crashing back on its side
+        if (k < 0.45) {
+          const q = k / 0.45
+          const up = Math.sin(Math.PI * q) * 20
+          const tilt = q * 1.2
+          for (let i = 0; i < 22; i++) {
+            const by = hz - Math.round(i * Math.cos(tilt) * (up / 20))
+            const bx = x + Math.round(i * Math.sin(tilt) * w.dir)
+            if (by >= hz) continue
+            const wdt = i < 4 ? 3 : i > 16 ? 2 : 4
+            g.fillStyle = i % 4 === 1 ? pale : dark
+            g.fillRect(bx - 1, by, wdt, 1)
+            if (i === 12) {
+              g.fillStyle = pale
+              g.fillRect(bx + 3 * w.dir, by + 1, 3 * w.dir, 1)
+            }
+          }
+        } else if (k < 0.7) {
+          const q = (k - 0.45) / 0.25
+          g.fillStyle = rgba(pale, 0.9 * (1 - q))
+          for (let i = 0; i < 16; i++) g.fillRect(x + 8 * w.dir + Math.round(Math.sin(i * 2.3) * (4 + q * 10)), hz - 1 - Math.round(Math.abs(Math.cos(i * 1.7)) * (1 - q) * 10), 1, 1)
+        }
+        continue
+      }
+      // the blow
+      if (k < 0.18) {
+        const q = k / 0.18
+        g.fillStyle = rgba(pale, 0.7 * (1 - q))
+        for (let i = 0; i < 14 * q + 2; i++) g.fillRect(x + Math.round(Math.sin(i * 1.3) * (i / 4)), hz - 2 - i, 1 + (i > 6 ? 2 : 1), 1)
+      }
+      // the back rolling over
+      if (k > 0.08 && k < 0.5) {
+        const q = (k - 0.08) / 0.42
+        const lift = Math.sin(Math.PI * q) * 5.5
+        for (let i = -13; i <= 13; i++) {
+          const h = Math.round(lift * Math.cos((i / 13) * (Math.PI / 2)))
+          if (h <= 0) continue
+          const bx = x + i * w.dir - Math.round(q * 10) * w.dir
+          g.fillStyle = dark
+          g.fillRect(bx, hz - h, 1, h)
+          g.fillStyle = rim
+          g.fillRect(bx, hz - h, 1, 1)
+        }
+        if (q > 0.4) {
+          const fx = x - Math.round(q * 10) * w.dir - 7 * w.dir
+          g.fillStyle = dark
+          g.fillRect(fx, hz - Math.round(lift) - 2, 1, 3)
+          g.fillRect(fx - w.dir, hz - Math.round(lift) - 3, 1, 2)
+        }
+      }
+      // the tail lifting before the dive
+      if (k > 0.55 && k < 0.95) {
+        const q = (k - 0.55) / 0.4
+        const up = Math.sin(Math.PI * q) * 14
+        const tx = x - 6 * w.dir
+        g.fillStyle = dark
+        for (let y = 0; y < up - 4; y++) g.fillRect(tx - 1, hz - y - 1, 3 - (y > 6 ? 1 : 0), 1)
+        const top = Math.round(hz - up)
+        // the flukes, black on top and white underneath, spread like a swallow's tail
+        for (let i = -8; i <= 8; i++) {
+          const a = Math.abs(i)
+          const yy = top + Math.round(a * 0.35) - (a > 5 ? 1 : 0)
+          g.fillStyle = a < 2 ? dark : (i + 9) % 3 === 0 ? dark : pale
+          g.fillRect(tx + i, yy, 1, a > 6 ? 1 : 3)
+          g.fillStyle = rim
+          g.fillRect(tx + i, yy - 1, 1, 1)
+        }
+        if (q > 0.5 && Math.floor(t * 8) % 2) {
+          g.fillStyle = rgba(pale, 0.8)
+          g.fillRect(tx - 3, top + 4, 1, 1)
+          g.fillRect(tx + 4, top + 5, 1, 1)
+        }
+      }
+    }
+    // Den gamle, come all the way from Skjærvik, lying blue and glowing beside the boat
+    if (this.gamle) {
+      const k = Math.min(1, (t - this.gamle.t0) / 3)
+      const bx = this.boatX + 70
+      const len = 26
+      const lift = 4 * k + Math.sin(t * 0.7) * 0.5
+      for (let i = -len; i <= len; i++) {
+        const h = Math.round(lift * Math.cos((i / len) * (Math.PI / 2)))
+        if (h <= 0) continue
+        g.fillStyle = (i * 7) % 11 === 0 ? '#e8f4ff' : '#2a5aa8'
+        g.fillRect(bx + i, hz - h, 1, h)
+        g.fillStyle = '#8ad0ff'
+        g.fillRect(bx + i, hz - h, 1, 1)
+      }
+    }
+    // a mother and her calf resting at the surface next to the boat
+    if (this.calf) {
+      const k = Math.min(1, (t - this.calf.t0) / 2)
+      for (const [ox, len, lift] of [
+        [64, 15, 5],
+        [44, 8, 3],
+      ]) {
+        const bx = this.boatX + ox
+        const h0 = lift * k + Math.sin(t * 0.8 + ox) * 0.6
+        for (let i = -len; i <= len; i++) {
+          const h = Math.round(h0 * Math.cos((i / len) * (Math.PI / 2)))
+          if (h <= 0) continue
+          g.fillStyle = dark
+          g.fillRect(bx + i, hz - h, 1, h)
+          g.fillStyle = rim
+          g.fillRect(bx + i, hz - h, 1, 1)
+        }
+        // blows now and then, the calf more often
+        const ph = (t * (len < 10 ? 0.5 : 0.3) + ox) % 1
+        if (ph < 0.2 && k >= 1) {
+          g.fillStyle = rgba(pale, 0.7 * (1 - ph / 0.2))
+          for (let i = 0; i < (len < 10 ? 6 : 11); i++) g.fillRect(bx + 4 + Math.round(Math.sin(i) * (i / 4)), hz - lift - 1 - i, 1, 1)
+        }
+      }
+    }
+    // flying fish gliding low over the waves
+    for (const f of this.flyers) {
+      const k = (t - f.t0) / 1.6
+      if (k < 0 || k > 1) continue
+      const fx = Math.round(this.W * 0.95 - k * 70)
+      const fy = Math.round(hz - 2 - Math.sin(Math.PI * k) * 5 - f.y)
+      g.fillStyle = '#c8d8e8'
+      g.fillRect(fx, fy, 3, 1)
+      g.fillStyle = '#6a8ab8'
+      g.fillRect(fx + 1, fy - 1 + (Math.floor(t * 20) % 2), 2, 1)
+    }
+    // bubble netting: a ring of bubbles, then mouths bursting up through the middle
+    if (this.net) {
+      const k = (t - this.net.t0) / 5
+      const x = this.net.x
+      if (k > 1) this.net = null
+      else {
+        const rad = 6 + Math.min(1, k * 2) * 8
+        g.fillStyle = rgba(pale, 0.85)
+        for (let i = 0; i < 18; i++) {
+          const a = (i / 18) * Math.PI * 2 + t
+          if (Math.sin(t * 9 + i) > -0.2) g.fillRect(Math.round(x + Math.cos(a) * rad), hz - 1 + Math.round(Math.sin(a) * 0.8), 1, 1)
+        }
+        if (k > 0.5) {
+          const q = (k - 0.5) / 0.5
+          const lift = Math.sin(Math.PI * q) * 11
+          for (const [ox, d] of [
+            [-5, 0],
+            [0, 0.15],
+            [5, 0.05],
+          ]) {
+            const h = Math.round(lift * (1 - d))
+            for (let y = 0; y < h; y++) {
+              const wdt = Math.max(1, 3 - Math.floor(y / 4))
+              g.fillStyle = y > h - 3 ? '#e88a9a' : y % 3 === 1 ? pale : dark
+              g.fillRect(Math.round(x + ox - wdt / 2), hz - y - 1, wdt, 1)
+            }
+          }
+          g.fillStyle = rgba(pale, 0.7 * (1 - q))
+          for (let i = 0; i < 10; i++) g.fillRect(Math.round(x + Math.sin(i * 2.1) * 9), hz - 2 - Math.round(q * 8 * ((i % 3) + 1) * 0.5), 1, 1)
+        }
+      }
+    }
+  }
+
+  /** The world above the surface, painted into `sc` with its waterline on the bottom edge */
+  private paintSurface(time: number): Sky {
+    const { W, hz } = this
+    const sg = this.sc.g
+    sg.clearRect(0, 0, W, hz)
+    const wx = weatherAt(this.s.day, time)
+    const sky = this.bd.draw(sg, this.t, time, wx)
+    this.paintFar()
+
+    const wg = this.work.g
+    wg.clearRect(0, 0, W, hz)
+    wg.drawImage(this.farC.c, 0, 0)
+    // gulls in daylight
+    if (sky.night < 0.6)
+      for (let i = 0; i < 3; i++) {
+        const span = W + 40
+        const gx = ((((this.t * (8 + i * 3) + i * 90) % span) + span) % span) - 20
+        const gy = Math.round(hz * (0.2 + i * 0.12) + Math.sin(this.t + i) * 3)
+        wg.drawImage(this.gulls[Math.floor(this.t * 3 + i) % 2], Math.round(gx), gy)
+      }
+    this.drawWhales(wg, hz, sky)
+    if (WORLD === 'alaska') this.drawCreek(wg, hz, sky)
+    this.drawBoat(wg, hz)
+    tintAmbient(wg, time, W, hz)
+    if (wx.rain > 0) {
+      wg.globalCompositeOperation = 'source-atop'
+      wg.fillStyle = rgba('#2a3048', wx.rain * 0.3)
+      wg.fillRect(0, 0, W, hz)
+      wg.globalCompositeOperation = 'source-over'
+    }
+    sg.drawImage(this.work.c, 0, 0)
+    this.bd.fogOver(sg, sky, wx.fog)
+    // Den gamle shines through the dark, so her light goes on after the night tint
+    if (this.gamle) {
+      const k = Math.min(1, (this.t - this.gamle.t0) / 3)
+      const bx = this.boatX + 70
+      light(sg, bx, hz - 2, 30, '#6ab8ff', 0.45 * k)
+      light(sg, bx, hz - 3, 12, '#c8f0ff', 0.35 * k)
+      for (let i = -24; i <= 24; i += 5) {
+        const tw = Math.sin(this.t * 2 + i) > 0 ? 1 : 0.4
+        sg.fillStyle = rgba('#e8f8ff', 0.8 * k * tw)
+        sg.fillRect(bx + i, hz - Math.round(3 * k * Math.cos((i / 26) * (Math.PI / 2))), 1, 1)
+      }
+    }
+
+    // lights
+    const night = sky.night
+    for (const w of this.windows) {
+      const a = Math.max(0, Math.min(1, (night - w.on) * 5))
+      if (a <= 0) continue
+      sg.fillStyle = rgba('#ffc45a', a)
+      sg.fillRect(w.x, w.y, 1, 1)
+      light(sg, w.x, w.y, 3, '#ffa040', a * 0.35)
+    }
+    if (night > 0.2) {
+      const lx = this.boatX + LANTERN.x
+      const ly = hz - 15 + this.bob + LANTERN.y
+      sg.fillStyle = '#ffe08a'
+      sg.fillRect(lx, ly, 1, 1)
+      light(sg, lx, ly, 9, '#ffa040', night * 0.55)
+    }
+    if (this.farLit) {
+      light(sg, this.farLamp.x, this.farLamp.y, 7, '#ffe6a0', 0.5 + night * 0.3)
+      drawBeam(sg, this.farLamp.x, this.farLamp.y, this.t * 0.8, 150, Math.max(0.3, night))
+    }
+    for (const h of this.hearts) {
+      sg.globalAlpha = 1 - h.t / 1.4
+      sg.drawImage(this.heart, Math.round(h.x + Math.sin(h.t * 5) * 2), Math.round(h.y - h.t * 14 + hz))
+      sg.globalAlpha = 1
+    }
+    return sky
+  }
+
   draw(g: CanvasRenderingContext2D) {
-    const { W, H } = this
+    const { W, H, hz } = this
     const cam = Math.round(this.camY)
     const surf = -cam
     const time = this.s.time
     const night = nightness(time)
 
-    // sky
-    if (surf > 0) this.drawSky(g, surf, time, night)
+    // the world above water, and the light of the moment
+    const wx = weatherAt(this.s.day, time)
+    let sky: Sky
+    if (surf > -2) {
+      sky = this.paintSurface(time)
+      g.drawImage(this.sc.c, 0, surf - hz)
+    } else {
+      const [top, hor] = skyAt(time, wx)
+      sky = { top, hor, night, gold: golden(time) * (1 - night) * (1 - wx.rain), sun: null }
+    }
 
     // water background
     const wy0 = Math.max(0, cam)
     g.drawImage(this.water.bg, 0, wy0, W, H, 0, wy0 - cam, W, H)
 
-    // sun rays in the shallows
-    if (cam < ZONE_H) {
-      g.save()
-      g.globalAlpha = 0.07 * (1 - night)
-      g.fillStyle = '#e8fbff'
-      for (let i = 0; i < 5; i++) {
-        const x = ((i * 53 + this.t * 3) % (W + 60)) - 30
-        g.beginPath()
-        g.moveTo(x, surf)
-        g.lineTo(x + 10, surf)
-        g.lineTo(x + 50, surf + 200)
-        g.lineTo(x + 30, surf + 200)
-        g.fill()
+    // the colour of the sky reaches down into the shallows
+    const [amb, ambA] = ambientAt(time)
+    if (ambA > 0 && surf < H)
+      for (let y = Math.max(0, surf); y < Math.min(H, surf + 240); y += 3) {
+        const k = (y - surf) / 240
+        g.fillStyle = rgba(amb, ambA * 0.55 * (1 - k))
+        g.fillRect(0, y, W, 3)
       }
-      g.restore()
+
+    // grey days make for murky water
+    const murk = wx.rain * 0.25 + wx.fog * 0.12
+    if (murk > 0 && surf < H) {
+      g.fillStyle = rgba('#1a2238', murk)
+      g.fillRect(0, Math.max(0, surf), W, H)
     }
 
-    for (const d of this.water.deco) if (d.y - cam > -80 && d.y - cam < H + 10) drawDeco(g, d, cam, this.t)
+    // the sky and the boat mirrored on the underside of the surface
+    const R = Math.min(34, H - surf - 1)
+    if (surf > -R && R > 0) {
+      drawReflection(g, this.sc.c, this.t, sky, surf + 1, R, { fill: false, fade: 1 })
+      drawRipples(g, this.t, sky, W, surf + 1, R, 24)
+      drawGlitter(g, this.t, sky, surf + 1, R)
+    }
+
+    if (surf + 260 > 0) this.drawLightShafts(g, surf, sky, 1 - wx.rain * 0.75 - wx.fog * 0.4)
+
+    // plants grow upwards from their root, so cull by how far up they reach, not by the root alone
+    for (const d of this.water.deco) {
+      const y = d.y - cam
+      if (y > -30 && y - d.len - 20 < H) drawDeco(g, d, cam, this.t)
+    }
+
+    // a humpback gliding past far behind everything, just a long shadow
+    if (WORLD !== 'norge') {
+      const span = W + 160
+      const wx = ((this.t * 4) % span) - 80
+      const wy = 170 + Math.sin(this.t * 0.05) * 40 - cam
+      if (wy > -30 && wy < H + 30) {
+        g.fillStyle = rgba(mix(ZONES[0].water[1], '#06101e', 0.6), 0.32)
+        for (let i = 0; i < 60; i++) {
+          const u = i / 59
+          const h = Math.round(9 * Math.sin(Math.PI * Math.pow(u, 0.7)) + 1)
+          g.fillRect(Math.round(wx + 30 - i), Math.round(wy - h / 2 + Math.sin(this.t + i * 0.08) * 0.8), 1, h)
+        }
+        // the long white-edged flipper and the tail
+        g.fillRect(Math.round(wx + 14), Math.round(wy + 3), 2, 1)
+        for (let i = 0; i < 14; i++) g.fillRect(Math.round(wx + 14 - i), Math.round(wy + 4 + i * 0.4), 2, 1)
+        for (let i = -5; i <= 5; i++) g.fillRect(Math.round(wx - 31 - Math.abs(i) * 0.3), Math.round(wy + i + Math.sin(this.t * 1.5) * 1.5), 2, 1)
+      }
+    }
+
+    // fish schools far behind, just shadows in the water
+    for (const sc of this.schools) {
+      const y0 = sc.y - cam
+      if (y0 < -20 || y0 > H + 20) continue
+      g.fillStyle = rgba(mix(skyAt(time)[0], '#08142a', 0.7), 0.28)
+      for (let i = 0; i < sc.n; i++) {
+        const fx = Math.round(sc.x + Math.sin(i * 2.1 + sc.ph) * 12 + Math.sin(this.t * 0.8 + i) * 1.5)
+        const fy = Math.round(y0 + Math.cos(i * 1.7 + sc.ph) * 6 + Math.sin(this.t * 1.1 + i * 0.7) * 1)
+        g.fillRect(fx, fy, 3, 1)
+        g.fillRect(fx + (sc.dir === 1 ? -1 : 3), fy + (Math.floor(this.t * 4 + i) % 2 ? -1 : 1) * 0, 1, 1)
+      }
+    }
 
     // jellyfish
     for (const j of this.jellies) {
@@ -618,6 +1409,25 @@ export class Sea {
     // letter tin
     const item = this.letterItem()
     if (item) g.drawImage(this.tin, item.x, item.y - cam - 4)
+
+    // Selma's hydrophones on the rock, and a mark where the next one goes
+    const hy = this.hydroTarget()
+    const devices = WORLD === 'alaska' ? HYDRO_DEPTHS.slice(0, this.s.hydro.placed) : WORLD === 'hawaii' ? BUOY_DEPTHS.slice(0, this.s.buoys.placed) : []
+    if (WORLD !== 'norge') {
+      for (const depth of devices) {
+        const y = Math.round(depthToY(depth))
+        if (y - cam < -10 || y - cam > H + 10) continue
+        g.drawImage(this.hydro, this.water.wallL[y] - 1, y - cam - 4)
+      }
+      if (hy !== null && this.mode !== 'idle' && hy - cam > -4 && hy - cam < H + 4) {
+        const y = hy - cam
+        const on = Math.sin(this.t * 4) > 0
+        g.fillStyle = on ? 'rgba(255,216,74,0.7)' : 'rgba(255,216,74,0.35)'
+        const xl = this.water.wallL[hy]
+        const xr = W - this.water.wallR[hy]
+        for (let x = xl + 2; x < xr - 2; x += 5) g.fillRect(x, y, 2, 1)
+      }
+    }
 
     // fish
     for (const f of this.fish) this.drawFish(g, f, cam, false)
@@ -638,48 +1448,103 @@ export class Sea {
     g.fillStyle = ['#d86a6a', '#e8eef4', '#ffd84a', '#7affd8'][this.s.gear.lure]
     g.fillRect(lx - 1, ly + 1, 2, 2)
     if (this.carrying) g.drawImage(this.tin, lx - 4, ly + 3)
+    if (hy !== null && ly > surf) g.drawImage(this.hydro, lx - 2, ly + 3)
 
     for (const b of this.bubbles) {
+      const by = Math.round(b.y - cam)
+      if (by <= surf) continue
       g.fillStyle = rgba('#e8fbff', 0.6 * (1 - b.t / 1.5))
-      g.fillRect(Math.round(b.x + Math.sin(b.t * 6) * 1.5), Math.round(b.y - cam), 1, 1)
-    }
-
-    // boat, fisher, cat
-    this.drawBoat(g, surf, night)
-
-    // surface: tint the hull below the waterline, then the wave line
-    if (surf > -4 && surf < H) {
-      const top = ZONES[0].water[0]
-      g.fillStyle = rgba(top, 0.55)
-      g.fillRect(0, surf + 1, W, 12)
-      for (let x = 0; x < W; x++) {
-        const w = Math.round(Math.sin(x * 0.12 + this.t * 1.6) + Math.sin(x * 0.05 - this.t))
-        g.fillStyle = w > 0 ? '#e8fbff' : '#9ae4f4'
-        g.fillRect(x, surf + w, 1, 1)
-        g.fillStyle = rgba('#46c3df', 0.9)
-        g.fillRect(x, surf + w + 1, 1, 2)
+      g.fillRect(Math.round(b.x + Math.sin(b.t * 6) * 1.5), by, 1, 1)
+      if (b.t < 0.4) {
+        g.fillStyle = rgba('#e8fbff', 0.3)
+        g.fillRect(Math.round(b.x + Math.sin(b.t * 6) * 1.5) + 1, by - 1, 1, 1)
       }
     }
 
-    // drifting particles below 60 m
-    for (const m of this.motes) {
-      m.y += m.s * 0.15
-      if (m.y > H) m.y -= H
-      const wy = m.y + cam
-      if (wy < 2 * ZONE_H) continue
-      g.fillStyle = 'rgba(210,225,240,0.35)'
-      g.fillRect(Math.round(m.x + Math.sin(this.t * 0.4 + m.s * 9) * 2), Math.round(m.y), 1, 1)
+    // surface: the hull under water, foam and the wave line
+    if (surf > -4 && surf < H) {
+      const top = surf - 15 + this.bob
+      const sub = surf + 1 - top
+      if (sub > 0 && sub < BOAT_H) {
+        g.globalAlpha = 0.3
+        g.drawImage(this.boatImg, 0, sub, BOAT_W, BOAT_H - sub, this.boatX, surf + 1, BOAT_W, BOAT_H - sub)
+        g.globalAlpha = 1
+      }
+      const hi = rippleColour(sky)
+      for (const crest of [false, true]) {
+        g.fillStyle = rgba(hi, crest ? 0.75 : 0.35)
+        g.beginPath()
+        for (let x = 0; x < W; x++) {
+          const w = Math.sin(x * 0.12 + this.t * 1.6) + Math.sin(x * 0.05 - this.t)
+          if (w > 0.6 === crest) g.rect(x, surf + (w > -0.4 ? 0 : 1), 1, 1)
+        }
+        g.fill()
+      }
+      g.fillStyle = rgba('#ffffff', 0.6)
+      g.beginPath()
+      for (let x = this.boatX + 3; x < this.boatX + 44; x++) if (Math.sin(x * 0.9 + this.t * 3) > 0.5) g.rect(x, surf + 1, 1, 1)
+      g.fill()
+    }
+
+    // marine snow drifting past, with parallax
+    for (const m of this.snow) {
+      const sy = ((((m.y + this.t * 2 * m.z - cam * m.z) % H) + H) % H)
+      if (sy <= surf + 3) continue
+      const sx = Math.round(m.x + Math.sin(this.t * 0.4 + m.ph) * 2)
+      g.fillStyle = rgba('#d8e8f4', 0.1 + 0.28 * m.z)
+      g.fillRect(sx, Math.round(sy), 1, 1)
+    }
+
+    if (surf > 0) {
+      g.save()
+      g.beginPath()
+      g.rect(0, 0, W, surf + 1)
+      g.clip()
+      this.rain.draw(g, wx.rain, night)
+      g.restore()
     }
 
     this.drawDarkness(g, cam, surf, night)
 
     // things that glow
+    g.globalCompositeOperation = 'lighter'
+    for (const gl of this.water.glows) {
+      const y = gl.y - cam
+      if (y < -6 || y > H + 6) continue
+      const tw = 0.6 + 0.4 * Math.sin(this.t * 2 + gl.x)
+      glow(g, gl.x, y, 3, gl.c, 0.5 * tw)
+    }
+    for (const d of this.water.deco)
+      if (d.kind === 'glowplant') {
+        const y = d.y - cam - Math.round(d.len) + 1
+        if (y < -6 || y > H + 6) continue
+        glow(g, d.x, y, 3, d.color, 0.55)
+      }
+    for (const d of this.water.deco)
+      if (d.kind === 'vent' && d.y - cam > -40 && d.y - cam < H + 40) glow(g, d.x, d.y - cam - d.len, 12, '#ff6a2a', 0.3 + 0.1 * Math.sin(this.t * 3 + d.seed))
+    for (const j of this.jellies) {
+      const y = j.y + Math.sin(this.t * 0.5 + j.ph) * 14 - cam
+      if (y < -20 || y > H + 20) continue
+      glow(g, j.x + Math.sin(this.t * 0.3 + j.ph) * 8 + 4, y + 3, 9, WORLD === 'alaska' ? '#ff8a5a' : '#ff7ac0', 0.22 + 0.08 * Math.sin(this.t * 2 + j.ph))
+    }
+    devices.forEach((depth, i) => {
+        const y = Math.round(depthToY(depth))
+        if (y - cam < -10 || y - cam > H + 10 || Math.sin(this.t * 3 + i) < 0.3) return
+        glow(g, this.water.wallL[y] + 1, y - cam - 4, 3, '#6aff8a', 0.7)
+      })
+    for (const p of this.sparks) {
+      const y = p.y - cam
+      const a = (1 - p.t / 1.4) * (p.t < 0.15 ? p.t / 0.15 : 1)
+      glow(g, p.x, y, 2, p.c, a * 0.8)
+    }
+    g.globalCompositeOperation = 'source-over'
+    for (const p of this.sparks) {
+      g.fillStyle = rgba(p.c, 1 - p.t / 1.4)
+      g.fillRect(Math.round(p.x), Math.round(p.y - cam), 1, 1)
+    }
     for (const gl of this.water.glows) {
       const y = gl.y - cam
       if (y < -4 || y > H + 4) continue
-      const tw = 0.6 + 0.4 * Math.sin(this.t * 2 + gl.x)
-      g.fillStyle = rgba(gl.c, 0.25 * tw)
-      g.fillRect(gl.x - 1, y - 1, 3, 3)
       g.fillStyle = gl.c
       g.fillRect(gl.x, y, 1, 1)
     }
@@ -687,8 +1552,6 @@ export class Sea {
       if (d.kind === 'glowplant') {
         const y = d.y - cam - Math.round(d.len) + 1
         if (y < -4 || y > H + 4) continue
-        g.fillStyle = rgba(d.color, 0.3)
-        g.fillRect(Math.round(d.x) - 1, y - 1, 3, 3)
         g.fillStyle = d.color
         g.fillRect(Math.round(d.x), y, 1, 1)
       }
@@ -701,6 +1564,7 @@ export class Sea {
       g.fillRect(gx - 1, gy, 3, 1)
     }
     if (ly > surf) {
+      light(g, lx, ly + 2, 6, '#ffe8a0', this.s.gear.lamp ? 0.35 : 0.15)
       g.fillStyle = this.s.gear.lamp ? '#fff4c8' : 'rgba(255,244,200,0.6)'
       g.fillRect(lx - 1, ly + 1, 2, 2)
     }
@@ -722,6 +1586,52 @@ export class Sea {
     }
   }
 
+  /** Shafts of daylight slanting down from the surface, and the shimmer of caustics just below it */
+  private drawLightShafts(g: CanvasRenderingContext2D, surf: number, sky: Sky, clear: number) {
+    const day = (1 - sky.night) * clear
+    if (day < 0.05) return
+    const W = this.W
+    const col = sky.sun ? mix('#e8fbff', sky.sun.c, 0.55) : '#e8fbff'
+    // rays lean away from the sun
+    const lean = sky.sun ? (0.5 - sky.sun.x / W) * 0.7 : 0.25
+    g.globalCompositeOperation = 'lighter'
+    for (let i = 0; i < 6; i++) {
+      const x0 = ((i * 47 + this.t * 2.2 + Math.sin(this.t * 0.13 + i) * 10) % (W + 80)) - 40
+      const w = 4 + (i % 3) * 4
+      const flick = 0.55 + 0.45 * Math.sin(this.t * 0.6 + i * 2.3)
+      const seg = 52
+      for (let k = 0; k < 5; k++) {
+        const ya = surf + k * seg
+        const yb = ya + seg
+        const xa = x0 + lean * k * seg
+        const xb = x0 + lean * (k + 1) * seg
+        const wa = w * (1 + k * 0.35)
+        const wb = w * (1 + (k + 1) * 0.35)
+        g.fillStyle = rgba(col, 0.075 * day * flick * (1 - k / 5))
+        g.beginPath()
+        g.moveTo(Math.round(xa), ya)
+        g.lineTo(Math.round(xa + wa), ya)
+        g.lineTo(Math.round(xb + wb), yb)
+        g.lineTo(Math.round(xb), yb)
+        g.fill()
+      }
+    }
+    // caustics
+    for (let d = 2; d < 30; d += 2) {
+      const y = surf + d
+      if (y < 0 || y >= this.H) continue
+      const a = (1 - d / 30) * 0.32 * day
+      g.fillStyle = rgba(col, a)
+      g.beginPath()
+      for (let x = 0; x < W; x++) {
+        const v = Math.sin(x * 0.21 + Math.sin(d * 0.5 + this.t * 0.9) * 2.2 + this.t * 0.8) * Math.sin(x * 0.07 - this.t * 0.5 + d * 0.2)
+        if (v > 0.72) g.rect(x, y, 1, 1)
+      }
+      g.fill()
+    }
+    g.globalCompositeOperation = 'source-over'
+  }
+
   private rodTip(cam: number) {
     const hx = this.boatX + 14 + FISHER_HAND.x
     const hy = this.bob - 15 - 7 + FISHER_HAND.y - cam
@@ -729,14 +1639,14 @@ export class Sea {
     return { x: hx + 18 - Math.round(bend * 0.3), y: hy - 16 + bend, hx, hy }
   }
 
-  private drawBoat(g: CanvasRenderingContext2D, surf: number, night: number) {
-    if (surf < -30 || surf > this.H + 30) return
+  /** The boat with the fisher and the cat, drawn with the waterline at `surf` */
+  private drawBoat(g: CanvasRenderingContext2D, surf: number) {
     const top = surf - 15 + this.bob
     const bx = this.boatX
     // fisher sits behind the gunwale
     g.drawImage(this.fisherImg, bx + 14, top - 7)
     // rod
-    const tip = this.rodTip(this.camY)
+    const tip = this.rodTip(-surf)
     const steps = 22
     for (let i = 0; i <= steps; i++) {
       const k = i / steps
@@ -745,27 +1655,14 @@ export class Sea {
       g.fillStyle = k < 0.3 ? '#6a4a32' : k > 0.92 ? '#e8e0d0' : '#a87a4a'
       g.fillRect(Math.round(x), Math.round(y), 1, 1)
     }
+    // great-grandfather's boat with grandfather in it, the last nights in Lofoten
+    const knut = WORLD === 'lofoten' && this.s.flags.lo_hjellFull && !this.s.flags.lo_ending
+    if (knut) g.drawImage(this.knutImg, bx + 28, top - 5)
     g.drawImage(this.boatImg, bx, top)
-    // the lantern glows at night
-    if (night > 0.2) {
-      g.save()
-      g.globalCompositeOperation = 'lighter'
-      g.fillStyle = `rgba(255,190,90,${0.18 * night})`
-      g.beginPath()
-      g.arc(bx + LANTERN.x, top + LANTERN.y, 9, 0, Math.PI * 2)
-      g.fill()
-      g.restore()
-    }
-    if (this.s.flags.cat) {
+    if (this.s.flags.cat && !knut) {
       const blink = this.catT % 4 < 0.15
       g.drawImage(this.cats[blink ? 1 : 0], bx + 34, top + 1)
     }
-    for (const h of this.hearts) {
-      g.globalAlpha = 1 - h.t / 1.4
-      g.drawImage(this.heart, Math.round(h.x + Math.sin(h.t * 5) * 2), Math.round(h.y - h.t * 14 + surf))
-      g.globalAlpha = 1
-    }
-    void BOAT_W
   }
 
   private drawFish(g: CanvasRenderingContext2D, f: Fish, cam: number, glowPass: boolean) {
@@ -792,83 +1689,6 @@ export class Sea {
     g.globalAlpha = 1
   }
 
-  private drawSky(g: CanvasRenderingContext2D, surf: number, time: number, night: number) {
-    const W = this.W
-    const [top, bot] = skyAt(time)
-    bandGradient(g, 0, 0, W, surf, top, bot, 9)
-    // stars
-    if (night > 0.05)
-      for (const s of this.stars) {
-        const y = Math.round(s.y * surf * 0.75)
-        const tw = Math.sin(this.t * 1.5 + s.p) > 0.2 ? 1 : 0.5
-        g.fillStyle = `rgba(255,250,230,${night * tw})`
-        g.fillRect(s.x, y, 1, 1)
-      }
-    // sun and moon
-    const arc = (t0: number, t1: number) => {
-      const k = (time - t0) / (t1 - t0)
-      if (k < 0 || k > 1) return null
-      return { x: Math.round(W * (0.9 - k * 0.8)), y: Math.round(surf - 26 - Math.sin(k * Math.PI) * (surf * 0.55)) }
-    }
-    const sun = arc(0.2, 0.8)
-    if (sun) {
-      g.fillStyle = 'rgba(255,240,180,0.35)'
-      g.fillRect(sun.x - 6, sun.y - 6, 13, 13)
-      g.fillStyle = time > 0.62 || time < 0.3 ? '#ffb46a' : '#fff2b8'
-      g.fillRect(sun.x - 4, sun.y - 5, 9, 11)
-      g.fillRect(sun.x - 5, sun.y - 4, 11, 9)
-    }
-    const mk = ((time < 0.5 ? time + 1 : time) - 0.74) / 0.52
-    if (mk >= 0 && mk <= 1) {
-      const mx = Math.round(W * (0.9 - mk * 0.8))
-      const my = Math.round(surf - 26 - Math.sin(mk * Math.PI) * (surf * 0.55))
-      g.fillStyle = '#f2ecd2'
-      g.fillRect(mx - 3, my - 4, 7, 9)
-      g.fillRect(mx - 4, my - 3, 9, 7)
-      g.fillStyle = '#d2ccb2'
-      g.fillRect(mx - 1, my - 1, 2, 2)
-      g.fillRect(mx + 2, my + 1, 1, 1)
-    }
-
-    // clouds
-    for (let i = 0; i < 4; i++) {
-      const cx = ((i * 71 + this.t * (2 + i * 0.6)) % (W + 70)) - 35
-      const cy = 14 + ((i * 37) % Math.max(20, Math.round(surf * 0.4)))
-      const col = night > 0.5 ? 'rgba(80,80,130,0.5)' : time > 0.62 ? 'rgba(255,214,200,0.85)' : 'rgba(255,255,255,0.85)'
-      g.fillStyle = col
-      g.fillRect(Math.round(cx), cy, 22, 3)
-      g.fillRect(Math.round(cx) + 4, cy - 3, 10, 3)
-      g.fillRect(Math.round(cx) + 12, cy - 2, 6, 2)
-    }
-
-    // fjord
-    const farCol = shade(bot, -0.25)
-    drawRidge(g, this.ridges.far, surf, farCol, night > 0.5 ? '#9aa4c8' : '#f4f8ff')
-    const nearCol = night > 0.5 ? '#1e2a3e' : shade('#3a6a5a', -0.1 - night * 0.3)
-    drawRidge(g, this.ridges.near, surf, nearCol)
-    // the lighthouse on its island
-    const lit = !!this.s.flags.ending
-    const lh = lit ? this.lhSmall.on : this.lhSmall.off
-    const lx = this.W - 26
-    g.fillStyle = '#4a4a5a'
-    g.fillRect(lx - 4, surf - 4, 22, 5)
-    g.fillRect(lx - 1, surf - 6, 16, 3)
-    g.drawImage(lh.c, lx, surf - lh.c.height - 3)
-
-    // gulls in daylight
-    if (night < 0.5)
-      for (let i = 0; i < 2; i++) {
-        const gx = ((this.t * (9 + i * 4) + i * 90) % (W + 40)) - 20
-        const gy = 20 + i * 18 + Math.round(Math.sin(this.t + i) * 3)
-        g.drawImage(this.gulls[Math.floor(this.t * 3 + i) % 2], Math.round(gx), gy)
-      }
-
-    if (lit && night > 0.2) {
-      const p = { x: lx + lh.lamp.x, y: surf - lh.c.height - 3 + lh.lamp.y }
-      drawBeam(g, p.x, p.y, this.t * 0.8, 160, night)
-    }
-  }
-
   private drawDarkness(g: CanvasRenderingContext2D, cam: number, surf: number, night: number) {
     const { W, H } = this
     const dg = this.dark.g
@@ -878,40 +1698,31 @@ export class Sea {
     for (let y = Math.max(0, surf + 1); y < H; y += 2) {
       const d = yToDepth(y + cam)
       const depthDark = d < 110 ? 0 : d < 400 ? ((d - 110) / 290) * 0.8 : d < 1000 ? 0.8 + ((d - 400) / 600) * 0.13 : 0.93
-      const a = Math.max(depthDark, night * 0.5)
+      const a = Math.max(depthDark, night * 0.52)
       if (a < 0.02) continue
       any = true
-      dg.fillStyle = `rgba(4,6,20,${a})`
+      dg.fillStyle = `rgba(6,8,34,${a})`
       dg.fillRect(0, y, W, 2)
     }
-    // the sky above the water dims at night
-    if (night > 0 && surf > 0) {
-      dg.fillStyle = `rgba(8,10,40,${night * 0.3})`
-      dg.fillRect(0, 0, W, Math.min(H, surf + 1))
-      any = true
-    }
     if (!any) return
+    // light cuts holes in the dark, with dithered edges
     dg.globalCompositeOperation = 'destination-out'
     const hole = (x: number, y: number, r: number) => {
-      for (const [k, a] of [
-        [1, 0.35],
-        [0.72, 0.5],
-        [0.45, 1],
-      ] as const) {
-        dg.fillStyle = `rgba(0,0,0,${a})`
-        dg.beginPath()
-        dg.arc(x, y, r * k, 0, Math.PI * 2)
-        dg.fill()
-      }
+      const R = Math.max(2, Math.round(r))
+      glow(dg, x, y, R, '#000000', 1)
+      glow(dg, x, y, Math.round(R * 0.55), '#000000', 1)
     }
     if (this.lure.y > 0) hole(this.lure.x, this.lure.y - cam, gearValue(this.s, 'lamp'))
     if (night > 0.2) hole(this.boatX + LANTERN.x, surf - 15 + this.bob + LANTERN.y, 26)
     for (const f of this.fish) {
       if (f.sp.special) hole(f.x, f.y - cam, 78)
-      else if (f.sp.look.glow && f.sp.look.glowAt !== 'eye') hole(f.x, f.y - cam, 7)
+      else if (f.sp.look.glow && f.sp.look.glowAt !== 'eye') hole(f.x, f.y - cam, 8)
+    }
+    for (const j of this.jellies) {
+      const y = j.y + Math.sin(this.t * 0.5 + j.ph) * 14 - cam
+      if (y > -20 && y < H + 20) hole(j.x + Math.sin(this.t * 0.3 + j.ph) * 8 + 4, y + 3, 10)
     }
     g.drawImage(this.dark.c, 0, 0)
-    void INK
   }
 }
 

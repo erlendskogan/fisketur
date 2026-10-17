@@ -1,5 +1,10 @@
 :root {
   --ink: #2a1d2e;
+  --wood-hi: #b07c4e;
+  --wood-mid: #7a5232;
+  --wood-lo: #5a3a22;
+  --wood-dk: #3e2a1e;
+  --brass: #f2c24a;
   --paper: #f6e7c1;
   --paper-hi: #fff6dc;
   --paper-lo: #dcc391;
@@ -90,21 +95,46 @@ img.px {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
+  height: 34px;
   padding: 0 10px;
   color: #fff8e8;
-  background: rgba(26, 20, 48, 0.78);
+  text-shadow: 0 2px 0 var(--wood-dk);
+  /* a little plank: grain lines on wood, a dark frame and a lit top edge */
+  background:
+    repeating-linear-gradient(180deg, transparent 0 7px, rgba(62, 42, 30, 0.35) 7px 9px),
+    var(--wood-mid);
   box-shadow:
-    0 -2px 0 0 rgba(255, 255, 255, 0.12),
-    0 2px 0 0 rgba(0, 0, 0, 0.35),
-    -2px 0 0 0 rgba(0, 0, 0, 0.2),
-    2px 0 0 0 rgba(0, 0, 0, 0.2);
+    0 -2px 0 0 var(--ink),
+    0 2px 0 0 var(--ink),
+    -2px 0 0 0 var(--ink),
+    2px 0 0 0 var(--ink),
+    inset 0 2px 0 0 var(--wood-hi),
+    inset 0 -2px 0 0 var(--wood-lo);
   white-space: nowrap;
 }
 
 .chip img {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
+  margin-left: -3px;
+}
+
+.chip.money {
+  color: #ffe48a;
+}
+
+.chip.depth {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 7px, rgba(10, 20, 50, 0.35) 7px 9px),
+    #1e4a7a;
+  box-shadow:
+    0 -2px 0 0 var(--ink),
+    0 2px 0 0 var(--ink),
+    -2px 0 0 0 var(--ink),
+    2px 0 0 0 var(--ink),
+    inset 0 2px 0 0 #4a8ab8,
+    inset 0 -2px 0 0 #143458;
+  text-shadow: 0 2px 0 #0e2440;
 }
 
 .btn {
@@ -196,7 +226,7 @@ img.px {
 
 #hud .chip {
   pointer-events: auto;
-  padding: 0 7px;
+  padding: 0 8px;
   gap: 5px;
 }
 
@@ -214,7 +244,11 @@ img.px {
 }
 
 #hud .icon-only {
-  padding: 0 7px;
+  padding: 0 5px;
+}
+
+#hud .icon-only img {
+  margin: 0;
 }
 
 /* ---------- dock ---------- */
@@ -253,10 +287,23 @@ img.px {
 }
 
 #nav {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  margin-top: 2px;
+  gap: 4px;
+  margin: 2px -4px 0;
+  padding: 6px;
+  /* the bar is a stretch of quay: planks with dark seams, a lit top edge and bolts */
+  background:
+    radial-gradient(circle at 8px 50%, #c8b8a0 0 2px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 8px) 50%, #c8b8a0 0 2px, transparent 2.5px),
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(42, 29, 46, 0.45) 46px 48px),
+    linear-gradient(180deg, var(--wood-hi) 0 3px, var(--wood-mid) 3px calc(100% - 4px), var(--wood-lo) calc(100% - 4px));
+  box-shadow:
+    0 -3px 0 0 var(--ink),
+    0 3px 0 0 var(--ink),
+    -3px 0 0 0 var(--ink),
+    3px 0 0 0 var(--ink);
 }
 
 #nav button {
@@ -264,29 +311,52 @@ img.px {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 6px 0 4px;
+  gap: 0;
+  padding: 4px 0 3px;
   color: #fff8e8;
   font-size: 18px;
-  background: rgba(26, 20, 48, 0.8);
+  text-shadow: 0 2px 0 var(--ink);
+  background: rgba(26, 20, 48, 0.55);
   box-shadow:
-    0 -2px 0 0 rgba(255, 255, 255, 0.12),
-    0 2px 0 0 rgba(0, 0, 0, 0.35);
+    inset 0 2px 0 0 rgba(0, 0, 0, 0.35),
+    inset 0 -2px 0 0 rgba(255, 255, 255, 0.08);
 }
 
 #nav button img {
-  width: 27px;
-  height: 27px;
+  width: 36px;
+  height: 36px;
 }
 
 #nav button.on {
+  /* the open tab is a paper tag pinned on top of the planks */
   background: var(--paper);
   color: var(--ink);
+  text-shadow: none;
+  transform: translateY(-3px);
   box-shadow:
     0 -3px 0 0 var(--ink),
     0 3px 0 0 var(--ink),
     -3px 0 0 0 var(--ink),
-    3px 0 0 0 var(--ink);
+    3px 0 0 0 var(--ink),
+    inset 0 3px 0 0 var(--paper-hi),
+    inset 0 -3px 0 0 var(--paper-lo),
+    0 6px 0 0 rgba(42, 29, 46, 0.4);
+}
+
+#nav button.on::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  background: var(--red);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+
+#nav button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 #nav button:disabled {
@@ -326,11 +396,26 @@ img.px {
 .label {
   position: absolute;
   transform: translate(-50%, -100%);
-  padding: 1px 6px;
-  font-size: 18px;
-  color: #fff8e8;
-  background: rgba(26, 20, 48, 0.75);
+  padding: 1px 7px 2px;
+  font-size: 17px;
+  color: var(--sign-text, #fff8e8);
+  text-shadow: 0 2px 0 var(--sign-grain, #3e2a1e);
+  /* a small wooden plank; the colours follow the light of the scene (set from main.ts) */
+  background:
+    repeating-linear-gradient(180deg, transparent 0 6px, color-mix(in srgb, var(--sign-grain, #3e2a1e) 40%, transparent) 6px 8px),
+    var(--sign, #7a5232);
+  box-shadow:
+    0 -2px 0 0 var(--sign-ink, #2a1d2e),
+    0 2px 0 0 var(--sign-ink, #2a1d2e),
+    -2px 0 0 0 var(--sign-ink, #2a1d2e),
+    2px 0 0 0 var(--sign-ink, #2a1d2e),
+    inset 0 2px 0 0 var(--sign-hi, #b07c4e),
+    inset 0 -2px 0 0 var(--sign-lo, #5a3a22);
   white-space: nowrap;
+}
+
+.label.below {
+  transform: translate(-50%, 0);
 }
 
 .label .badge {
@@ -364,8 +449,8 @@ img.px {
 }
 
 .toast img {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   flex: none;
 }
 
@@ -543,7 +628,7 @@ img.px {
 
 .book-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   padding: 4px 3px;
 }
@@ -560,6 +645,9 @@ img.px {
   background: #e9d29e;
   box-shadow: 0 0 0 2px var(--ink);
   text-align: center;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  line-height: 1;
 }
 
 .book-cell img {
@@ -683,8 +771,8 @@ img.px {
 }
 
 #talk .box img {
-  width: 84px;
-  height: 84px;
+  width: 72px;
+  height: 72px;
   flex: none;
   background: #e9d29e;
   box-shadow: 0 0 0 3px var(--ink);
@@ -782,7 +870,71 @@ img.px {
   animation: bob 1s steps(2) infinite;
 }
 
+body.fishing #act,
+body.fishing #nav {
+  display: none;
+}
+
+body.fishing #dock {
+  padding-bottom: calc(max(6px, calc(var(--safe-bot) - 14px)) + 90px);
+}
+
 body.intro #hud,
 body.intro #dock {
   visibility: hidden;
+}
+
+/* ---------- travelling ---------- */
+
+.fade {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: #080a1e;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s steps(6);
+}
+
+.fade.on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tabs3 {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tabs3 .btn {
+  flex: 1;
+  padding: 6px 2px;
+  min-height: 40px;
+  font-size: 17px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#hint.goal {
+  font-size: 19px;
+  max-width: 92%;
+  opacity: 0.92;
+}
+
+.chart {
+  margin: 0 0 10px;
+  box-shadow: 0 0 0 3px var(--ink);
+  line-height: 0;
+}
+
+.chart img {
+  width: 100%;
+  height: auto;
+}
+
+.catch h3,
+.panel-head h2 {
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }

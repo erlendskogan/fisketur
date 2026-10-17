@@ -4,18 +4,24 @@ import { iconCanvas, portrait } from '../art/sprites'
 import { toURL } from '../art/pixel'
 import { sfx } from '../audio'
 import { NAMES, type Line } from '../game/story'
+import { WORLD, WORLDS } from '../game/data'
 
 export const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T
 
 export const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 
 const iconCache = new Map<string, string>()
-export const icon = (name: string, scale = 4) => {
+/**
+ * An icon as a data URL, drawn so each of its 12×12 pixels covers a whole number of screen
+ * pixels when shown `css` pixels wide; that keeps it crisp on every screen.
+ */
+export const icon = (name: string, css = 24) => {
+  const scale = Math.max(1, Math.round((css / 12) * (window.devicePixelRatio || 1)))
   const k = name + scale
   if (!iconCache.has(k)) iconCache.set(k, toURL(iconCanvas(name), scale))
   return iconCache.get(k)!
 }
-export const iconImg = (name: string) => `<img class="px" src="${icon(name)}" alt="">`
+export const iconImg = (name: string, css = 24) => `<img class="px" src="${icon(name, css)}" width="${css}" height="${css}" alt="">`
 
 const faceCache = new Map<string, string>()
 export const face = (id: string) => {
@@ -23,7 +29,11 @@ export const face = (id: string) => {
   return faceCache.get(id)!
 }
 
-export const kr = (n: number) => `${Math.round(n).toLocaleString('nb-NO')} kr`
+/** Money in the currency of the place you are in */
+export const kr = (n: number) => {
+  const v = Math.round(n).toLocaleString('nb-NO')
+  return WORLDS[WORLD].currency === '$' ? `$${v}` : `${v} kr`
+}
 
 export class UI {
   private talkEl = $('#talk')
