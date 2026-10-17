@@ -1359,7 +1359,11 @@ export class Sea {
 
     if (surf + 260 > 0) this.drawLightShafts(g, surf, sky, 1 - wx.rain * 0.75 - wx.fog * 0.4)
 
-    for (const d of this.water.deco) if (d.y - cam > -80 && d.y - cam < H + 10) drawDeco(g, d, cam, this.t)
+    // plants grow upwards from their root, so cull by how far up they reach, not by the root alone
+    for (const d of this.water.deco) {
+      const y = d.y - cam
+      if (y > -30 && y - d.len - 20 < H) drawDeco(g, d, cam, this.t)
+    }
 
     // a humpback gliding past far behind everything, just a long shadow
     if (WORLD !== 'norge') {
