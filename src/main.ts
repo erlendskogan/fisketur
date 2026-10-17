@@ -1,4 +1,3 @@
-import '@fontsource/jersey-10/index.css'
 import './style.css'
 
 import { canvas, mix, rng, toURL } from './art/pixel'
@@ -91,10 +90,7 @@ import { HYDRO_DEPTHS } from './game/alaska'
 import { BUOY_DEPTHS, POND_FISH, POND_NEED } from './game/hawaii'
 import { HJELL_NEED } from './game/lofoten'
 import { $, esc, face, icon, iconImg, kr, UI } from './ui/ui'
-import { watchForUpdates } from './update'
 import { weatherAt } from './game/weather'
-
-if (import.meta.env.DEV) import('./dev/panel')
 
 const DAY_SECONDS = 540
 
@@ -1800,12 +1796,32 @@ class Game implements SeaHost {
   }
 }
 
-// debug helpers for testing in the browser console
-const game = new Game()
-if (import.meta.env.DEV) Object.assign(window, { __game: game, __species: SPECIES_BY_ID })
-;(window as unknown as { game: Game }).game = game
+const MARKUP = `
+  <div id="app">
+    <canvas id="cv"></canvas>
+    <div id="labels"></div>
+    <header id="hud"></header>
+    <div id="dock">
+      <div id="hint"></div>
+      <button id="act" class="btn big"></button>
+      <nav id="nav"></nav>
+    </div>
+    <div id="toasts"></div>
+    <div id="sheet" class="hidden"></div>
+    <div id="talk" class="hidden"></div>
+    <div id="title"></div>
+  </div>`
+
+/**
+ * Builds the game's elements inside `root` and starts it. Shared by the web page
+ * (src/web.ts) and the iOS app (mobile/components/Game.tsx), so call it once.
+ */
+export function mountGame(root: HTMLElement = document.body) {
+  root.insertAdjacentHTML('beforeend', MARKUP)
+  const game = new Game()
+  // debug helpers for testing in the browser console
+  ;(window as unknown as { game: Game }).game = game
+  return game
+}
 void zoneAt
 void depthToY
-
-if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('./sw.js').catch(() => {})
-watchForUpdates()

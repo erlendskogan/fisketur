@@ -1,3 +1,4 @@
+import { saveStore } from '../platform/storage'
 import { BOOK, GEAR, QUESTS, WORLDS, setWorld, type GearKind, type WorldId } from './data'
 
 export interface Catch {
@@ -119,7 +120,7 @@ export function fresh(): Save {
 
 export function load(): Save {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = saveStore().get(KEY)
     if (raw) {
       const s: Save = { ...fresh(), ...JSON.parse(raw) }
       setWorld(s.world)
@@ -133,7 +134,7 @@ export function load(): Save {
 
 export function persist(s: Save) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(s))
+    saveStore().set(KEY, JSON.stringify(s))
   } catch {
     /* ignore */
   }
@@ -141,7 +142,7 @@ export function persist(s: Save) {
 
 export function wipe() {
   try {
-    localStorage.removeItem(KEY)
+    saveStore().remove(KEY)
   } catch {
     /* ignore */
   }

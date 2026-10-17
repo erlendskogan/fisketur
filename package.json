@@ -4,7 +4,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "app": "npm --prefix mobile start",
+    "ios:build": "npm --prefix mobile run ios:build",
+    "ios:submit": "npm --prefix mobile run ios:submit"
   },
   "type": "module",
   "devDependencies": {

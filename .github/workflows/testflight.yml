@@ -1,0 +1,39 @@
+name: TestFlight
+
+# Builds the iOS app on EAS and sends it to TestFlight. Start it from the Actions tab
+# (TestFlight → Run workflow); anyone with write access to the repo can.
+# Needs the EXPO_TOKEN repository secret, see «Bygg fra GitHub» in README.md.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# one build at a time; a second run waits instead of racing the first to App Store Connect
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      # eas-cli reads app.json and its config plugins, which need the app's packages
+      - run: npm ci
+      # Signing certificates and the App Store Connect API key are stored on EAS,
+      # so the Expo token is the only secret. Waits until the build is uploaded to TestFlight.
+      - name: Build on EAS and submit to TestFlight
+        run: npx --yes eas-cli@latest build --platform ios --profile production --non-interactive --auto-submit
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
