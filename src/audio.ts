@@ -1,4 +1,4 @@
-// Tiny synthesised sound effects and a soft generative tune, all WebAudio
+// Tiny synthesised sound effects and a piano-ballad soundtrack, all WebAudio
 
 let ctx: AudioContext | null = null
 let master: GainNode | null = null
@@ -222,37 +222,211 @@ export function setRain(amount: number) {
   rainGain.gain.setTargetAtTime(a * 0.05, ctx.currentTime, 0.8)
 }
 
-/** Each place has its own tune: a music box at home, something slower and darker in Alaska, a ukulele in Hawaii */
-const STYLES: Record<string, { base: number; beat: number; scale: number[]; chords: number[][]; pluck: boolean }> = {
-  norge: { base: 261.63, beat: 0.62, scale: [0, 2, 4, 7, 9, 12, 14, 16, 19, 21], chords: [[0, 4, 7], [-3, 0, 4], [5, 9, 12], [-5, -1, 2]], pluck: false },
-  alaska: { base: 220, beat: 0.78, scale: [0, 3, 5, 7, 10, 12, 15, 17, 19, 22], chords: [[0, 3, 7], [-4, 0, 3], [-9, -5, -2], [-2, 2, 5]], pluck: false },
-  hawaii: { base: 293.66, beat: 0.46, scale: [0, 2, 4, 7, 9, 12, 14, 16, 19, 21], chords: [[0, 4, 7], [5, 9, 12], [7, 11, 14], [-3, 0, 4]], pluck: true },
-}
-let style = 'norge'
-export const setMusic = (s: string) => (style = STYLES[s] ? s : 'norge')
+/**
+ * The soundtrack: a slow, wistful piano ballad in the spirit of a North East coastal anthem.
+ * Piano and bass first, then strings and a soft heartbeat drum, then a lonely saxophone over
+ * the chorus before it all breathes out and starts again. Each place hears it in its own key.
+ */
+const KEYS: Record<string, number> = { norge: 0, lofoten: 0, alaska: -2, hawaii: 2 }
+let key = 0
+export const setMusic = (s: string) => (key = KEYS[s] ?? 0)
 
-/** A slow pentatonic tune that never quite repeats */
+const BPM = 74
+const BEAT = 60 / BPM
+/** Chords as a piano voicing around E♭4 (semitones) and a bass root around E♭3 */
+const CH: Record<string, { v: number[]; b: number }> = {
+  Eb: { v: [-5, 0, 4], b: 0 },
+  Gm: { v: [-5, -1, 4], b: 4 },
+  Cm: { v: [-3, 0, 4], b: -3 },
+  Ab: { v: [-3, 0, 5], b: 5 },
+  Bb: { v: [-5, -1, 2], b: 7 },
+  Fm: { v: [-3, 2, 5], b: 2 },
+}
+const VERSE = ['Eb', 'Gm', 'Cm', 'Ab', 'Eb', 'Gm', 'Cm', 'Bb']
+const CHORUS = ['Ab', 'Eb', 'Bb', 'Cm', 'Ab', 'Eb', 'Fm', 'Bb']
+const OUTRO = ['Ab', 'Ab', 'Eb', 'Eb']
+/** Song sections: which chords, and which instruments join in */
+const SONG: { chords: string[]; arp?: boolean; pulse?: boolean; pad?: boolean; kick?: boolean; brush?: boolean; sax?: boolean; bass?: boolean }[] = [
+  { chords: VERSE, arp: true, bass: true },
+  { chords: VERSE, pulse: true, pad: true, kick: true, bass: true },
+  { chords: CHORUS, pulse: true, pad: true, kick: true, brush: true, sax: true, bass: true },
+  { chords: OUTRO, arp: true, pad: true },
+]
+/** The saxophone's line over the chorus: [beat, semitone above E♭4, length in beats] per bar */
+const SAX: number[][][] = [
+  [[1, 9, 1], [2, 7, 0.5], [2.5, 9, 1.5]],
+  [[0, 7, 2], [2.5, 4, 0.5], [3, 7, 1]],
+  [[0, 14, 1.5], [1.5, 12, 0.5], [2, 11, 2]],
+  [[0, 12, 3], [3.5, 11, 0.5]],
+  [[0, 12, 1], [1, 14, 1], [2, 12, 1], [3, 9, 1]],
+  [[0, 7, 3], [3, 9, 0.5], [3.5, 7, 0.5]],
+  [[0, 5, 1.5], [1.5, 7, 0.5], [2, 9, 1], [3, 7, 1]],
+  [[0, 7, 1], [1, 2, 3]],
+]
+
+let dry: GainNode | null = null
+let wet: GainNode | null = null
+const EB4 = 311.13
+const hz = (semi: number) => EB4 * Math.pow(2, (semi + key) / 12)
+
+/** A long, soft hall: decaying stereo noise as the impulse response */
+function makeReverb() {
+  if (!ctx || !musicGain) return
+  const len = Math.floor(ctx.sampleRate * 2.8)
+  const ir = ctx.createBuffer(2, len, ctx.sampleRate)
+  for (let c = 0; c < 2; c++) {
+    const d = ir.getChannelData(c)
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3)
+  }
+  const conv = ctx.createConvolver()
+  conv.buffer = ir
+  const tone = ctx.createBiquadFilter()
+  tone.type = 'lowpass'
+  tone.frequency.value = 3200
+  wet = ctx.createGain()
+  wet.gain.value = 0.55
+  wet.connect(conv)
+  conv.connect(tone)
+  tone.connect(musicGain)
+  dry = ctx.createGain()
+  dry.connect(musicGain)
+}
+
+/** One voice: oscillators through a filter and an envelope, sent dry and to the hall */
+function voice(t: number, freq: number, parts: [OscillatorType, number, number][], env: { a: number; d: number; s: number; r: number; len: number }, vol: number, cutoff: number, send = 0.5, vib = 0) {
+  if (!ctx || !dry || !wet) return
+  const g = ctx.createGain()
+  const f = ctx.createBiquadFilter()
+  f.type = 'lowpass'
+  f.frequency.value = cutoff
+  const end = t + env.len + env.r
+  g.gain.setValueAtTime(0, t)
+  g.gain.linearRampToValueAtTime(vol, t + env.a)
+  g.gain.setTargetAtTime(vol * env.s, t + env.a, env.d)
+  g.gain.setTargetAtTime(0, t + env.len, env.r / 4)
+  f.connect(g)
+  g.connect(dry)
+  const s = ctx.createGain()
+  s.gain.value = send
+  g.connect(s)
+  s.connect(wet)
+  let lfo: OscillatorNode | null = null
+  let lfoG: GainNode | null = null
+  if (vib) {
+    // vibrato that blooms in after the note has settled, like a held breath
+    lfo = ctx.createOscillator()
+    lfo.frequency.value = 5.2
+    lfoG = ctx.createGain()
+    lfoG.gain.setValueAtTime(0, t)
+    lfoG.gain.linearRampToValueAtTime(freq * vib, t + Math.min(env.len, 0.6))
+    lfo.connect(lfoG)
+    lfo.start(t)
+    lfo.stop(end)
+  }
+  for (const [type, mult, amt] of parts) {
+    const o = ctx.createOscillator()
+    o.type = type
+    o.frequency.value = freq * mult
+    if (lfoG) lfoG.connect(o.frequency)
+    const pg = ctx.createGain()
+    pg.gain.value = amt
+    o.connect(pg)
+    pg.connect(f)
+    o.start(t)
+    o.stop(end)
+  }
+}
+
+const piano = (t: number, semi: number, vol: number, len = BEAT * 2) =>
+  voice(t, hz(semi), [['sine', 1, 1], ['triangle', 2, 0.25], ['sine', 3, 0.08], ['sine', 1.003, 0.4]], { a: 0.006, d: 0.5, s: 0.25, r: 0.9, len }, vol, 2600, 0.45)
+const strings = (t: number, semi: number, len: number) =>
+  voice(t, hz(semi), [['sawtooth', 1, 0.5], ['sawtooth', 1.006, 0.5], ['sawtooth', 0.497, 0.3]], { a: len * 0.35, d: 1, s: 1, r: 1.4, len }, 0.016, 900, 0.8)
+const bass = (t: number, semi: number, len: number) =>
+  voice(t, hz(semi - 12), [['sine', 1, 1], ['triangle', 1, 0.35], ['sine', 0.5, 0.6]], { a: 0.02, d: 0.8, s: 0.5, r: 0.3, len }, 0.09, 600, 0.1)
+const sax = (t: number, semi: number, len: number) =>
+  voice(t, hz(semi), [['sawtooth', 1, 0.6], ['square', 1, 0.25], ['sine', 1, 0.5]], { a: 0.07, d: 0.3, s: 0.8, r: 0.35, len }, 0.045, 1500, 0.7, 0.012)
+
+function kick(t: number, vol: number) {
+  if (!ctx || !dry) return
+  const o = ctx.createOscillator()
+  const g = ctx.createGain()
+  o.frequency.setValueAtTime(110, t)
+  o.frequency.exponentialRampToValueAtTime(42, t + 0.18)
+  g.gain.setValueAtTime(vol, t)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35)
+  o.connect(g)
+  g.connect(dry)
+  o.start(t)
+  o.stop(t + 0.4)
+}
+
+function brush(t: number, vol: number) {
+  if (!ctx || !dry || !wet || !noiseBuf) return
+  const src = ctx.createBufferSource()
+  src.buffer = noiseBuf
+  const f = ctx.createBiquadFilter()
+  f.type = 'bandpass'
+  f.frequency.value = 2600
+  f.Q.value = 0.6
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(0, t)
+  g.gain.linearRampToValueAtTime(vol, t + 0.015)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22)
+  src.connect(f)
+  f.connect(g)
+  g.connect(dry)
+  g.connect(wet)
+  src.start(t, Math.random() * 0.5)
+  src.stop(t + 0.3)
+}
+
+/** Everything one bar of the song plays, starting at time t */
+function playBar(t: number, sec: (typeof SONG)[number], bar: number) {
+  const c = CH[sec.chords[bar]]
+  const [v0, v1, v2] = c.v
+  const len = BEAT * 4
+  if (sec.arp) {
+    // a gentle rolling eighth-note figure, low to high and back
+    ;[v0 - 12, v0, v1, v2, v1 + 12, v2, v1, v0].forEach((n, i) => piano(t + i * BEAT / 2, n, i === 0 ? 0.05 : 0.032, BEAT * 1.5))
+  }
+  if (sec.pulse) {
+    piano(t, c.b - 12, 0.05, len)
+    for (let b = 0; b < 4; b++) for (const n of c.v) piano(t + b * BEAT, n, b === 0 ? 0.03 : 0.021, BEAT * 0.9)
+  }
+  if (sec.bass) bass(t, c.b, len * 0.95)
+  if (sec.pad) for (const n of c.v) strings(t, n, len)
+  if (sec.kick) {
+    kick(t, 0.22)
+    kick(t + BEAT * 2, 0.16)
+    if (sec.brush) kick(t + BEAT * 2.5, 0.08)
+  }
+  if (sec.brush) {
+    brush(t + BEAT, 0.05)
+    brush(t + BEAT * 3, 0.05)
+  }
+  if (sec.sax) for (const [at, n, l] of SAX[bar]) sax(t + at * BEAT, n, l * BEAT * 0.95)
+}
+
+/** Schedules the song a little ahead of time and loops it forever */
 function startMusic() {
   if (!ctx || !musicGain) return
-  let step = 0
-  let note = 4
+  makeReverb()
+  let part = 0
+  let bar = 0
+  let next = ctx.currentTime + 0.3
   const tick = () => {
-    if (!ctx || !musicGain) return
-    const st = STYLES[style]
-    const hz = (semi: number) => st.base * Math.pow(2, semi / 12)
-    const beat = st.beat
-    const chord = st.chords[Math.floor(step / 8) % st.chords.length]
-    if (st.pluck) {
-      // a ukulele strum on every other beat
-      if (step % 2 === 0) chord.forEach((n, i) => tone(hz(n), beat * 0.9, 'triangle', 0.035, i * 0.03, 0, musicGain!))
-    } else if (step % 8 === 0) for (const n of chord) tone(hz(n - 12), beat * 7, 'sine', 0.05, 0, 0, musicGain)
-    if (Math.random() < (st.pluck ? 0.6 : 0.72)) {
-      note = Math.max(0, Math.min(st.scale.length - 1, note + Math.round((Math.random() - 0.5) * 4)))
-      tone(hz(st.scale[note]), beat * (st.pluck ? 1.1 : 2.2), 'triangle', 0.07, 0, 0, musicGain)
-      if (Math.random() < 0.2) tone(hz(st.scale[note] + 12), beat * 1.2, 'sine', 0.03, beat / 2, 0, musicGain)
+    if (!ctx) return
+    // after the tab has been asleep, pick up from now instead of rushing to catch up
+    if (next < ctx.currentTime) next = ctx.currentTime + 0.1
+    while (next < ctx.currentTime + 1.2) {
+      playBar(next, SONG[part], bar)
+      next += BEAT * 4
+      if (++bar >= SONG[part].chords.length) {
+        bar = 0
+        part = (part + 1) % SONG.length
+      }
     }
-    step++
-    setTimeout(tick, beat * 1000)
+    setTimeout(tick, 250)
   }
   tick()
 }
