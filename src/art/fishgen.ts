@@ -4,7 +4,7 @@
 
 import { Pix, flip, hash, rng, shade } from './pixel'
 
-export type Shape = 'fusiform' | 'deep' | 'round' | 'flat' | 'eel' | 'long' | 'angler' | 'shark' | 'chimaera' | 'hatchet'
+export type Shape = 'fusiform' | 'deep' | 'round' | 'flat' | 'eel' | 'long' | 'angler' | 'shark' | 'chimaera' | 'hatchet' | 'crab'
 export type Tail = 'fork' | 'round' | 'square' | 'lunate' | 'point' | 'diamond'
 export type Dorsal = 'low' | 'high' | 'spiny' | 'long' | 'sail' | 'none'
 export type Pattern = 'wavy' | 'bars' | 'spots' | 'mottled' | 'line' | 'stripes'
@@ -91,6 +91,11 @@ function profile(shape: Shape, u: number): [number, number] {
       const p = 0.3 + 0.7 * Math.sin(Math.PI * Math.pow(u, 0.85) * 0.9 + 0.08)
       return [p * 0.55, p]
     }
+    case 'crab': {
+      // placeholder until crabs get their own drawing: a low, round body
+      const p = 0.3 + 0.7 * Math.sin(Math.PI * u)
+      return [p * 0.7, p * 0.5]
+    }
   }
 }
 
@@ -157,7 +162,101 @@ function noise(x: number, y: number, seed: number) {
   return (hash(`${x},${y},${seed}`) % 1000) / 1000
 }
 
+/**
+ * A crab seen from the side, facing right: a domed carapace (knobbly when the look has spots),
+ * a big claw held forward, eyes on stalks and jointed legs that step between the two frames
+ */
+function genCrab(look: Look, id: string): FishArt {
+  const len = look.len
+  const W = len + 8
+  const bodyW = Math.max(6, Math.round(len * 0.62))
+  const bodyH = Math.max(4, Math.round(look.h * 0.62))
+  const top0 = 3
+  const base = top0 + bodyH
+  const Ht = base + Math.max(4, Math.round(look.h * 0.55)) + 1
+  const cx = Math.round(W / 2) - 1
+  const x0 = cx - Math.floor(bodyW / 2)
+  const x1 = x0 + bodyW - 1
+  const r = rng(hash(id))
+  const knobs = Array.from({ length: Math.round(bodyW * 0.6) }, () => [r(), r()])
+  const right: HTMLCanvasElement[] = []
+  // legs are a single pixel thick, so they keep their colour instead of being outlined away
+  let thin = new Set<number>()
+  const line = (p: Pix, ax: number, ay: number, bx: number, by: number, c: string) => {
+    const n = Math.max(Math.abs(bx - ax), Math.abs(by - ay), 1)
+    for (let i = 0; i <= n; i++) {
+      const x = Math.round(ax + ((bx - ax) * i) / n)
+      const y = Math.round(ay + ((by - ay) * i) / n)
+      p.set(x, y, c)
+      thin.add(y * W + x)
+    }
+  }
+  for (const ph of [0, 1]) {
+    const p = new Pix(W, Ht)
+    thin = new Set<number>()
+    // four walking legs on the near side, behind the body in the drawing order
+    for (let i = 0; i < 4; i++) {
+      const hipX = Math.round(x0 + 1 + (i * (bodyW - 3)) / 3)
+      const dir = i < 2 ? -1 : 1
+      const reach = 3 + Math.round(len * 0.08) + (i === 0 || i === 3 ? 2 : 0)
+      const kneeX = hipX + dir * reach
+      const kneeY = base - 2 - (i % 2 === ph ? 1 : 0)
+      const footX = kneeX + dir * (2 + (i % 2 === ph ? 1 : 0))
+      line(p, hipX, base - 1, kneeX, kneeY, look.fin)
+      line(p, kneeX, kneeY, footX, Ht - 1, shade(look.fin, -0.1))
+      p.set(kneeX, kneeY, shade(look.fin, 0.25))
+      if (look.pattern === 'spots') p.set(kneeX + dir, kneeY - 1, look.pat ?? shade(look.fin, 0.3))
+    }
+    // the carapace, lit from above
+    for (let x = x0; x <= x1; x++) {
+      const u = (x - x0) / Math.max(1, x1 - x0) * 2 - 1
+      const h = Math.max(2, Math.round(bodyH * Math.sqrt(Math.max(0, 1 - u * u * 0.85))))
+      for (let y = base - h; y <= base; y++) {
+        const k = (y - (base - h)) / Math.max(1, h)
+        let c = y === base ? look.belly : k < 0.3 ? shade(look.top, 0.12) : k < 0.75 ? look.mid : shade(look.mid, -0.12)
+        if (look.pattern === 'mottled' && (x * 3 + y * 5) % 7 === 0) c = look.pat ?? c
+        p.set(x, y, c)
+      }
+    }
+    // knobs and spines along the back
+    if (look.pattern === 'spots')
+      for (const [a, b] of knobs) {
+        const x = Math.round(x0 + 1 + a * (bodyW - 2))
+        const u = (x - x0) / Math.max(1, x1 - x0) * 2 - 1
+        const h = Math.round(bodyH * Math.sqrt(Math.max(0, 1 - u * u * 0.85)))
+        const y = base - h + Math.round(b * h * 0.6)
+        p.set(x, y, look.pat ?? shade(look.top, 0.35))
+        if (b < 0.3) p.set(x, y - 1, shade(look.top, -0.1))
+      }
+    // the claw, held forward: an arm and a pincer that opens a little on the second frame
+    const ax = x1 - 1
+    const ay = base - 1
+    const clawX = Math.min(W - 4, x1 + 2 + Math.round(len * 0.08))
+    line(p, ax, ay, clawX, ay - 1, look.fin)
+    const cy = ay - 3
+    p.rect(clawX - 1, cy, 4, 3, look.mid)
+    p.set(clawX - 1, cy, shade(look.mid, 0.25))
+    p.set(clawX, cy, shade(look.mid, 0.15))
+    p.set(clawX + 3, cy - ph, shade(look.mid, -0.1))
+    p.set(clawX + 4, cy - ph, shade(look.belly, -0.2))
+    p.set(clawX + 3, cy + 2, shade(look.mid, -0.1))
+    p.set(clawX + 4, cy + 2, shade(look.belly, -0.2))
+    // eyes on stalks at the front edge of the shell
+    const ex = x1 - 2
+    let ey = 0
+    while (ey < base && !p.get(ex, ey)) ey++
+    p.set(ex, ey - 1, shade(look.top, -0.2))
+    p.set(ex, ey - 2, '#1a1418')
+    p.set(ex + 2, ey - 1, '#1a1418')
+    for (const k of [...thin]) if (p.d[k] && [k - 1, k + 1, k - W, k + W].filter((j) => p.d[j]).length > 2) thin.delete(k)
+    p.outline(0.55, (x, y) => thin.has(y * W + x))
+    right.push(p.toCanvas())
+  }
+  return { right, left: right.map(flip), glowRight: [null, null], glowLeft: [null, null], w: W, h: Ht, mouthX: x1 + 3, mouthY: base - 2 }
+}
+
 export function genFish(look: Look, id: string): FishArt {
+  if (look.shape === 'crab') return genCrab(look, id)
   const H = look.h
   const shape = look.shape
   const tailType = look.tail ?? 'fork'

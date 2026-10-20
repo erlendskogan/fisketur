@@ -938,3 +938,87 @@ body.intro #dock {
   overflow-wrap: anywhere;
   hyphens: auto;
 }
+
+/* ---------- Vardø ---------- */
+
+/* a second row of chips under the HUD: the ground, the gear, rank and the contract */
+#hud2 {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--safe-top) + 46px);
+  padding: 0 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 5px;
+  align-items: center;
+  pointer-events: none;
+}
+
+#hud2:empty {
+  display: none;
+}
+
+#hud2 .chip {
+  position: relative;
+  pointer-events: auto;
+  padding: 0 6px;
+  gap: 4px;
+  font-size: 19px;
+}
+
+#hud2 .chip .badge {
+  top: -10px;
+  right: -8px;
+}
+
+body.va #toasts {
+  top: calc(var(--safe-top) + 92px);
+}
+
+body.intro #hud2,
+body.mini #act,
+body.mini #nav,
+body.mini #labels {
+  visibility: hidden;
+}
+
+body.mini #hud {
+  display: none;
+}
+
+body.mini #hud2 {
+  top: calc(var(--safe-top) + 4px);
+  justify-content: flex-end;
+}
+
+.label.small {
+  font-size: 15px;
+  padding: 0 5px 1px;
+}
+
+.label.dim {
+  opacity: 0.6;
+}
+
+.tabs5 {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tabs5 .btn {
+  flex: 1 1 30%;
+  font-size: 15px;
+  min-height: 34px;
+}
+
+/* Vardø's money runs into six figures: tighter chips so the top row still fits a phone */
+body.va #hud {
+  gap: 4px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+body.va #hud .chip {
+  padding: 0 6px;
+}

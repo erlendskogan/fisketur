@@ -34,7 +34,7 @@ function render() {
   el.innerHTML = `
     <div style="display:flex;gap:3px;flex-wrap:wrap">${STAGES.map(([n, v]) => btn(n, t !== null && Math.abs(t - v) < 0.004, `time:${v}`)).join('')}${btn('Auto', t === null, 'auto')}</div>
     <input type="range" min="0" max="1" step="0.0025" value="${t ?? 0.45}" data-k="slider">
-    <div style="display:flex;gap:3px;flex-wrap:wrap">${btn('Fyr tent', dev.ending === true, 'ending')}${btn('Selma', dev.selma === true, 'selma')}${btn('Regn', devWeather.rain === 1, 'rain')}${btn('Alaska', (window as unknown as { __game?: { s: { world: string } } }).__game?.s.world === 'alaska', 'world')}${btn('Tåke', devWeather.fog === 1, 'fog')}${btn('skjul', false, 'toggle')}</div>`
+    <div style="display:flex;gap:3px;flex-wrap:wrap">${btn('Fyr tent', dev.ending === true, 'ending')}${btn('Selma', dev.selma === true, 'selma')}${btn('Regn', devWeather.rain === 1, 'rain')}${btn('Alaska', (window as unknown as { __game?: { s: { world: string } } }).__game?.s.world === 'alaska', 'world')}${btn('Tåke', devWeather.fog === 1, 'fog')}${btn('Vardø', (window as unknown as { __game?: { s: { world: string } } }).__game?.s.world === 'vardo', 'vardo')}${btn('skjul', false, 'toggle')}</div>`
 }
 
 el.addEventListener('pointerdown', (e) => e.stopPropagation())
@@ -51,6 +51,12 @@ el.addEventListener('click', (e) => {
     const g = (window as unknown as { __game: { s: { world: string; flags: Record<string, boolean> }; travel: (w: string) => void } }).__game
     g.s.flags.ak_moved = true
     g.travel(g.s.world === 'alaska' ? 'norge' : 'alaska')
+  } else if (k === 'vardo') {
+    // straight to Vardø (or back home), skipping the invitation
+    const g = (window as unknown as { __game: { s: { world: string; flags: Record<string, boolean> }; travel: (w: string) => void } }).__game
+    g.s.flags.ak_moved = true
+    g.s.flags.va_invite = true
+    g.travel(g.s.world === 'vardo' ? 'norge' : 'vardo')
   } else if (k === 'rain') devWeather.rain = devWeather.rain === 1 ? null : 1
   else if (k === 'fog') devWeather.fog = devWeather.fog === 1 ? null : 1
   else if (k.startsWith('time:')) dev.time = Number(k.slice(5))

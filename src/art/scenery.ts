@@ -198,7 +198,9 @@ export function buildWater(W: number, world = 'norge'): Water {
   // fjord walls
   const wallL: number[] = []
   const wallR: number[] = []
+  const vg = world.startsWith('vardo') ? (world.split(':')[1] ?? 'sundet') : null
   const wallAt = (y: number, ph: number) => {
+    if (vg) return vardoWall(vg, y, ph, W)
     const grow = Math.max(0, Math.min(1, (y - 90) / 420))
     const trench = Math.max(0, Math.min(1, (y - 5 * ZONE_H + 40) / 80))
     const base = grow * W * 0.14 + trench * W * 0.14
@@ -240,12 +242,30 @@ export function buildWater(W: number, world = 'norge'): Water {
     for (let x = 0; x < wallL[y]; x++) paint(x, wallL[y] - 1 - x, wallL, 1)
     for (let x = 0; x < wallR[y]; x++) paint(W - 1 - x, wallR[y] - 1 - x, wallR, 2)
   }
-  // seabed: rippled sand with pebbles
+  if (vg === 'sundet' || vg === 'banken') {
+    // sand lying on the ledges and slopes of the sound and the banks
+    const sand = (x: number, y: number, k: number) => {
+      const c = rock.get(x, y)
+      if (c) rock.set(x, y, mix(c, (x + y) % 3 === 0 ? '#b8a880' : '#a89870', k))
+    }
+    for (let y = 1; y < Hh; y++)
+      for (const [wall, side] of [[wallL, 1], [wallR, -1]] as [number[], number][]) {
+        const step = wall[y] - wall[y - 1]
+        if (step <= 0) continue
+        for (let d = 0; d < Math.min(step + 2, 8); d++) {
+          const x = side === 1 ? wall[y] - 1 - d : W - wall[y] + d
+          sand(x, y, 0.55 * Math.max(0.2, 1 - y / 1400))
+          sand(x, y + 1, 0.3 * Math.max(0.2, 1 - y / 1400))
+        }
+      }
+  }
+  // seabed: rippled sand with pebbles; soft grey ooze in the deep off the shelf
+  const bed = vg === 'eggakanten' ? ['#4a4a6a', '#34344e', '#22223a'] : vg === 'sundet' ? ['#6a6478', '#4a4460', '#34304a'] : ['#5a5684', '#3e3a64', '#2a2648']
   for (let x = 0; x < W; x++) {
     const top = SEABED + Math.round(3 * Math.sin(x * 0.09) + 2 * Math.sin(x * 0.23 + 1))
     for (let y = top; y < Hh; y++) {
       const d = y - top
-      let col = d === 0 ? '#5a5684' : d < 3 ? '#3e3a64' : '#2a2648'
+      let col = d === 0 ? bed[0] : d < 3 ? bed[1] : bed[2]
       if (d > 2 && (x + Math.round(Math.sin(y * 0.8) * 2)) % 6 === 0) col = '#34305a'
       if (d > 1 && (x * 13 + y * 7) % 29 === 0) col = '#6a6694'
       rock.set(x, y, col)
@@ -271,6 +291,10 @@ export function buildWater(W: number, world = 'norge'): Water {
   }
   if (world === 'lofoten') {
     lofotenLife(g, W, r, deco, glows, onWall, px)
+    return { bg: c, wallL, wallR, deco, glows }
+  }
+  if (vg) {
+    vardoLife(vg, g, W, r, deco, glows, onWall, px)
     return { bg: c, wallL, wallR, deco, glows }
   }
 
@@ -645,6 +669,271 @@ function hawaiiLife(
     const x = 6 + r() * (W - 12)
     deco.push({ x, y: SEABED + 1, kind: 'glowplant', len: 4 + r() * 8, side: 1, seed: r() * 10, color: '#ffb46a' })
   }
+}
+
+/**
+ * The walls of Vardø's four grounds. Bussesundet is a shallow sandy sound, Varangerfjorden a
+ * stepped rocky fjord, Tiddlybanken a sea of flat banks, and at Eggakanten the shelf breaks
+ * off on the left into a cliff falling to the deep, with open water on the right.
+ */
+function vardoWall(ground: string, y: number, ph: number, W: number) {
+  const cl = (v: number) => Math.max(0, Math.min(1, v))
+  const n = 5 * Math.sin(y * 0.031 + ph) + 3 * Math.sin(y * 0.077 + ph * 2) + 1.5 * Math.sin(y * 0.19 + ph * 3)
+  const left = ph < 2
+  if (ground === 'sundet') {
+    const base = cl((y - 30) / 520) * W * 0.2 + cl((y - 1000) / 700) * W * 0.12
+    return Math.max(0, Math.round(base + n * cl(y / 300) * 0.8))
+  }
+  if (ground === 'fjorden') {
+    // terraces: the wall steps out every ninety pixels, a flat ledge for the crabs to walk
+    // four steps out, then the rock falls back under an overhang and it starts again
+    const k = y / 90 + (left ? 0 : 2.5)
+    const i = Math.floor(k)
+    const f = k - i
+    const c = i % 5
+    const steps = c < 4 ? c + cl((f - 0.8) * 5) : 4 * (1 - cl(f * 1.6))
+    const base = cl((y - 60) / 300) * W * (0.07 + 0.035 * steps) + cl((y - 1300) / 400) * W * 0.07
+    return Math.max(0, Math.round(base + n * cl((y - 60) / 200) * 0.5))
+  }
+  if (ground === 'banken') {
+    // wide flat banks at different depths on each side, the edge dropping in a short slope
+    const bank = (top: number, w: number) => cl((y - top) / 18) * w
+    const base = left ? Math.max(bank(560, W * 0.3), bank(1150, W * 0.35)) : Math.max(bank(840, W * 0.25), bank(1420, W * 0.3))
+    const shallow = cl((y - 80) / 400) * W * 0.07
+    const bumps = y > 300 ? n * 0.4 : n * 0.2
+    return Math.max(0, Math.round(Math.max(base, shallow) + bumps))
+  }
+  // eggakanten
+  if (left) {
+    // the shelf: flat on top, the edge rounding over and the cliff going down almost straight
+    const shelf = cl((y - 120) / 30) * W * 0.44
+    const slope = cl((y - 200) / 1500) * W * 0.06
+    const cracks = y > 200 ? 3 * Math.sin(y * 0.05 + 1) + 2 * Math.sin(y * 0.17) : 0
+    return Math.max(0, Math.round(shelf + slope + cracks))
+  }
+  return Math.max(0, Math.round(cl((y - 1250) / 400) * W * 0.18 + (y > 1250 ? n * 0.6 : 0)))
+}
+
+/** What lives on the walls of each ground off Vardø */
+function vardoLife(
+  ground: string,
+  g: CanvasRenderingContext2D,
+  W: number,
+  r: () => number,
+  deco: Deco[],
+  glows: Water['glows'],
+  onWall: (y: number, side: 1 | -1) => number,
+  px: (x: number, y: number, c: string) => void,
+) {
+  const side = () => (r() < 0.5 ? 1 : -1) as 1 | -1
+  const eggakanten = ground === 'eggakanten'
+  // on the drop-off almost everything grows on the left wall
+  const wallSide = () => (eggakanten ? 1 : side())
+  const urchin = (x: number, y: number, c: string, c2: string) => {
+    px(x, y, c)
+    for (const [dx, dy] of [[-1, -1], [1, -1], [-2, 0], [2, 0], [0, -2]]) px(x + dx, y + dy, c2)
+  }
+  const sponge = (x: number, y: number, c: string, h: number, dir: number) => {
+    // a lumpy sponge growing out from the rock, paler at its rim
+    for (let k = 0; k < h; k++) {
+      const w = 2 + Math.round(Math.sin((k / h) * Math.PI) * 2)
+      g.fillStyle = k === h - 1 ? shade(c, 0.3) : k % 2 ? c : shade(c, -0.1)
+      g.fillRect(dir === 1 ? x : x - w, y - k, w, 1)
+    }
+    g.fillStyle = shade(c, -0.35)
+    g.fillRect(dir === 1 ? x + 1 : x - 2, y - h + 1, 1, 1)
+  }
+  const brittle = (x: number, y: number, c: string) => {
+    px(x, y, shade(c, -0.2))
+    for (const [dx, dy] of [[-2, -1], [-1, 0], [1, 0], [2, -1], [0, 1], [-2, 1], [2, 1], [-3, 0], [3, 0]]) if (r() < 0.8) px(x + dx, y + dy, c)
+  }
+  const lophelia = (x: number, y: number, dir: number, col: string) => {
+    const branch = (bx: number, by: number, n: number, ang: number) => {
+      for (let k = 0; k < n; k++) {
+        const cx = Math.round(bx + Math.cos(ang) * k * dir)
+        const cy = Math.round(by - Math.sin(ang) * k)
+        px(cx, cy, k === n - 1 ? '#fff8f0' : col)
+        if (k === Math.floor(n / 2) && n > 3) {
+          branch(cx, cy, n - 2, ang + 0.6)
+          branch(cx, cy, n - 2, ang - 0.5)
+        }
+      }
+    }
+    branch(x, y, 6, 0.9)
+    branch(x, y, 4, 0.3)
+  }
+  const mussels = (n: number, from: number, span: number) => {
+    for (let i = 0; i < n; i++) {
+      const y = Math.round(from + r() * span)
+      const sd = wallSide()
+      const x = onWall(y, sd) - (sd === 1 ? 1 : 0)
+      if (r() < 0.6) for (let k = 0; k < 3; k++) px(x - sd * (k % 2), y + k, k === 0 ? '#4a5a8a' : '#1e1e3a')
+      else px(x, y, '#ece8dc')
+    }
+  }
+
+  if (ground === 'sundet') {
+    // Bussesundet: rockweed and sugar kelp in the shallows, a thick tare forest, sand and urchins below
+    for (let i = 0; i < 16; i++) {
+      const y = 40 + r() * 260
+      const sd = side()
+      deco.push({ x: onWall(y, sd), y, kind: 'grass', len: 5 + r() * 7, side: sd, seed: r() * 10, color: r() < 0.5 ? '#8a7a3a' : '#6a7a32' })
+    }
+    mussels(50, 60, 320)
+    for (let i = 0; i < 40; i++) {
+      const y = 150 + r() * 600
+      const sd = side()
+      deco.push({ x: onWall(y, sd), y, kind: 'kelp', len: 22 + r() * 42, side: sd, seed: r() * 10, color: ['#6a6a2a', '#7a6a32', '#5a7a32'][Math.floor(r() * 3)] })
+    }
+    for (let i = 0; i < 30; i++) {
+      const y = Math.round(300 + r() * 700)
+      const sd = side()
+      urchin(onWall(y, sd) - sd * 2, y, '#7a3a5a', '#a85a8a')
+    }
+    for (let i = 0; i < 14; i++) {
+      const y = Math.round(200 + r() * 900)
+      const sd = side()
+      const x = onWall(y, sd) - sd * 3
+      const c = ['#ff7a3a', '#e84a6a', '#ffb43a'][Math.floor(r() * 3)]
+      for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [-1, 1], [1, 1]]) px(x + dx, y + dy, dx === 0 && dy === 0 ? shade(c, 0.3) : c)
+    }
+    for (let i = 0; i < 10; i++) {
+      const y = 900 + r() * 700
+      const sd = side()
+      deco.push({ x: onWall(y, sd), y, kind: 'anemone', len: 4 + r() * 3, side: sd, seed: r() * 10, color: ['#f4e4f0', '#ffb46a', '#ff8ab8'][Math.floor(r() * 3)] })
+    }
+    // flounder-coloured sand ripples and shells on the bottom of the sound
+    for (let i = 0; i < 30; i++) px(6 + r() * (W - 12), SEABED - 1 - Math.round(r() * 2), r() < 0.5 ? '#e8e0cc' : '#b8a888')
+    for (let i = 0; i < 8; i++) deco.push({ x: 8 + r() * (W - 16), y: SEABED + 1, kind: 'grass', len: 4 + r() * 4, side: side(), seed: r() * 10, color: '#7a8a3a' })
+    return
+  }
+
+  if (ground === 'fjorden') {
+    // Varangerfjorden: kelp near the top, then ledge after ledge of rock with king crabs on them
+    for (let i = 0; i < 18; i++) {
+      const y = 80 + r() * 400
+      const sd = side()
+      deco.push({ x: onWall(y, sd), y, kind: 'kelp', len: 16 + r() * 26, side: sd, seed: r() * 10, color: r() < 0.5 ? '#6a6a2a' : '#7a6a32' })
+    }
+    mussels(40, 60, 400)
+    for (let i = 0; i < 26; i++) {
+      const y = 380 + r() * 1100
+      const sd = side()
+      deco.push({ x: onWall(y, sd), y, kind: 'crab', len: 1, side: sd, seed: r() * 10, color: r() < 0.8 ? '#a8382e' : '#b84a32' })
+    }
+    for (let i = 0; i < 30; i++) {
+      const y = Math.round(300 + r() * 1300)
+      const sd = side()
+      brittle(onWall(y, sd) - sd * 3, y, ['#c88a6a', '#a87a8a', '#d8a87a'][Math.floor(r() * 3)])
+    }
+    for (let i = 0; i < 24; i++) {
+      const y = Math.round(200 + r() * 600)
+      const sd = side()
+      urchin(onWall(y, sd) - sd * 2, y, '#4a8a3a', '#6aaa4a')
+    }
+    for (let i = 0; i < 14; i++) {
+      const y = 600 + r() * 900
+      const sd = side()
+      deco.push({ x: onWall(y, sd), y, kind: 'anemone', len: 5 + r() * 4, side: sd, seed: r() * 10, color: r() < 0.6 ? '#f4ece4' : '#ff9a6a' })
+    }
+    for (let i = 0; i < 12; i++) {
+      const y = 1400 + r() * 360
+      const sd = side()
+      glows.push({ x: onWall(y, sd) + sd * 3, y: Math.round(y), c: ['#8affd8', '#6ab8ff'][Math.floor(r() * 2)], r: 1 })
+    }
+    for (let i = 0; i < 6; i++) deco.push({ x: 8 + r() * (W - 16), y: SEABED + 1, kind: 'crab', len: 1, side: side(), seed: r() * 10, color: '#a8382e' })
+    return
+  }
+
+  if (ground === 'banken') {
+    // Tiddlybanken: sponges like boulders on the flat banks, pink soft corals, sea pens and snow crabs
+    const onBank = (n: number, tint: (i: number) => void) => {
+      for (let i = 0; i < n; i++) tint(i)
+    }
+    // the tops of the banks, where the wall steps out flat
+    const benches: { y: number; side: 1 | -1 }[] = [
+      { y: 560, side: 1 },
+      { y: 1150, side: 1 },
+      { y: 840, side: -1 },
+      { y: 1420, side: -1 },
+    ]
+    for (const b of benches) {
+      const x0 = b.side === 1 ? 2 : W - onWall(b.y + 20, -1) + 2
+      const x1 = b.side === 1 ? onWall(b.y + 20, 1) - 2 : W - 2
+      onBank(Math.round((x1 - x0) / 5), () => {
+        const x = Math.round(x0 + r() * (x1 - x0))
+        const top = b.y + 1
+        const k = r()
+        if (k < 0.35) sponge(x, top, ['#e8c86a', '#f0a050', '#e8e0c8'][Math.floor(r() * 3)], 3 + Math.floor(r() * 4), 1)
+        else if (k < 0.6) deco.push({ x, y: top, kind: 'anemone', len: 3 + r() * 3, side: 1, seed: r() * 10, color: ['#ff9ab8', '#ffb07a', '#f4e4f0'][Math.floor(r() * 3)] })
+        else if (k < 0.75) {
+          for (let j = 0; j < 5; j++) px(x, top - j, j > 2 ? '#f0c08a' : '#a87a5a')
+          if (r() < 0.5) glows.push({ x, y: top - 4, c: '#9ae8ff', r: 1 })
+        } else if (k < 0.85) deco.push({ x, y: top, kind: 'crab', len: 2, side: r() < 0.5 ? 1 : -1, seed: r() * 10, color: '#d8823a' })
+        else brittle(x, top - 1, '#d8a87a')
+      })
+    }
+    mussels(30, 60, 300)
+    for (let i = 0; i < 12; i++) {
+      const y = 60 + r() * 300
+      const sd = side()
+      deco.push({ x: onWall(y, sd), y, kind: 'kelp', len: 12 + r() * 18, side: sd, seed: r() * 10, color: '#6a6a2a' })
+    }
+    for (let i = 0; i < 30; i++) {
+      const y = Math.round(300 + r() * 1400)
+      const sd = side()
+      sponge(onWall(y, sd) + (sd === 1 ? 0 : 0), y, ['#e8c86a', '#c8b898', '#f0a050'][Math.floor(r() * 3)], 2 + Math.floor(r() * 3), sd)
+    }
+    for (let i = 0; i < 14; i++) {
+      const y = 1500 + r() * 260
+      const sd = side()
+      glows.push({ x: onWall(y, sd) + sd * 3, y: Math.round(y), c: ['#8affd8', '#6ab8ff'][Math.floor(r() * 2)], r: 1 })
+    }
+    for (let i = 0; i < 8; i++) deco.push({ x: 8 + r() * (W - 16), y: SEABED + 1, kind: 'glowplant', len: 4 + r() * 6, side: 1, seed: r() * 10, color: '#9ae8ff' })
+    return
+  }
+
+  // Eggakanten: a lip of kelp and sponges on the shelf, Lophelia and glass sponges down the cliff, lights in the deep
+  for (let i = 0; i < 10; i++) {
+    const y = 40 + r() * 100
+    deco.push({ x: onWall(y, 1), y, kind: 'kelp', len: 10 + r() * 14, side: 1, seed: r() * 10, color: '#6a6a2a' })
+  }
+  // the top of the shelf, its flat face
+  const shelfX = onWall(160, 1)
+  for (let i = 0; i < Math.round(shelfX / 6); i++) {
+    const x = Math.round(2 + r() * (shelfX - 4))
+    if (r() < 0.5) sponge(x, 150, ['#e8c86a', '#c8b898'][Math.floor(r() * 2)], 2 + Math.floor(r() * 3), 1)
+    else deco.push({ x, y: 150, kind: 'grass', len: 3 + r() * 4, side: 1, seed: r() * 10, color: '#7a7a3a' })
+  }
+  for (let i = 0; i < 40; i++) {
+    const y = Math.round(220 + r() * 800)
+    lophelia(onWall(y, 1), y, 1, r() < 0.6 ? '#f0e8dc' : '#f0a070')
+  }
+  for (let i = 0; i < 14; i++) {
+    const y = 300 + r() * 700
+    deco.push({ x: onWall(y, 1), y, kind: 'anemone', len: 5 + r() * 4, side: 1, seed: r() * 10, color: '#f4ece4' })
+  }
+  for (let i = 0; i < 16; i++) {
+    const y = 600 + r() * 500
+    deco.push({ x: onWall(y, 1), y, kind: 'fan', len: 6 + r() * 6, side: 1, seed: r() * 10, color: r() < 0.6 ? '#e8705a' : '#f0d8c8' })
+  }
+  for (let i = 0; i < 18; i++) {
+    const y = Math.round(1000 + r() * 500)
+    const x = onWall(y, 1) + 2
+    // glass sponges like pale vases
+    for (let k = 0; k < 5; k++) {
+      g.fillStyle = k === 4 ? '#e8e4d8' : '#b8b4a8'
+      g.fillRect(x, y - k, 1 + Math.min(2, Math.floor(k / 2)), 1)
+      g.fillRect(x + 2, y - k, 1, 1)
+    }
+    if (r() < 0.35) glows.push({ x: x + 1, y: y - 5, c: '#b8f0ff', r: 1 })
+  }
+  for (let i = 0; i < 30; i++) {
+    const y = 1200 + r() * 560
+    const sd = y > 1350 && r() < 0.4 ? -1 : 1
+    glows.push({ x: onWall(y, sd) + sd * 3, y: Math.round(y), c: ['#8affd8', '#6ab8ff', '#d0a8ff'][Math.floor(r() * 3)], r: 1 })
+  }
+  for (let i = 0; i < 14; i++) deco.push({ x: 6 + r() * (W - 12), y: SEABED + 1, kind: 'glowplant', len: 5 + r() * 12, side: 1, seed: r() * 10, color: ['#7affd8', '#9ae8ff', '#d0a8ff'][Math.floor(r() * 3)] })
 }
 
 /** Swaying seaweed and other animated decorations */

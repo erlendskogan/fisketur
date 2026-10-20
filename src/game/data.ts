@@ -2,6 +2,8 @@ import type { Look } from '../art/fishgen'
 import { AK_BOOK_REWARDS, AK_GEAR, AK_PAINTS, AK_QUESTS, AK_SPECIES, AK_ZONES } from './alaska'
 import { HI_BOOK_REWARDS, HI_GEAR, HI_PAINTS, HI_QUESTS, HI_SPECIES, HI_ZONES } from './hawaii'
 import { LO_BOOK_REWARDS, LO_GEAR, LO_PAINTS, LO_QUESTS, LO_SPECIES, LO_ZONES } from './lofoten'
+import { VA_BOOK, VA_BOOK_REWARDS, VA_GEAR, VA_GROUNDS, VA_PAINTS, VA_QUESTS, VA_SPECIES, groundSpecies } from './vardo/data'
+import type { GroundId } from './vardo/types'
 
 // ---------- depth zones ----------
 
@@ -68,6 +70,12 @@ export interface Species {
   text: string
   /** Not part of normal spawning */
   special?: boolean
+  /** Vardø: the fishing ground this fish lives in (see src/game/vardo/types.ts) */
+  ground?: string
+  /** Vardø: only caught in pots (crabs); never on the hook, but it is in the book */
+  pot?: boolean
+  /** Vardø: a legendary specimen with its own spawn rule; shown in its own part of the book */
+  legend?: boolean
 }
 
 const NO_SPECIES: Species[] = [
@@ -236,7 +244,7 @@ const NO_SPECIES: Species[] = [
 
 export let SPECIES: Species[] = NO_SPECIES
 /** Every fish in every world, so a catch can always be looked up */
-export const SPECIES_BY_ID: Record<string, Species> = Object.fromEntries([...NO_SPECIES, ...AK_SPECIES, ...HI_SPECIES, ...LO_SPECIES].map((s) => [s.id, s]))
+export const SPECIES_BY_ID: Record<string, Species> = Object.fromEntries([...NO_SPECIES, ...AK_SPECIES, ...HI_SPECIES, ...LO_SPECIES, ...VA_SPECIES].map((s) => [s.id, s]))
 export let BOOK = SPECIES.filter((s) => !s.special)
 
 // ---------- gear ----------
@@ -392,24 +400,42 @@ export let PAINTS = NO_PAINTS
 
 // ---------- worlds ----------
 
-export type WorldId = 'norge' | 'alaska' | 'hawaii' | 'lofoten'
+export type WorldId = 'norge' | 'alaska' | 'hawaii' | 'lofoten' | 'vardo'
 
 export const WORLDS: Record<WorldId, { place: string; currency: 'kr' | '$'; boat: string; zones: Zone[]; species: Species[]; gear: typeof NO_GEAR; quests: Quest[]; rewards: BookReward[]; paints: Paint[] }> = {
   norge: { place: 'Skjærvik', currency: 'kr', boat: 'Måken', zones: NO_ZONES, species: NO_SPECIES, gear: NO_GEAR, quests: NO_QUESTS, rewards: NO_BOOK_REWARDS, paints: NO_PAINTS },
   alaska: { place: 'Petersburg', currency: '$', boat: 'Ternen', zones: AK_ZONES, species: AK_SPECIES, gear: AK_GEAR, quests: AK_QUESTS, rewards: AK_BOOK_REWARDS, paints: AK_PAINTS },
   hawaii: { place: 'Hilo', currency: '$', boat: 'Koholā', zones: HI_ZONES, species: HI_SPECIES, gear: HI_GEAR, quests: HI_QUESTS, rewards: HI_BOOK_REWARDS, paints: HI_PAINTS },
   lofoten: { place: 'Henningsvær', currency: 'kr', boat: 'Nordstjerna', zones: LO_ZONES, species: LO_SPECIES, gear: LO_GEAR, quests: LO_QUESTS, rewards: LO_BOOK_REWARDS, paints: LO_PAINTS },
+  // zones follow the ground you are on and boat the boat you sail (see setGround and the Vardø controller)
+  vardo: { place: 'Vardø', currency: 'kr', boat: 'Signe', zones: VA_GROUNDS.sundet.zones, species: VA_SPECIES, gear: VA_GEAR, quests: VA_QUESTS, rewards: VA_BOOK_REWARDS, paints: VA_PAINTS },
 }
 
 export let WORLD: WorldId = 'norge'
 
+/** Vardø's fishing ground; it decides the zones and the fish there */
+let GROUND: GroundId = 'sundet'
+
+/** Move to another of Vardø's grounds: the water and the fish change, the book stays */
+export function setGround(g: GroundId) {
+  GROUND = VA_GROUNDS[g] ? g : 'sundet'
+  WORLDS.vardo.zones = VA_GROUNDS[GROUND].zones
+  if (WORLD !== 'vardo') return
+  ZONES = WORLDS.vardo.zones
+  SPECIES = groundSpecies(GROUND)
+}
+
 /** Point every table above at the place you are in now */
 export function setWorld(id: WorldId) {
   const w = WORLDS[id] ?? WORLDS.norge
-  WORLD = id
+  WORLD = WORLDS[id] ? id : 'norge'
   ZONES = w.zones
   SPECIES = w.species
   BOOK = w.species.filter((s) => !s.special)
+  if (WORLD === 'vardo') {
+    BOOK = VA_BOOK
+    setGround(GROUND)
+  }
   GEAR = w.gear
   QUESTS = w.quests
   BOOK_REWARDS = w.rewards
@@ -417,4 +443,6 @@ export function setWorld(id: WorldId) {
 }
 
 export const worldOf = (speciesId: string): WorldId =>
-  AK_SPECIES.some((s) => s.id === speciesId) ? 'alaska' : HI_SPECIES.some((s) => s.id === speciesId) ? 'hawaii' : LO_SPECIES.some((s) => s.id === speciesId) ? 'lofoten' : 'norge'
+  speciesId.startsWith('v_')
+    ? 'vardo'
+    : AK_SPECIES.some((s) => s.id === speciesId) ? 'alaska' : HI_SPECIES.some((s) => s.id === speciesId) ? 'hawaii' : LO_SPECIES.some((s) => s.id === speciesId) ? 'lofoten' : 'norge'

@@ -1,14 +1,16 @@
 // The harbour: Krambua, Havnebua, Havstasjonen and the lighthouse
 
 import { Pix, canvas, rgba, shade, mix, rng } from '../art/pixel'
-import { boatSprite, catSprites, eagleSprites, gullSprites, otterSprite, turtleSprite, BOAT_W, BOAT_H } from '../art/sprites'
+import { boatSprite, catSprites, eagleSprites, gullSprites, kittiwakeSprites, otterSprite, puffinSprites, turtleSprite, BOAT_GEO, type BoatSpriteKind } from '../art/sprites'
+import { auroraStrength, boatKindOf, isVardo, vaOf } from '../art/vardo'
+import { VA_BOATS, rankLevel } from './vardo/economy'
 import { drawBeam } from '../art/scenery'
-import { Backdrop, drawGlitter, drawReflection, drawRipples, glow, makeVignette, PAL as L, rippleColour, tintAmbient, clamp01 } from '../art/fjord'
+import { Backdrop, drawGlitter, drawReflection, drawRipples, glow, light, makeVignette, PAL as L, rippleColour, tintAmbient, clamp01 } from '../art/fjord'
 import { PAINTS } from './data'
 import type { Save } from './state'
 import { Rain, weatherAt } from './weather'
 
-export type SpotId = 'krambua' | 'havnebua' | 'stasjon' | 'fyret' | 'baten'
+export type SpotId = 'krambua' | 'havnebua' | 'stasjon' | 'fyret' | 'baten' | 'naust'
 
 export interface Spot {
   id: SpotId
@@ -573,6 +575,12 @@ const GLYPHS: Record<string, string[]> = {
   R: ['11.', '1.1', '11.', '1.1', '1.1'],
   S: ['.11', '1..', '.1.', '..1', '11.'],
   T: ['111', '.1.', '.1.', '.1.', '.1.'],
+  G: ['.11', '1..', '1.1', '1.1', '.11'],
+  Y: ['1.1', '1.1', '.1.', '.1.', '.1.'],
+  N: ['11.', '1.1', '1.1', '1.1', '1.1'],
+  V: ['1.1', '1.1', '1.1', '1.1', '.1.'],
+  U: ['1.1', '1.1', '1.1', '1.1', '111'],
+  D: ['11.', '1.1', '1.1', '1.1', '11.'],
 }
 
 function letters(p: Pix, text: string, x: number, y: number, c: string) {
@@ -1168,6 +1176,395 @@ function hurtigruten() {
   return p
 }
 
+// ---------- Vardø ----------
+
+/** A gable roof with barge boards over the wall below it, like the other gable-end houses */
+function gableRoof(p: Pix, x0: number, w: number, apex: number, gable: number, roof: string, trim: string | null, over = 4) {
+  const cx = x0 + w / 2
+  const s = gable / (w / 2)
+  const yLine = (x: number) => apex - 1 + Math.abs(x + 0.5 - cx) * s
+  for (let y = 0; y < apex + gable + 4; y++)
+    for (let x = x0 - over; x < x0 + w + over; x++) {
+      const v = yLine(x) - (y + 0.5)
+      if (v < 0 || v >= 3.8) continue
+      p.set(x, y, trim && v < 1.2 ? trim : v < 2.2 ? shade(roof, -0.2) : v < 3.2 ? roof : shade(roof, 0.3))
+    }
+  return yLine
+}
+
+/** Pomorbrygga: Nadja's white wharf building, a loft door in its wall dormer, the sign, and a mural */
+function pomorbrygga(w: number, r: () => number): Built {
+  const m = 6
+  const roofH = 9
+  const ry = 9
+  const top = ry + roofH
+  const wallH = 34
+  const H = top + wallH
+  const p = new Pix(w + m * 2, H)
+  const b = built(p)
+  const x0 = m
+  const cx = Math.round(x0 + w / 2)
+  const wall = '#ece8e0'
+  const trim = '#2e5a5a'
+  const roof = '#3a3a4a'
+
+  // a stovepipe from Nadja's office
+  const chx = x0 + w - 9
+  for (let y = 3; y < ry + 3; y++) for (let x = chx; x < chx + 2; x++) p.set(x, y, x === chx ? '#8a8a96' : '#5a5a68')
+  p.rect(chx - 1, 2, 4, 1, '#3a3a48')
+  b.smoke.push([chx + 1, 1])
+
+  planks(p, x0, w, top, H, wall, r, 'siding')
+  for (let x = x0; x < x0 + w; x++) {
+    p.set(x, H - 1, shade(wall, -0.4))
+    p.set(x, H - 2, shade(wall, -0.2))
+  }
+  for (let y = top; y < H - 1; y++) {
+    p.set(x0, y, shade(trim, -0.1))
+    p.set(x0 + 1, y, trim)
+    p.set(x0 + w - 2, y, trim)
+    p.set(x0 + w - 1, y, shade(trim, -0.3))
+  }
+  // the long roof, tarred boards with a ridge
+  for (let rr = 0; rr < roofH; rr++) {
+    const y = ry + rr
+    const inset = Math.round((roofH - 1 - rr) * 0.45)
+    for (let x = x0 - 3 + inset; x < x0 + w + 3 - inset; x++) {
+      let c = rr === 0 ? shade(roof, 0.35) : rr === roofH - 1 ? shade(roof, -0.35) : (x + rr * 2) % 5 === 0 ? shade(roof, -0.12) : roof
+      if (rr > 0 && rr < roofH - 2 && r() < 0.05) c = mix(c, '#5a7a4a', 0.5)
+      p.set(x, y, c)
+    }
+  }
+  for (let x = x0; x < x0 + w; x++) darken(p, x, top, 0.25)
+  // the wall dormer with a loft door and a hoist beam
+  const aw = 13
+  const ax = cx - Math.floor(aw / 2)
+  planks(p, ax, aw, 4, top + 1, wall, r, 'siding')
+  for (let y = 4; y < top + 1; y++) {
+    p.set(ax, y, trim)
+    p.set(ax + aw - 1, y, shade(trim, -0.25))
+  }
+  gableRoof(p, ax, aw, 2, 4, roof, '#f4ecdc', 2)
+  p.rect(cx - 3, 8, 7, 9, '#7a4a32')
+  for (const x of [cx - 1, cx + 1]) for (let y = 8; y < 17; y++) p.set(x, y, '#5e3824')
+  p.rect(cx - 4, 7, 9, 1, trim)
+  p.rect(cx - 1, 5, 3, 1, '#4a3222')
+  p.set(cx + 1, 6, '#c8a878')
+  // the sign
+  const sign = 'POMORBRYGGA'
+  const sw = textW(sign) + 4
+  const sx = Math.round(x0 + w / 2 - sw / 2)
+  const sy = top + 2
+  p.rect(sx, sy, sw, 8, '#1e3a4a')
+  p.rect(sx, sy, sw, 1, '#3a6a7a')
+  p.rect(sx, sy + 7, sw, 1, '#122a36')
+  letters(p, sign, sx + 2, sy + 2, '#f4ecdc')
+  // a cargo door, the shop door with a lamp
+  const gx = x0 + 3
+  const gw = 12
+  const gy = H - 1 - 16
+  p.rect(gx - 1, gy - 1, gw + 2, 1, trim)
+  p.rect(gx, gy, gw, 16, '#2e5a5a')
+  for (let x = gx; x < gx + gw; x += 3) for (let y = gy; y < gy + 16; y++) p.set(x, y, '#244848')
+  line(p, gx, gy, gx + gw / 2 - 1, gy + 15, '#4a7a7a')
+  line(p, gx + gw - 1, gy, gx + gw / 2, gy + 15, '#4a7a7a')
+  p.rect(gx + gw / 2 - 1, gy, 1, 16, '#1a3434')
+  const dx = gx + gw + 3
+  door(b, dx, 7, 14, '#a8343a', trim, true)
+  p.rect(dx + 2, H - 19, 3, 1, '#2a2438')
+  p.rect(dx + 2, H - 18, 3, 2, '#ffd36a')
+  b.lights.push({ x: dx + 2, y: H - 18, w: 3, h: 2, kind: 'lamp', on: 0.08, ph: 5 })
+  // the mural: a humpback's tail rising out of a sea of colour under an orange sun
+  const mx0 = dx + 10
+  const mw = x0 + w - 3 - mx0
+  const my0 = sy + 10
+  const mh = H - 4 - my0
+  if (mw > 8)
+    for (let y = 0; y < mh; y++)
+      for (let x = 0; x < mw; x++) {
+        const u = x / (mw - 1)
+        const v = y / (mh - 1)
+        let c = mix('#2a8a9a', '#1e3a7a', v)
+        if ((x + y) % 2 === 0 && v > 0.4 && v < 0.6) c = mix('#2a8a9a', '#1e3a7a', 0.6)
+        if (Math.hypot(u - 0.74, v - 0.28) < 0.2) c = Math.hypot(u - 0.74, v - 0.28) < 0.12 ? '#ffc84a' : '#f07a3a'
+        // the fluke: a stalk and two curved blades
+        const sxx = 0.38
+        const stalk = Math.abs(u - sxx) < 0.07 && v > 0.42
+        const blades = v > 0.12 && v < 0.5 && Math.abs(Math.abs(u - sxx) - (0.5 - v) * 0.9) < 0.11
+        if (stalk || blades) c = v < 0.2 ? '#e8ecf4' : '#14182e'
+        if (v > 0.78) c = Math.sin(x * 1.3 + y * 2) > 0.3 ? '#e8f4f8' : '#3ab8c8'
+        if (x === 0 || y === 0) c = shade(c, 0.1)
+        p.set(mx0 + x, my0 + y, c)
+      }
+  return b
+}
+
+/** Havnekontoret: Brita's small ochre office with the contract board on posts beside the door */
+function havnekontoret(w: number, r: () => number): Built {
+  const m = 6
+  const gable = Math.round(w * 0.44)
+  const apex = 4
+  const top = apex + gable
+  const wallH = 19
+  const H = top + wallH
+  const p = new Pix(w + m * 2, H)
+  const b = built(p)
+  const x0 = m - 1
+  const wall = '#d89a3a'
+  const trim = '#f4ecdc'
+  const yLine = (x: number) => apex - 1 + Math.abs(x + 0.5 - (x0 + w / 2)) * (gable / (w / 2))
+  planks(p, x0, w, apex, H, wall, r, 'batten', (x, y) => y >= top || y + 0.5 >= yLine(x))
+  for (let x = x0; x < x0 + w; x++) {
+    p.set(x, H - 1, shade(wall, -0.35))
+    p.set(x, H - 2, shade(wall, -0.15))
+  }
+  p.rect(x0, top, w, 1, trim)
+  for (let x = x0; x < x0 + w; x++) darken(p, x, top + 1, 0.2)
+  for (let y = top; y < H - 1; y++) {
+    p.set(x0, y, shade(trim, -0.1))
+    p.set(x0 + w - 1, y, shade(trim, -0.22))
+  }
+  gableRoof(p, x0, w, apex, gable, '#a8343a', trim, 3)
+  // a round window in the gable and a life ring on the wall
+  const cx = Math.round(x0 + w / 2)
+  p.rect(cx - 1, top - 5, 2, 2, GLASS)
+  p.set(cx - 1, top - 5, '#8ab8e0')
+  b.lights.push({ x: cx - 1, y: top - 5, w: 2, h: 2, kind: 'pane', on: 0.3, ph: 3 })
+  win(b, x0 + 2, top + 4, trim, r)
+  door(b, x0 + w - 8, 6, 13, '#2a4a6a', trim, true)
+  for (const [ddx, ddy, c] of [[0, 1, '#ff6a3a'], [1, 0, '#f4ecdc'], [2, 0, '#ff6a3a'], [3, 1, '#f4ecdc'], [3, 2, '#ff6a3a'], [2, 3, '#f4ecdc'], [1, 3, '#ff6a3a'], [0, 2, '#f4ecdc']] as [number, number, string][])
+    p.set(x0 + 10 + ddx, top + 3 + ddy, c)
+  // the contract board: a little roof over notes pinned to a dark board
+  const bx = x0 + w + 1
+  const by = H - 15
+  for (const px of [bx, bx + 5]) for (let y = by; y < H; y++) p.set(px, y, '#5a3e2a')
+  p.rect(bx - 1, by - 1, 8, 1, '#a8343a')
+  p.rect(bx, by, 6, 6, '#4a3424')
+  const notes = ['#f4ecdc', '#ffe48a', '#f8c0c8', '#f4ecdc', '#c8e0f0']
+  for (const [nx, ny, k] of [[1, 1, 0], [3, 1, 1], [1, 3, 2], [4, 3, 3], [2, 4, 4]] as [number, number, number][]) {
+    p.set(bx + nx, by + ny, notes[k])
+    if (nx < 4) p.set(bx + nx, by + ny + (ny < 3 ? 1 : 0), shade(notes[k], -0.1))
+  }
+  p.set(bx + 3, by + 1, '#d8433a')
+  return b
+}
+
+/**
+ * Signes hus: a blue two-storey house with its gable to the sea, the smokehouse beside it on the
+ * left and the sauna on the right. Without a roof it is a ruin; every room you build shows.
+ */
+function signesHus(rooms: string[], r: () => number): Built & { tarn: [number, number] | null; door: number } {
+  const has = (id: string) => rooms.includes(id)
+  const roofed = has('tak')
+  const shedW = 10
+  const hw = 30
+  const saunaW = 10
+  const m = 3
+  const W = m + shedW + 1 + hw + 1 + saunaW + m
+  const wallH = 32
+  const gable = 13
+  const apex = 11
+  const top = apex + gable
+  const H = top + wallH
+  const p = new Pix(W, H)
+  const b = built(p)
+  const x0 = m + shedW + 1
+  const cx = x0 + hw / 2
+  const wall = roofed ? '#3a6a9e' : '#6a7a8a'
+  const trim = roofed ? '#f0ece4' : '#b8b4a8'
+  const roof = roofed ? '#34343f' : '#4a4642'
+
+  // the chimney: whole and smoking once the kitchen is in use, broken before
+  const chx = Math.round(x0 + hw * 0.66)
+  const yLine0 = (x: number) => apex - 1 + Math.abs(x + 0.5 - cx) * (gable / (hw / 2))
+  const chTop = Math.round(yLine0(chx + 1)) - (roofed ? 6 : 2)
+  for (let y = chTop; y < chTop + 9; y++)
+    for (let x = chx; x < chx + 3; x++) p.set(x, y, (y - chTop) % 3 === 2 ? '#6a3430' : x === chx ? '#b0604a' : '#924a3a')
+  if (roofed) {
+    p.rect(chx - 1, chTop, 5, 1, '#4a4458')
+    if (has('kjokken')) b.smoke.push([chx + 1, chTop - 1])
+  } else p.set(chx + 2, chTop, null)
+
+  planks(p, x0, hw, apex, H, wall, r, roofed ? 'siding' : 'weathered', (x, y) => y >= top || y + 0.5 >= yLine0(x))
+  for (let x = x0; x < x0 + hw; x++) {
+    p.set(x, H - 1, shade(wall, -0.35))
+    p.set(x, H - 2, shade(wall, -0.15))
+  }
+  for (let y = top; y < H - 1; y++) {
+    p.set(x0, y, shade(trim, -0.1))
+    p.set(x0 + 1, y, trim)
+    p.set(x0 + hw - 2, y, trim)
+    p.set(x0 + hw - 1, y, shade(trim, -0.22))
+  }
+  // the band between the floors and under the gable
+  const mid = top + 15
+  p.rect(x0, mid, hw, 1, trim)
+  p.rect(x0, top, hw, 1, trim)
+  for (let x = x0; x < x0 + hw; x++) {
+    darken(p, x, mid + 1, 0.2)
+    darken(p, x, top + 1, 0.2)
+  }
+  gableRoof(p, x0, hw, apex, gable, roof, trim, 4)
+  if (!roofed) {
+    // holes through the roof, the barge board hanging loose, weeds on the steps
+    for (const [hx, n] of [[x0 - 1, 4], [x0 + hw - 5, 3], [x0 + 6, 2]] as [number, number][])
+      for (let k = 0; k < n; k++) {
+        const y = Math.round(yLine0(hx + k)) + 1
+        p.set(hx + k, y, '#1e1a22')
+        p.set(hx + k, y + 1, '#2a2428')
+      }
+    for (let k = 0; k < 5; k++) p.set(x0 + hw + 1 + Math.floor(k / 2), Math.round(yLine0(x0 + hw)) + 1 + k, '#d8d0c0')
+    for (let x = x0; x < x0 + hw; x++) if (r() < 0.4) p.set(x, H - 2 - (r() < 0.3 ? 1 : 0), r() < 0.5 ? '#5a7a3a' : '#6a8a42')
+  }
+  // windows: kitchen and living room below, bedroom and guest room above, the loft in the gable
+  const lit = (id: string) => roofed && has(id)
+  const winAt = (X: number, Y: number, id: string, curtains = false) => {
+    if (!roofed) return win(b, X, Y, trim, r, { boarded: true })
+    const n = b.lights.length
+    win(b, X, Y, trim, r)
+    if (!lit(id)) b.lights.splice(n)
+    else for (const l of b.lights.slice(n)) l.on = 0.08 + r() * 0.2
+    if (curtains && lit(id))
+      for (let y = Y + 1; y < Y + 8; y++) {
+        p.set(X + 1, y, y % 2 ? '#d8433a' : '#f4ecdc')
+        p.set(X + 5, y, y % 2 ? '#d8433a' : '#f4ecdc')
+      }
+  }
+  winAt(x0 + 3, mid + 4, 'kjokken')
+  winAt(x0 + hw - 10, mid + 4, 'stue')
+  winAt(x0 + 3, top + 3, 'tak')
+  winAt(x0 + hw - 10, top + 3, 'gjest1', true)
+  const loft = has('gjest2') || has('verksted') ? (has('gjest2') ? 'gjest2' : 'verksted') : 'gjest2'
+  winAt(Math.round(cx) - 3, apex + 5, loft, has('gjest2'))
+  // the door between the windows, with a lamp over it
+  const dx = Math.round(cx) - 3
+  door(b, dx, 6, 12, roofed ? '#2a4a3a' : '#5a4a3e', trim, roofed)
+  if (!roofed) {
+    p.rect(dx - 1, H - 10, 8, 1, '#9a7a5a')
+    p.rect(dx - 1, H - 6, 8, 1, '#8a6a4a')
+  } else {
+    p.rect(dx + 2, H - 16, 2, 2, '#ffd36a')
+    b.lights.push({ x: dx + 2, y: H - 16, w: 2, h: 2, kind: 'lamp', on: 0.06, ph: 9 })
+  }
+
+  // Nordlysrommet: a glass loft on the ridge
+  let tarn: [number, number] | null = null
+  if (roofed && has('tarn')) {
+    const tx = Math.round(cx) - 5
+    const ty = apex - 8
+    for (let y = ty; y < ty + 7; y++)
+      for (let x = tx; x < tx + 10; x++) p.set(x, y, x === tx || x === tx + 9 || (x - tx) % 3 === 0 ? '#e8e4dc' : y === ty ? '#9ac8e8' : GLASS)
+    for (let k = 0; k < 6; k++) p.rect(tx - 1 + k, ty - 1 - Math.floor(k / 2) * 0, 12 - k * 2, 1, k === 0 ? '#4a4a58' : '#34343f')
+    p.rect(tx + 1, ty - 2, 8, 1, '#34343f')
+    p.rect(tx + 3, ty - 3, 4, 1, '#4a4a58')
+    for (const x of [tx + 1, tx + 4, tx + 7]) b.lights.push({ x, y: ty + 1, w: 2, h: 5, kind: 'pane', on: 0.15, ph: x })
+    tarn = [tx + 5, ty + 3]
+  }
+
+  // Røykeriet: a tarred shed with a stovepipe and fish hanging inside the open door
+  if (has('royeri')) {
+    const sx = m
+    const sh = 13
+    const sy = H - sh
+    planks(p, sx, shedW, sy, H, '#3a2c26', r, 'batten')
+    for (let x = sx - 1; x < sx + shedW + 1; x++) {
+      const y = sy - 1 - Math.round(((x - sx) / shedW) * 2)
+      p.set(x, y, '#2a2a34')
+      p.set(x, y + 1, '#4a4a58')
+    }
+    p.rect(sx + 2, H - 9, 5, 8, '#1a1210')
+    for (const fx of [sx + 3, sx + 5]) for (let y = H - 8; y < H - 4; y++) p.set(fx, y, y === H - 8 ? '#8a7a5a' : '#c89a5a')
+    b.lights.push({ x: sx + 2, y: H - 3, w: 5, h: 2, kind: 'lamp', on: 0, ph: 7 })
+    for (let y = sy - 6; y < sy - 2; y++) p.set(sx + shedW - 3, y, '#4a4a58')
+    b.smoke.push([sx + shedW - 3, sy - 7])
+    b.smoke.push([sx + 1, sy - 2])
+  } else {
+    // a heap of old planks where the shed will go
+    for (let k = 0; k < 4; k++) p.rect(m + k, H - 2 - k, shedW - k * 2, 1, k % 2 ? '#7a5a3e' : '#9a7a5a')
+  }
+  // Badstua: a little sauna hut with a stovepipe, a towel on the rail and a bench
+  if (has('badstue')) {
+    const sx = x0 + hw + 1
+    const sh = 11
+    const sy = H - sh
+    planks(p, sx, saunaW, sy, H, '#9a6a42', r, 'batten')
+    for (let x = sx - 1; x < sx + saunaW + 1; x++) {
+      const y = sy - 1 - Math.round(((sx + saunaW - x) / saunaW) * 2)
+      p.set(x, y, '#5a7a3a')
+      p.set(x, y + 1, '#3a3a48')
+    }
+    p.rect(sx + 5, H - 8, 4, 7, '#4a2e22')
+    p.rect(sx + 1, H - 9, 3, 3, GLASS)
+    b.lights.push({ x: sx + 1, y: H - 9, w: 3, h: 3, kind: 'pane', on: 0.1, ph: 8 })
+    p.rect(sx + 1, H - 5, 3, 2, '#f4f4f0')
+    p.set(sx + 1, H - 4, '#d8433a')
+    for (let y = sy - 6; y < sy - 1; y++) p.set(sx + 2, y, '#4a4a58')
+    b.smoke.push([sx + 2, sy - 7])
+  }
+  return { ...b, tarn, door: dx }
+}
+
+/** Aslak's naust: a tarred boathouse on poles, its big doors ajar, glass floats on the wall */
+function naust(w: number, r: () => number): Built {
+  const m = 3
+  const gable = Math.round(w * 0.5)
+  const apex = 2
+  const top = apex + gable
+  const wallH = 14
+  const legs = 0
+  const H = top + wallH + legs
+  const p = new Pix(w + m * 2, H)
+  const b = built(p)
+  const x0 = m
+  const cx = x0 + w / 2
+  const tar = '#3a2a24'
+  const yLine = (x: number) => apex - 1 + Math.abs(x + 0.5 - cx) * (gable / (w / 2))
+  planks(p, x0, w, apex, H, tar, r, 'batten', (x, y) => y >= top || y + 0.5 >= yLine(x))
+  for (let x = x0; x < x0 + w; x++) p.set(x, H - 1, '#1e1612')
+  gableRoof(p, x0, w, apex, gable, '#2e2e38', null, 2)
+  // moss on the roof
+  for (let x = x0 - 2; x < x0 + w + 2; x++) if (r() < 0.35) p.set(x, Math.round(yLine(x)) - 1, r() < 0.5 ? '#5a7a3a' : '#6a8a42')
+  // the boat doors, one standing open on the dark inside
+  const dw = w - 6
+  const dx = x0 + 3
+  const dy = H - 11
+  p.rect(dx, dy, dw, 10, '#14100e')
+  p.rect(dx, dy, Math.floor(dw / 2), 10, '#5a3e2e')
+  for (let y = dy; y < dy + 10; y += 3) p.rect(dx, y, Math.floor(dw / 2), 1, '#4a3226')
+  line(p, dx, dy + 9, dx + Math.floor(dw / 2) - 1, dy, '#6a4a36')
+  // a stem of an old færing just inside, and a lit window high in the gable
+  p.rect(dx + dw - 3, dy + 4, 1, 5, '#8a5a3a')
+  p.rect(Math.round(cx) - 1, top - 4, 2, 2, GLASS)
+  b.lights.push({ x: Math.round(cx) - 1, y: top - 4, w: 2, h: 2, kind: 'pane', on: 0.12, ph: 11 })
+  // green glass floats in net bags on the corners
+  for (const [gx, gy] of [[x0 - 1, top + 2], [x0 + w - 1, top + 4], [x0 - 1, top + 6]] as [number, number][]) {
+    p.rect(gx, gy, 2, 2, '#3a9a7a')
+    p.set(gx, gy, '#9ae8c8')
+    p.set(gx + 1, gy + 1, '#1e5a4a')
+    p.set(gx, gy - 1, '#c8a878')
+  }
+  // a stovepipe
+  const sx = Math.round(x0 + w * 0.72)
+  for (let y = Math.round(yLine(sx)) - 4; y < Math.round(yLine(sx)); y++) p.set(sx, y, '#4a4a58')
+  b.smoke.push([sx, Math.round(yLine(sx)) - 5])
+  return b
+}
+
+/** Where everything stands on Vardø's quay, from the left; the slip takes what is left on the right */
+function vaLayout(W: number) {
+  const kx = 2
+  const kw = Math.max(46, Math.min(52, Math.round(W * 0.24)))
+  const flagX = kx + kw + 2
+  const hx = kx + kw + 6
+  const hw = W < 195 ? 17 : 18
+  const sx = hx + hw + 8
+  const quayEnd = sx + 53
+  const nx = quayEnd + 2
+  const nw = 16
+  const slipX = nx + nw + 9
+  return { kx, kw, flagX, hx, hw, sx, quayEnd, nx, nw, slipX }
+}
+
 // ---------- the harbour ----------
 
 interface Puff {
@@ -1227,6 +1624,17 @@ export class Harbor {
   private plane: { x: number; y: number } | null = null
   private otters: { x: number; ph: number; dir: number }[] = []
   private festival = false
+  private va = false
+  private quayW = 0
+  /** the boat at her mooring: where she lies and which sprite she is */
+  private boatX = 0
+  private boatKind: BoatSpriteKind = 'faering'
+  private kitti = kittiwakeSprites()
+  private puffinImgs = puffinSprites()
+  private puffins: { x: number; y: number; dir: 1 | -1; t: number }[] = []
+  private nextPuffin = 4
+  private tarnAt: [number, number] | null = null
+  private shedGlow: [number, number] | null = null
   private rain = new Rain()
   private r = rng(77)
 
@@ -1258,14 +1666,18 @@ export class Harbor {
     const hi = s.world === 'hawaii'
     const lo = s.world === 'lofoten'
     const festival = (ak && !!s.flags.ak_ending) || (hi && !!s.flags.hi_ending) || (lo && !!s.flags.lo_ending)
-    const key = `${this.W}x${this.H}:${selma}:${ending}:${s.world}:${festival}:${s.flags.lo_fixed}:${s.hjell}`
+    const isVa = isVardo(s)
+    const vk = isVa ? this.vaKey() : ''
+    const key = `${this.W}x${this.H}:${selma}:${ending}:${s.world}:${festival}:${s.flags.lo_fixed}:${s.hjell}:${vk}`
     if (key === this.key) return
     this.key = key
     this.ending = ending
     this.ak = ak
     this.hi = s.world === 'hawaii'
     this.lo = s.world === 'lofoten'
-    this.bd.resize(this.W, this.wl, ak ? 40 : s.world === 'hawaii' ? 60 : s.world === 'lofoten' ? 70 : 0, 1, s.world)
+    this.va = isVa
+    if (!isVa) this.puffins = []
+    this.bd.resize(this.W, this.wl, ak ? 40 : s.world === 'hawaii' ? 60 : s.world === 'lofoten' ? 70 : isVa ? 80 : 0, 1, s.world)
     const { W, deckY, wl } = this
     const F = new Pix(W, wl)
     const r = rng(29)
@@ -1277,7 +1689,12 @@ export class Harbor {
     this.spots = []
 
     // posts, bracing and the deck
-    const quayW = Math.round(W * 0.8)
+    const quayW = isVa ? vaLayout(W).quayEnd : Math.round(W * 0.8)
+    this.quayW = quayW
+    this.boatX = Math.round(W * 0.14)
+    this.boatKind = ak ? 'troller' : hi ? 'research' : 'faering'
+    this.tarnAt = null
+    this.shedGlow = null
     this.stilts = []
     for (let x = 3; x < quayW - 2; x += 14) this.stilts.push(x)
     this.stilts.forEach((sx, i) => {
@@ -1309,8 +1726,8 @@ export class Harbor {
     }
     for (const sx of this.stilts) F.set(sx + 1, deckY + 4, '#a8a8b8')
 
-    const place = (id: SpotId, b: Built, x: number) => {
-      const y = deckY - b.p.h
+    const place = (id: SpotId, b: Built, x: number, base = deckY) => {
+      const y = base - b.p.h
       blit(F, b.p, x, y)
       for (const l of b.lights) this.lights.push({ ...l, x: l.x + x, y: l.y + y })
       const off = (list: [number, number][]) => list.map(([a, c]) => [a + x, c + y] as [number, number])
@@ -1333,6 +1750,10 @@ export class Harbor {
     if (lo) {
       this.buildLo(F, place, r, festival, quayW)
       this.front = F.toCanvas()
+      return
+    }
+    if (isVa) {
+      this.buildVa(F, place, r)
       return
     }
     this.plane = null
@@ -1627,6 +2048,236 @@ export class Harbor {
     this.otters = Array.from({ length: 2 }, (_, i) => ({ x: W * (0.3 + i * 0.32) + rr() * 10, ph: rr() * 6, dir: i % 2 ? 1 : -1 }))
   }
 
+  /** How far along the boat on Frida's slip is: 1 when you can buy it; a færing for fun once you own them all */
+  private slipBoat(): { kind: BoatSpriteKind; built: number } {
+    const s = this.host.s
+    const va = vaOf(s)
+    const tier = (va?.boat ?? 0) + 1
+    const next = VA_BOATS[tier]
+    if (!va || !next) return { kind: 'faering', built: 0.55 }
+    const rank = rankLevel(va)
+    const ready = rank >= next.rank && (!next.needs || !!s.flags[next.needs])
+    const built = ready ? 1 : Math.max(0.4, Math.min(0.88, 0.4 + (0.48 * rank) / Math.max(1, next.rank)))
+    return { kind: boatKindOf(tier), built: Math.round(built * 20) / 20 }
+  }
+
+  /** Everything in Vardø that changes how the harbour looks */
+  private vaKey() {
+    const s = this.host.s
+    const va = vaOf(s)
+    if (!va) return 'none'
+    const slip = this.slipBoat()
+    return `${va.rooms.join(',')}|${va.boat}|${slip.kind}${slip.built}|${va.smoke.load.length > 0}|${s.paint}`
+  }
+
+  /** Vardø: Pomorbrygga, Havnekontoret, Signes hus, Aslak's naust and Frida's slip */
+  private buildVa(F: Pix, place: (id: SpotId, b: Built, x: number, base?: number) => void, r: () => number) {
+    const { W, deckY, wl } = this
+    const s = this.host.s
+    const va = vaOf(s)
+    const rooms: string[] = va?.rooms ?? []
+    const L = vaLayout(W)
+    this.plane = null
+    this.flag2At = null
+    this.otters = []
+    this.festival = false
+    this.lhPos = { x: 0, y: 0 }
+
+    place('krambua', pomorbrygga(L.kw, r), L.kx - 6)
+    place('havnebua', havnekontoret(L.hw, r), L.hx - 5)
+    const smoking = !!va && va.smoke.load.length > 0
+    const sh = signesHus(rooms, r)
+    if (!smoking && rooms.includes('royeri')) {
+      // the smokehouse only smokes while there is fish in it
+      sh.smoke = sh.smoke.filter(([x]) => x > 3 + 11)
+      sh.lights = sh.lights.filter((l) => !(l.kind === 'lamp' && l.on === 0))
+    }
+    const sy = deckY - sh.p.h
+    place('stasjon', sh, L.sx - 3)
+    if (sh.tarn) this.tarnAt = [sh.tarn[0] + L.sx - 3, sh.tarn[1] + sy]
+    if (smoking) this.shedGlow = [L.sx + 4, deckY - 2]
+
+    // fish boxes stacked outside Pomorbrygga and a pallet of crab pots by the office
+    for (const [x, y, c] of [[L.kx + 15, 0, '#3a6ac8'], [L.kx + 22, 0, '#e8742a'], [L.kx + 18, 1, '#3a6ac8']] as [number, number, string][]) {
+      F.rect(x, deckY - 4 - y * 4, 7, 4, c)
+      F.rect(x, deckY - 4 - y * 4, 7, 1, shade(c, 0.3))
+      F.rect(x, deckY - 1 - y * 4, 7, 1, shade(c, -0.3))
+    }
+    blit(F, POT, L.hx + L.hw - 9, deckY - POT.h)
+    // the flagpole between the wharf and the office
+    const fx = L.flagX
+    for (let y = deckY - 32; y < deckY; y++) {
+      F.set(fx, y, '#f4ecdc')
+      F.set(fx + 1, y, '#b8b0a4')
+    }
+    F.rect(fx, deckY - 34, 2, 2, '#ffd84a')
+    this.flagAt = [fx + 2, deckY - 31]
+
+    // the boat: at the quay, or at home by her own jetty once there is one
+    const tier = va?.boat ?? 0
+    this.boatKind = boatKindOf(tier)
+    const geo = BOAT_GEO[this.boatKind]
+    const home = rooms.includes('brygge')
+    if (home) {
+      this.boatX = L.quayEnd - 2 - geo.w
+      // a floating jetty along the quay below the house, with a gangway down from the deck
+      const j0 = L.sx + 6
+      const j1 = L.quayEnd + 1
+      for (let x = j0; x < j1; x++) {
+        F.set(x, wl - 3, '#b07c4e')
+        F.set(x, wl - 2, '#7a5236')
+        F.set(x, wl - 1, x % 6 < 4 ? '#3e3e4a' : '#5e3e28')
+      }
+      for (let i = 0; i <= 10; i++) {
+        const x = Math.round(j0 + 2 + i)
+        const y = Math.round(deckY + 1 + i * ((wl - deckY - 4) / 10))
+        F.set(x, y, '#8a6242')
+        F.set(x, y - 3, '#4a3222')
+      }
+      this.bollard = [L.quayEnd - 4, wl - 4]
+      F.rect(L.quayEnd - 5, wl - 4, 3, 1, '#3a3448')
+    } else {
+      this.boatX = Math.round(W * 0.06)
+      const bx = Math.min(L.quayEnd - 6, this.boatX + geo.bow.x + 2)
+      this.bollard = [bx + 1, deckY - 4]
+      blit(F, BOLLARD, bx, deckY - BOLLARD.h)
+      const lad = bx + 6
+      if (lad + 3 < L.quayEnd)
+        for (let y = deckY + 1; y < wl + 1; y++) {
+          F.set(lad, y, '#6a4a32')
+          F.set(lad + 3, y, '#4a3222')
+          if ((y - deckY) % 3 === 0) {
+            F.set(lad + 1, y, '#8a6242')
+            F.set(lad + 2, y, '#7a5236')
+          }
+        }
+    }
+    const top = wl - geo.wl
+    this.spots.push({ id: 'baten', x: this.boatX, y: Math.max(deckY + 3, top + 4), w: geo.w, h: wl + 10 - Math.max(deckY + 3, top + 4) })
+
+    // Aslak's naust on its poles at the water, and his nets drying on a rack beside it
+    const nb = naust(L.nw, r)
+    const nBase = deckY + 7
+    for (const px of [L.nx + 1, L.nx + 7, L.nx + L.nw - 2]) {
+      for (let y = nBase; y < wl; y++) {
+        F.set(px, y, '#4a3426')
+        F.set(px + 1, y, '#2e2018')
+      }
+      for (let y = wl - 3; y < wl; y++) F.set(px, y, '#3a4a2a')
+      this.stilts.push(px)
+    }
+    for (let x = L.nx - 2; x < L.nx + L.nw + 2; x++) {
+      F.set(x, nBase, '#6a4a32')
+      F.set(x, nBase + 1, '#3e2a1e')
+    }
+    place('naust', nb, L.nx - 3, nBase)
+    const ladX = L.nx + L.nw - 5
+    for (let y = nBase + 2; y < wl; y += 2) F.rect(ladX, y, 3, 1, '#6a4a32')
+    const rx0 = L.nx + L.nw + 1
+    const rx1 = rx0 + 6
+    const rackTop = deckY - 10
+    for (const px of [rx0, rx1]) for (let y = rackTop; y < wl; y++) F.set(px, y, y < nBase ? '#6a4a32' : '#4a3426')
+    for (let x = rx0; x <= rx1; x++) F.set(x, rackTop, '#7a5a3e')
+    // the net hangs in folds from the bar, cork floats along the top
+    for (let x = rx0 + 1; x < rx1; x++) {
+      const len = 12 + Math.round(Math.sin(x * 1.7) * 2)
+      for (let y = rackTop + 1; y < rackTop + 1 + len; y++) if ((x + y) % 2 === 0) F.set(x, y, y > rackTop + len - 2 ? '#8a6a4a' : '#c8a070')
+      if (x % 2) F.set(x, rackTop + 1, '#e8742a')
+    }
+    this.stilts.push(rx0 - 1, rx1 - 1)
+    // the drying rack belongs to the naust too
+    const ns = this.spots.find((p) => p.id === 'naust')
+    if (ns) ns.w += 7
+
+    // shore rocks below the slip, where the swell breaks
+    const rk = rockIsle(18, 7, r)
+    blit(F, rk.p, W - 16, wl - 5)
+    this.rockSpan = [W - 14, W]
+    this.front = F.toCanvas()
+
+    // Slippen: rails down into the water, the next boat on its cradle, a gantry with a chain hoist
+    const g = this.front.getContext('2d')!
+    const sx0 = L.slipX
+    const yr = (x: number) => deckY + 3 + ((x - sx0) * (wl + 2 - deckY - 3)) / Math.max(1, W - sx0)
+    const sb = this.slipBoat()
+    const sGeo = BOAT_GEO[sb.kind]
+    const paint = PAINTS.find((x) => x.id === s.paint) ?? PAINTS[0] ?? { hull: '#f4ecdc', stripe: '#2a5a8a' }
+    const img = boatSprite(paint.hull, paint.stripe, sb.kind, sb.built)
+    // the hull's underside per column (flipped, bow up the slip), so she rests on the rails where they come closest
+    const data = img.getContext('2d')!.getImageData(0, 0, img.width, img.height).data
+    const under: number[] = []
+    for (let x = 0; x < img.width; x++) {
+      let low = -1
+      for (let y = 0; y < img.height; y++) if (data[(y * img.width + (img.width - 1 - x)) * 4 + 3] > 0) low = y
+      under.push(low)
+    }
+    const bx = sx0 + 3
+    let by = 1e9
+    under.forEach((low, x) => {
+      if (low >= 0 && bx + x < W) by = Math.min(by, Math.round(yr(bx + x)) - 3 - low)
+    })
+    // the slipway: a timber ramp with steel rails, on a few posts down into the water
+    for (let x = sx0 - 2; x < W; x++) {
+      const y = Math.round(yr(x))
+      g.fillStyle = '#9a9aa6'
+      g.fillRect(x, y, 1, 1)
+      g.fillStyle = '#6a4a32'
+      g.fillRect(x, y + 1, 1, 1)
+      g.fillStyle = '#4a3222'
+      g.fillRect(x, y + 2, 1, 1)
+      if ((x - sx0) % 11 === 4) {
+        g.fillStyle = '#3e2a1e'
+        g.fillRect(x, y + 3, 2, Math.max(0, wl - y - 3))
+      }
+    }
+    // the cradle: a beam under the keel on blocks down to the rails
+    g.fillStyle = '#5a3e2a'
+    under.forEach((low, x) => {
+      const X = bx + x
+      if (low < 0 || X >= W || x % 7 !== 3) return
+      const y0 = by + low + 1
+      g.fillRect(X, y0, 2, Math.max(1, Math.round(yr(X)) - y0))
+    })
+    g.fillStyle = '#7a5a3e'
+    under.forEach((low, x) => {
+      if (low >= 0 && bx + x < W) g.fillRect(bx + x, by + low + 1, 1, 1)
+    })
+    const keel = Math.max(...under)
+    // the boat on the cradle, bow up the slip
+    g.save()
+    g.translate(bx + img.width, by)
+    g.scale(-1, 1)
+    g.drawImage(img, 0, 0)
+    g.restore()
+    // the gantry over the slip
+    const beam = deckY - 50
+    g.fillStyle = '#5a3e2a'
+    for (const lx of [sx0, W - 3]) g.fillRect(lx, beam, 2, Math.round(yr(lx)) - beam)
+    g.fillStyle = '#3e2a1e'
+    for (const lx of [sx0 + 1, W - 2]) g.fillRect(lx, beam, 1, Math.round(yr(lx)) - beam)
+    g.fillStyle = '#7a5a3e'
+    g.fillRect(sx0 - 1, beam, W - sx0, 2)
+    g.fillStyle = '#9a7a5a'
+    g.fillRect(sx0 - 1, beam, W - sx0, 1)
+    // a chain hoist on a trolley, hanging just above the boat
+    const hx = Math.round((sx0 + Math.min(W, bx + sGeo.w)) / 2)
+    g.fillStyle = '#3a3a48'
+    g.fillRect(hx - 2, beam + 2, 5, 2)
+    g.fillStyle = '#8a8a96'
+    const hookY = Math.max(beam + 6, by - 3)
+    for (let y = beam + 4; y < hookY; y += 2) g.fillRect(hx, y, 1, 1)
+    g.fillStyle = '#c8a840'
+    g.fillRect(hx - 1, hookY, 3, 2)
+    // the winch at the top of the slip, its wire running down to the cradle
+    g.fillStyle = '#3a3a48'
+    g.fillRect(sx0 - 6, deckY - 4, 5, 4)
+    g.fillStyle = '#8a8a96'
+    g.fillRect(sx0 - 5, deckY - 3, 3, 2)
+    g.fillStyle = 'rgba(200,200,210,0.8)'
+    for (let x = sx0 - 2; x < bx + 3; x++) g.fillRect(x, Math.round(deckY - 2 + ((x - sx0 + 2) * (by + keel - deckY + 2)) / Math.max(1, bx + 3 - sx0 + 2)), 1, 1)
+    this.spots.push({ id: 'fyret', x: sx0 - 2, y: beam - 2, w: W - sx0 + 2, h: wl - beam + 4 })
+  }
+
   update(dt: number) {
     this.t += dt
     if (dev.time !== null) this.host.s.time = dev.time
@@ -1676,9 +2327,8 @@ export class Harbor {
     this.nextFish -= dt
     if (!this.fish && this.nextFish <= 0 && this.H - wl > 14) {
       this.nextFish = this.festival ? 0.8 + r() * 2 : 5 + r() * 9
-      const bx = Math.round(W * 0.14)
       let x = 6 + r() * (W - 12)
-      if (x > bx - 4 && x < bx + BOAT_W + 4) x = (x + W * 0.5) % W
+      if (x > this.boatX - 4 && x < this.boatX + BOAT_GEO[this.boatKind].w + 4) x = (x + W * 0.5) % W
       const y = wl + 6 + r() * (this.H - wl - 10)
       const k = (y - wl) / (this.H - wl)
       this.fish = { x, y, age: 0, dir: r() < 0.5 ? -1 : 1, arc: 7 + k * 10 }
@@ -1697,9 +2347,24 @@ export class Harbor {
     for (const g of this.rings) g.age += dt / 1.6
     this.rings = this.rings.filter((g) => g.age < 1)
 
+    // puffins whirring low over the water, out to Hornøya and back
+    if (this.va) {
+      this.nextPuffin -= dt
+      if (this.nextPuffin <= 0 && this.H - wl > 12) {
+        this.nextPuffin = 6 + r() * 12
+        const dir = r() < 0.5 ? 1 : -1
+        const n = r() < 0.4 ? 2 : 1
+        for (let i = 0; i < n; i++) this.puffins.push({ x: dir === 1 ? -10 - i * 9 : W + 10 + i * 9, y: wl + 3 + r() * Math.min(18, this.H - wl - 8), dir, t: r() * 3 })
+      }
+      for (const p of this.puffins) {
+        p.t += dt
+        p.x += p.dir * 46 * dt
+      }
+      this.puffins = this.puffins.filter((p) => p.x > -30 && p.x < W + 30)
+    }
     this.bd.update(dt)
     const wx = weatherAt(this.host.s.day, this.host.s.time)
-    const quayW = Math.round(W * 0.8)
+    const quayW = this.quayW || Math.round(W * 0.8)
     this.rain.update(dt, wx.rain, (x, k) => (k < 0.25 && x < quayW ? this.deckY : wl + 1 + k * (this.H - wl - 1)))
   }
 
@@ -1714,6 +2379,7 @@ export class Harbor {
     const sg = this.scene.g
     sg.clearRect(0, 0, W, wl)
     const wx = weatherAt(s.day, time)
+    if (this.va) this.bd.aurora = auroraStrength(s.day ?? 0, time)
     const sky = this.bd.draw(sg, this.t, time, wx)
     const { night, gold, sun } = sky
 
@@ -1779,6 +2445,15 @@ export class Harbor {
         const y = wl * (0.22 + i * 0.08) + Math.sin(a) * wl * 0.06
         wg.drawImage(this.eagles[Math.sin(this.t * 1.5 + i) > 0.7 ? 1 : 0], Math.round(x), Math.round(y))
       }
+    else if (this.va && night < 0.65)
+      // kittiwakes wheeling over the harbour on their way to and from the bird cliffs
+      for (let i = 0; i < 5; i++) {
+        const span = W + 40
+        const x = ((((i * 61 + this.t * (5 + i * 1.7) * (i % 2 ? 1 : -1)) % span) + span) % span) - 20
+        const y = Math.round(wl * (0.18 + i * 0.07) + Math.sin(this.t * (0.6 + i * 0.1) + i * 2) * 6)
+        const f = Math.floor(this.t * (4 + i * 0.4) + i) % 4
+        wg.drawImage(this.kitti[f === 3 ? 1 : f], Math.round(x), y)
+      }
     else if (night < 0.6)
       for (let i = 0; i < 3; i++) {
         const span = W + 40
@@ -1788,21 +2463,22 @@ export class Harbor {
       }
 
     // Måken at her mooring
-    if (this.paint !== s.paint || !this.boat) {
+    const geo = BOAT_GEO[this.boatKind]
+    if (this.paint !== `${s.paint}|${this.boatKind}` || !this.boat) {
       const p = PAINTS.find((x) => x.id === s.paint) ?? PAINTS[0]
-      this.boat = boatSprite(p.hull, p.stripe, s.world === 'alaska' ? 'troller' : s.world === 'hawaii' ? 'research' : 'faering')
-      this.paint = s.paint
+      this.boat = boatSprite(p.hull, p.stripe, this.boatKind)
+      this.paint = `${s.paint}|${this.boatKind}`
     }
     const bob = Math.round(Math.sin(this.t * 1.3))
-    const bx = Math.round(W * 0.14)
-    const by = wl - 15 + bob
+    const bx = this.boatX
+    const by = wl - geo.wl + bob
     wg.drawImage(this.boat, bx, by)
-    if (s.flags.cat) wg.drawImage(this.cats[this.t % 5 < 0.15 ? 1 : 0], bx + 34, by + 1)
+    if (s.flags.cat) wg.drawImage(this.cats[this.t % 5 < 0.15 ? 1 : 0], bx + geo.cat.x, by + geo.cat.y)
     // mooring rope, sagging between the bow and the bollard
     wg.fillStyle = '#c8a878'
     const [ox, oy] = this.bollard
-    const rx0 = bx + 45
-    const ry0 = by + 4
+    const rx0 = bx + geo.bow.x
+    const ry0 = by + geo.bow.y
     for (let i = 0; i <= 10; i++) {
       const k = i / 10
       wg.fillRect(Math.round(rx0 + (ox - rx0) * k), Math.round(ry0 + (oy - ry0) * k + Math.sin(k * Math.PI) * 2.5), 1, 1)
@@ -1854,6 +2530,15 @@ export class Harbor {
         glow(sg, x, y, 4, '#ff3a2a', 0.3 + night * 0.4)
         sg.globalCompositeOperation = 'source-over'
       }
+    }
+    // the glass loft glows green on aurora nights, warm on the others; the smokehouse glows while it works
+    if (this.tarnAt && night > 0.25) {
+      const [tx, ty] = this.tarnAt
+      light(sg, tx, ty, 12, this.bd.aurora > 0 ? '#6affc0' : '#ffb060', (night - 0.25) * 0.5 * (0.85 + 0.15 * Math.sin(this.t * 0.7)))
+    }
+    if (this.shedGlow) {
+      const [gx, gy] = this.shedGlow
+      light(sg, gx, gy - 4, 7, '#ff8a3a', 0.25 + night * 0.35 + 0.08 * Math.sin(this.t * 5))
     }
     if (this.ending) {
       sg.globalCompositeOperation = 'lighter'
@@ -1908,7 +2593,7 @@ export class Harbor {
       g.fillRect(sx - 1 + w, wl, 1, 1)
       g.fillRect(sx + 3 - w, wl, 1, 1)
     }
-    for (let x = bx + 3; x < bx + 44; x++) if (Math.sin(x * 0.9 + this.t * 3) > 0.4) g.fillRect(x, wl + 1, 1, 1)
+    for (let x = bx + geo.foam[0]; x < bx + geo.foam[1]; x++) if (Math.sin(x * 0.9 + this.t * 3) > 0.4) g.fillRect(x, wl + 1, 1, 1)
     g.fillStyle = rgba('#ffffff', 0.75)
     const [ra, rb] = this.rockSpan
     for (let x = ra - 2; x < rb + 2; x++) {
@@ -1919,9 +2604,9 @@ export class Harbor {
     g.globalCompositeOperation = 'source-over'
     // the part of the hull under water
     const sub = wl - by
-    if (sub > 0 && sub < BOAT_H) {
+    if (sub > 0 && sub < geo.h) {
       g.globalAlpha = 0.22
-      g.drawImage(this.boat, 0, sub, BOAT_W, BOAT_H - sub, bx, wl, BOAT_W, BOAT_H - sub)
+      g.drawImage(this.boat, 0, sub, geo.w, geo.h - sub, bx, wl, geo.w, geo.h - sub)
       g.globalAlpha = 1
     }
     // rings and the leaping fish
@@ -1960,6 +2645,21 @@ export class Harbor {
         g.fillRect(Math.round(x + ux * (i - 1.5) * 1.3), Math.round(y + uy * (i - 1.5) * 1.3), 1, 1)
       })
     }
+    for (const p of this.puffins) {
+      const img = this.puffinImgs[Math.floor(p.t * 14) % 2]
+      const y = Math.round(p.y + Math.sin(p.t * 3) * 1.5)
+      if (p.dir === 1) g.drawImage(img, Math.round(p.x), y)
+      else {
+        g.save()
+        g.translate(Math.round(p.x) + img.width, y)
+        g.scale(-1, 1)
+        g.drawImage(img, 0, 0)
+        g.restore()
+      }
+      // its shadow skimming the surface
+      g.fillStyle = rgba('#0a1430', 0.25)
+      g.fillRect(Math.round(p.x) + 1, y + 7, 5, 1)
+    }
     for (const p of this.puffs) {
       if (p.kind !== 'drop') continue
       g.fillStyle = rgba('#ffffff', 0.85 * (1 - p.age / p.life))
@@ -1977,7 +2677,7 @@ export class Harbor {
 
   hit(x: number, y: number): SpotId | null {
     // the lighthouse and the boat first, the houses overlap less
-    for (const id of ['fyret', 'baten', 'havnebua', 'stasjon', 'krambua'] as SpotId[]) {
+    for (const id of ['fyret', 'baten', 'naust', 'havnebua', 'stasjon', 'krambua'] as SpotId[]) {
       const s = this.spots.find((p) => p.id === id)
       if (s && x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h) return id
     }

@@ -227,7 +227,7 @@ export function setRain(amount: number) {
  * Piano and bass first, then strings and a soft heartbeat drum, then a lonely saxophone over
  * the chorus before it all breathes out and starts again. Each place hears it in its own key.
  */
-const KEYS: Record<string, number> = { norge: 0, lofoten: 0, alaska: -2, hawaii: 2 }
+const KEYS: Record<string, number> = { norge: 0, lofoten: 0, alaska: -2, hawaii: 2, vardo: -1 }
 let key = 0
 export const setMusic = (s: string) => (key = KEYS[s] ?? 0)
 

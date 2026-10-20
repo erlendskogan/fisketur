@@ -281,6 +281,12 @@ export class Backdrop {
   private cacheKey = ''
   private wx: Weather = CLEAR
   private storm: { c: HTMLCanvasElement; key: string } | null = null
+  /** how strong the northern lights are tonight, for the places that have them some nights only */
+  aurora = 1
+  /** Vardø: the fortress on its rise and the radar dome on the hill, in backdrop pixels */
+  private fort: { x: number; w: number } | null = null
+  private dome: { x: number } | null = null
+  private rocks: { x: number; y: number }[] = []
   private shooting: { x: number; y: number; age: number } | null = null
   private r = rng(91)
 
@@ -299,7 +305,12 @@ export class Backdrop {
     const ak = style === 'alaska'
     const hi = style === 'hawaii'
     const lo = style === 'lofoten'
-    this.hills = lo
+    // Vardø: 'vardo' is the harbour, 'vardo:<ground>' the sea, 'vardo:house' behind Signe's house
+    const va = style.startsWith('vardo')
+    const part = va ? (style.split(':')[1] ?? 'harbor') : ''
+    this.hills = va
+      ? { day: ['#6e7ea0', '#66684a', '#47442f'], night: ['#20265a', '#1a1e40', '#10122a'], snow: [2, 2] }
+      : lo
       ? { day: ['#6a7a98', '#4a5468', '#2e3442'], night: ['#22285a', '#1a1e40', '#10142a'], snow: [0.12, 0.3] }
       : ak
       ? { day: ['#6a86b0', '#3a5868', '#173a30'], night: ['#22285a', '#161e40', '#0a1820'], snow: [0.3, 0.6] }
@@ -307,7 +318,12 @@ export class Backdrop {
         ? { day: ['#6a6aa0', '#3a8a52', '#1e5a32'], night: ['#2a2a5a', '#14302a', '#0a1e16'], snow: [0.86, 1.1] }
         : { day: PAL.hills, night: PAL.nightHills, snow: [0.55, 0.82] }
     const deck = H - 24
-    this.ridges = lo
+    this.fort = null
+    this.dome = null
+    this.rocks = []
+    this.ridges = va
+      ? vardoRidges(W, H, deck, seed, scale, part)
+      : lo
       ? {
           // Lofotveggen: a wall of sharp peaks rising straight out of the sea
           far: ridgeLine(W, 71 + seed, (deck * 0.42 + 26) * scale, deck * 0.24 * scale, 0.95),
@@ -346,10 +362,30 @@ export class Backdrop {
         if (x >= 0 && x < W) this.ridges.far[x] = Math.max(this.ridges.far[x], this.ridges.far[tx] + spike)
       }
     }
+    if (va && part === 'harbor') {
+      // Vardøhus on a low rise behind the harbour office, the radar dome on the last hill to the east
+      const fx = Math.round(W * 0.31)
+      const fw = 26
+      const rise = this.ridges.mid[fx]
+      for (let x = fx - fw; x < fx + fw; x++) {
+        if (x < 0 || x >= W) continue
+        const k = Math.abs(x - fx) / fw
+        this.ridges.mid[x] = Math.max(this.ridges.mid[x], Math.round(rise + 9 * scale * (k < 0.55 ? 1 : Math.cos(((k - 0.55) / 0.45) * (Math.PI / 2)) ** 1.5)))
+      }
+      this.fort = { x: fx, w: 30 }
+    }
+    if (va && (part === 'harbor' || part === 'house')) {
+      let dx = Math.round(W * 0.62)
+      for (let x = dx - 14; x < dx + 14; x++) if (x >= 0 && x < W && this.ridges.far[x] > this.ridges.far[dx]) dx = x
+      if (this.ridges.far[dx] > 6) this.dome = { x: dx }
+    }
     this.ridgeTop = H - this.ridges.far.reduce((a, b) => a + b, 0) / W
     const r = rng(11 + seed)
     this.pines = []
-    if (lo) this.pines = []
+    if (va) {
+      // no trees on the tundra: grey boulders lying in the heather
+      for (let x = 2; x < W; x += 3 + Math.floor(r() * 7)) if (this.ridges.near[x] > 4) this.rocks.push({ x, y: Math.floor(r() * Math.min(10, this.ridges.near[x] - 2)) })
+    } else if (lo) this.pines = []
     else if (hi) for (let x = 2; x < W; x += 5 + Math.floor(r() * 7)) this.pines.push({ x, h: 7 + Math.floor(r() * 6 * Math.min(1, scale + 0.2)) })
     else if (ak) for (let x = 0; x < W; x += 1 + Math.floor(r() * 2)) this.pines.push({ x, h: 6 + Math.floor(r() * 7 * Math.min(1, scale + 0.2)) })
     else for (let x = 0; x < W; x += 2 + Math.floor(r() * 3)) if (r() < 0.75) this.pines.push({ x, h: 3 + Math.floor(r() * 6 * Math.min(1, scale + 0.2)) })
@@ -393,6 +429,7 @@ export class Backdrop {
 
     const g = this.hillsC.g
     g.clearRect(0, 0, W, H)
+    this.fortWindows = []
     const layers = [
       { r: this.ridges.far, i: 0, haze: 0.42, snow: this.hills.snow[0] },
       { r: this.ridges.mid, i: 1, haze: 0.22, snow: this.hills.snow[1] },
@@ -432,6 +469,7 @@ export class Backdrop {
           g.fillRect(x, y0, 1, Math.round((h - snowLine) * 0.45) + 1 + (x % 2))
         }
       }
+      if (this.style.startsWith('vardo')) this.paintTundra(g, ly.r, ly.i, base, hor, night, gold)
       if (ly.i === 1 && this.style === 'alaska') {
         // a glacier pouring down a valley, white on top and blue in the cracks
         const from = Math.round(W * 0.14)
@@ -534,41 +572,10 @@ export class Backdrop {
     }
 
     // the northern lights over Lofoten: green curtains with a violet hem, slowly folding
-    if (this.style === 'lofoten' && night > 0.3) {
-      const a = (night - 0.3) / 0.7 * (1 - wx.rain * 0.8) * (1 - wx.fog * 0.6)
-      if (a > 0.02) {
-        sg.globalCompositeOperation = 'lighter'
-        // each column of the curtain: a bright hem at the bottom fading up through green into violet
-        const bands: [string, number, number, number][] = [
-          ['#7affb8', 0.34, 0, 0.08],
-          ['#3aff9a', 0.22, 0.08, 0.35],
-          ['#2ad890', 0.13, 0.35, 0.6],
-          ['#9a5aff', 0.11, 0.6, 0.85],
-          ['#7a4aff', 0.06, 0.85, 1],
-        ]
-        const cols: { top: number; len: number; k: number }[] = []
-        for (let x = 0; x < W; x++) {
-          const fold = Math.sin(x * 0.03 + t * 0.1) + 0.5 * Math.sin(x * 0.08 - t * 0.17)
-          const k = Math.max(0, 0.55 + 0.45 * Math.sin(x * 0.045 + t * 0.13 + fold) - 0.15) * (0.75 + 0.25 * Math.sin(x * 0.9 + t * 0.6))
-          const bottom = H * 0.42 + fold * H * 0.06
-          const len = H * (0.12 + k * 0.22)
-          cols.push({ top: bottom - len, len, k })
-        }
-        for (const [col, alpha, from, to] of bands) {
-          sg.fillStyle = rgba(col, alpha * a)
-          sg.beginPath()
-          cols.forEach(({ top, len, k }, x) => {
-            if (k < 0.08) return
-            // rays: some columns reach higher than their neighbours
-            const y0 = Math.round(top + len * (1 - to))
-            const y1 = Math.round(top + len * (1 - from))
-            if (y1 > y0 && (k > 0.3 || (x + Math.floor(t * 2)) % 2 === 0)) sg.rect(x, y0, 1, y1 - y0)
-          })
-          sg.fill()
-        }
-        sg.globalCompositeOperation = 'source-over'
-      }
-    }
+    if (this.style === 'lofoten' && night > 0.3) this.drawAurora(sg, t, (night - 0.3) / 0.7 * (1 - wx.rain * 0.8) * (1 - wx.fog * 0.6), 0.42, 1)
+    // over Vardø only on some nights, higher in the sky and reaching further east
+    if (this.style.startsWith('vardo') && night > 0.3 && this.aurora > 0)
+      this.drawAurora(sg, t * 1.15 + 40, (night - 0.3) / 0.7 * (1 - wx.rain * 0.9) * (1 - wx.fog * 0.7) * this.aurora, H < 230 ? 0.52 : 0.36, 1.25)
 
     // sun and moon
     let sun: Sky['sun'] = null
@@ -652,6 +659,12 @@ export class Backdrop {
       sg.fill()
     }
     if (night > 0.2)
+      for (const [x, y] of this.fortWindows) {
+        const a = clamp01((night - 0.35) * 4)
+        sg.fillStyle = rgba('#ffd070', a * 0.8)
+        sg.fillRect(x, y, 1, 1)
+      }
+    if (night > 0.2)
       for (const l of this.shoreLights) {
         const a = clamp01((night - l.on) * 4)
         sg.fillStyle = rgba('#ffd070', a)
@@ -660,6 +673,151 @@ export class Backdrop {
       }
     return { top: skyTop, hor, night, gold: gold * clear, sun: wx.rain > 0.7 ? null : sun }
   }
+
+  /** Curtains of green light with a violet hem; `low` is where their lower edge hangs, as a share of H */
+  private drawAurora(sg: CanvasRenderingContext2D, t: number, a: number, low: number, reach: number) {
+    if (a <= 0.02) return
+    const { W, H } = this
+    sg.globalCompositeOperation = 'lighter'
+    // each column of the curtain: a bright hem at the bottom fading up through green into violet
+    const bands: [string, number, number, number][] = [
+      ['#7affb8', 0.34, 0, 0.08],
+      ['#3aff9a', 0.22, 0.08, 0.35],
+      ['#2ad890', 0.13, 0.35, 0.6],
+      ['#9a5aff', 0.11, 0.6, 0.85],
+      ['#7a4aff', 0.06, 0.85, 1],
+    ]
+    const cols: { top: number; len: number; k: number }[] = []
+    for (let x = 0; x < W; x++) {
+      const fold = Math.sin(x * 0.03 + t * 0.1) + 0.5 * Math.sin(x * 0.08 - t * 0.17)
+      const k = Math.max(0, 0.55 + 0.45 * Math.sin(x * 0.045 + t * 0.13 + fold) - 0.15) * (0.75 + 0.25 * Math.sin(x * 0.9 + t * 0.6))
+      const bottom = H * low + fold * H * 0.06
+      const len = H * (0.12 + k * 0.22) * reach
+      cols.push({ top: bottom - len, len, k })
+    }
+    for (const [col, alpha, from, to] of bands) {
+      sg.fillStyle = rgba(col, alpha * a)
+      sg.beginPath()
+      cols.forEach(({ top, len, k }, x) => {
+        if (k < 0.08) return
+        // rays: some columns reach higher than their neighbours
+        const y0 = Math.round(top + len * (1 - to))
+        const y1 = Math.round(top + len * (1 - from))
+        if (y1 > y0 && (k > 0.3 || (x + Math.floor(t * 2)) % 2 === 0)) sg.rect(x, y0, 1, y1 - y0)
+      })
+      sg.fill()
+    }
+    sg.globalCompositeOperation = 'source-over'
+  }
+
+  /**
+   * Varanger tundra: heather turning red in the autumn, grey boulders, and on the harbour
+   * backdrop the star fortress of Vardøhus and the white radar dome on the hill
+   */
+  private paintTundra(g: CanvasRenderingContext2D, ridge: number[], i: number, base: string, hor: string, night: number, gold: number) {
+    const { H, W } = this
+    const ruska = mix(mix('#9a4a32', base, 0.5 + i * 0.05 + night * 0.4), hor, 0.12 * (2 - i))
+    const moss = mix(mix('#8a8a52', base, 0.55 + night * 0.4), hor, 0.1)
+    // soft patches of autumn red and pale lichen lying along the slopes
+    if (i > 0)
+      for (let x = 0; x < W; x++) {
+        const h = ridge[x]
+        for (let y = H - h + 1; y < H; y++) {
+          const n = noise(Math.floor(x / 5) + i * 31, Math.floor((y + x * 0.3) / 3)) + 0.5 * Math.sin(x * 0.11 + y * 0.05 + i)
+          if (n > 1.2 && bayer(x, y) < 0.75) {
+            g.fillStyle = ruska
+            g.fillRect(x, y, 1, 1)
+          } else if (n < -0.25 && bayer(x, y) < 0.5) {
+            g.fillStyle = moss
+            g.fillRect(x, y, 1, 1)
+          }
+        }
+      }
+    if (i === 2) {
+      g.fillStyle = mix(mix('#a8a8b4', base, 0.35), '#2a2c48', night * 0.6)
+      for (const k of this.rocks) {
+        const y = H - ridge[k.x] + 2 + k.y
+        g.fillRect(k.x, y, 2, 1)
+        g.fillRect(k.x, y - 1, 1, 1)
+      }
+    }
+    if (i === 0 && this.dome) {
+      // a radar dome: a white ball on a squat tower, catching the light
+      const x = this.dome.x
+      const y = H - ridge[x]
+      const white = mix(mix('#f4f6fa', '#ffd8b8', gold * 0.5), '#6a72a8', night * 0.75)
+      const lit = mix(white, hor, 0.3)
+      const dark = mix(shade(white, -0.22), hor, 0.25)
+      g.fillStyle = dark
+      g.fillRect(x - 3, y - 2, 7, 3)
+      for (let dy = -3; dy <= 3; dy++)
+        for (let dx = -3; dx <= 3; dx++) {
+          if (dx * dx + dy * dy > 10) continue
+          g.fillStyle = dx + dy < -1 ? white : dx + dy > 2 ? dark : lit
+          g.fillRect(x + dx, y - 5 + dy, 1, 1)
+        }
+      g.fillStyle = lit
+      g.fillRect(x + 5, y - 3, 3, 3)
+      g.fillStyle = white
+      g.fillRect(x + 5, y - 3, 1, 1)
+    }
+    if (i === 1 && this.fort) {
+      // Vardøhus: low turf ramparts with pointed bastions, white houses and a flag inside
+      const { x: fx, w } = this.fort
+      const y0 = H - ridge[fx]
+      const stone = mix(mix('#9a968c', base, 0.35), hor, 0.12)
+      const turf = mix(mix('#5e7a46', base, 0.5), hor, 0.12)
+      const turfLit = shade(turf, 0.1)
+      // the glacis: grassed earthworks sloping down from the rampart into the hill
+      for (let x = fx - w - 6; x <= fx + w + 6; x++) {
+        const edge = Math.max(0, Math.abs(x - fx) - w) / 6
+        for (let y = y0 + 2; y < Math.min(H, y0 + 16); y++) {
+          const k = (y - y0 - 2) / 14 + edge
+          if (k < 1 && bayer(x, y) > k) {
+            g.fillStyle = (x + y) % 5 === 0 ? shade(turf, -0.08) : turf
+            g.fillRect(x, y, 1, 1)
+          }
+        }
+      }
+      const wall = mix(mix('#f0e8d4', base, 0.25), hor, 0.15)
+      const roof = mix(mix('#8a3a34', base, 0.3), hor, 0.15)
+      // houses behind the rampart
+      for (const [hx, hw, hh] of [[-9, 7, 5], [1, 9, 6], [11, 5, 4]] as [number, number, number][]) {
+        g.fillStyle = wall
+        g.fillRect(fx + hx, y0 - 3 - hh, hw, hh)
+        g.fillStyle = roof
+        g.fillRect(fx + hx - 1, y0 - 4 - hh, hw + 2, 1)
+        g.fillRect(fx + hx, y0 - 5 - hh, hw, 1)
+        g.fillStyle = shade(wall, -0.2)
+        g.fillRect(fx + hx + hw - 1, y0 - 3 - hh, 1, hh)
+        this.fortWindows.push([fx + hx + 2, y0 - hh - 1])
+      }
+      // the flagpole
+      g.fillStyle = mix('#e8e4dc', hor, 0.2)
+      g.fillRect(fx + 4, y0 - 20, 1, 12)
+      g.fillStyle = mix('#c8303a', hor, 0.2)
+      g.fillRect(fx + 5, y0 - 20, 4, 3)
+      g.fillStyle = mix('#f4f0e8', hor, 0.2)
+      g.fillRect(fx + 6, y0 - 20, 1, 3)
+      g.fillRect(fx + 5, y0 - 19, 4, 1)
+      // the rampart, its top zigzagging out into the bastions
+      for (let x = fx - w; x <= fx + w; x++) {
+        const u = (x - fx) / w
+        const point = Math.abs(((u * 2.5 + 10.25) % 1) - 0.5) * 2
+        const top = y0 - 3 + Math.round(point * 1.5)
+        const face = Math.round(3 + (1 - Math.abs(u)) * 1)
+        g.fillStyle = Math.abs(u) > 0.94 ? turf : turfLit
+        g.fillRect(x, top - 1, 1, 1)
+        g.fillStyle = turf
+        g.fillRect(x, top, 1, 1)
+        g.fillStyle = point > 0.7 ? shade(stone, 0.1) : stone
+        g.fillRect(x, top + 1, 1, face)
+      }
+    }
+  }
+
+  /** windows in the fortress houses, lit at night */
+  fortWindows: [number, number][] = []
 
   /** A heavy, dithered cloud deck that rolls in with the rain */
   private drawStorm(g: CanvasRenderingContext2D, t: number, night: number, rain: number) {
@@ -710,6 +868,46 @@ export class Backdrop {
       g.fillStyle = rgba(c, fog * 0.075 * (b + 1))
       g.fillRect(0, y, W, y1 - y)
     }
+  }
+}
+
+/** Low rounded hills with no trees, and the land running out into the open sea to the east */
+function vardoRidges(W: number, H: number, deck: number, seed: number, scale: number, part: string) {
+  const none = () => Array.from({ length: W }, () => 0)
+  // fade a ridge to the sea between two fractions of the width
+  const shore = (r: number[], from: number, to: number) =>
+    r.map((h, x) => {
+      const u = x / W
+      const k = u <= from ? 1 : u >= to ? 0 : Math.cos(((u - from) / (to - from)) * (Math.PI / 2)) ** 1.4
+      return Math.round(h * k)
+    })
+  const low = (s: number, base: number, amp: number) => ridgeLine(W, s + seed, base * scale, amp * scale, 0.04)
+  // Varanger fells: a long, nearly level skyline of broad rounded swells, no peaks
+  const fell = (s: number, base: number, amp: number) => {
+    const r = rng(s + seed)
+    const humps = Array.from({ length: 5 }, (_, i) => ({ c: W * (i / 4 + (r() - 0.5) * 0.18), w: W * (0.14 + r() * 0.12), h: amp * (0.45 + r() * 0.55) }))
+    return Array.from({ length: W }, (_, x) => {
+      let top = 0
+      for (const m of humps) {
+        const u = (x - m.c) / m.w
+        if (Math.abs(u) < 1) top = Math.max(top, m.h * Math.cos(u * (Math.PI / 2)) ** 2)
+      }
+      return Math.max(2, Math.round((base + top) * scale + Math.sin(x * 0.31 + s) * 0.6))
+    })
+  }
+  if (part === 'banken' || part === 'eggakanten') return { far: none(), mid: none(), near: none() }
+  if (part === 'fjorden')
+    // Varangerfjorden: the long low coast on the far side, a headland near by on the left
+    return { far: shore(fell(91, deck * 0.13 + 12, deck * 0.06), 0.8, 1.05), mid: shore(fell(94, deck * 0.07 + 10, deck * 0.04), 0.22, 0.42), near: none() }
+  if (part === 'sundet')
+    // the mainland across the sound, low and bare, with the town in front on the left
+    return { far: shore(fell(81, deck * 0.14 + 12, deck * 0.06), 0.62, 0.95), mid: shore(fell(84, deck * 0.08 + 10, deck * 0.04), 0.4, 0.65), near: none() }
+  if (part === 'house')
+    return { far: shore(fell(61, deck * 0.2 + 14, deck * 0.07), 0.72, 0.98), mid: shore(fell(64, deck * 0.13 + 14, deck * 0.05), 0.5, 0.78), near: shore(low(67, 22, 5), 0.38, 0.56) }
+  return {
+    far: shore(fell(71, deck * 0.24 + 10, deck * 0.07), 0.6, 0.98),
+    mid: shore(fell(74, deck * 0.2 + 12, deck * 0.05), 0.5, 0.82),
+    near: shore(low(77, 28, 6), 0.45, 0.62),
   }
 }
 

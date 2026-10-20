@@ -20,15 +20,21 @@ export function weatherAt(day: number, time: number): Weather {
   const ak = WORLD === 'alaska'
   const hi = WORLD === 'hawaii'
   const lo = WORLD === 'lofoten'
-  const showers = day > 0 && r() < (ak ? 0.55 : hi ? 0.5 : lo ? 0.5 : 0.32)
+  const va = WORLD === 'vardo'
+  const showers = day > 0 && r() < (ak ? 0.55 : hi ? 0.5 : lo ? 0.5 : va ? 0.4 : 0.32)
   const start = 0.3 + r() * 0.4
   const len = 0.08 + r() * 0.14
   const heavy = 0.5 + r() * 0.5
-  const foggy = day > 0 && r() < (ak ? 0.45 : hi ? 0.12 : lo ? 0.2 : 0.35)
+  const foggy = day > 0 && r() < (ak ? 0.45 : hi ? 0.12 : lo ? 0.2 : va ? 0.55 : 0.35)
   const thick = 0.6 + r() * 0.4
   const rain = showers ? ease(start, start + len, 0.03, time) * heavy : 0
   // fog settles before dawn and burns off in the morning
-  const fog = foggy ? ease(0.12, 0.38 + thick * 0.05, 0.06, time) * thick : 0
+  let fog = foggy ? ease(0.12, 0.38 + thick * 0.05, 0.06, time) * thick : 0
+  // the Barents Sea fog (havtåke) rolls in at any hour, and stays a while
+  if (va && day > 0 && r() < 0.45) {
+    const at = 0.35 + r() * 0.5
+    fog = Math.max(fog, ease(at, at + 0.1 + r() * 0.15, 0.04, time) * (0.6 + r() * 0.4))
+  }
   return { rain: devWeather.rain ?? rain, fog: devWeather.fog ?? fog }
 }
 

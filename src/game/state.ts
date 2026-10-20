@@ -1,5 +1,7 @@
 import { saveStore } from '../platform/storage'
-import { BOOK, GEAR, QUESTS, WORLDS, setWorld, type GearKind, type WorldId } from './data'
+import { BOOK, GEAR, QUESTS, WORLDS, setGround, setWorld, type GearKind, type WorldId } from './data'
+import { ensureVardo } from './vardo/economy'
+import type { VardoState } from './vardo/types'
 
 export interface Catch {
   id: string
@@ -47,6 +49,8 @@ export interface Save {
   derby?: { world: WorldId; left: number; kg: number; n: number; best: number; done: boolean }
   /** the last day you entered the competition in each place */
   derbyDay?: Partial<Record<WorldId, number>>
+  /** Vardø: the house, the boats, the nets and everything else that chapter keeps */
+  va?: VardoState
 }
 
 /** The things that belong to one place */
@@ -65,6 +69,7 @@ export function freshPart(w: WorldId): Part {
   if (w === 'alaska') return { money: 60, gear: freshGear(), bucket: [], paint: 'ak_hvit', paints: ['ak_hvit'] }
   if (w === 'hawaii') return { money: 0, gear: freshGear(), bucket: [], paint: 'hi_hvit', paints: ['hi_hvit'] }
   if (w === 'lofoten') return { money: 0, gear: freshGear(), bucket: [], paint: 'lo_hvit', paints: ['lo_hvit'] }
+  if (w === 'vardo') return { money: 0, gear: freshGear(), bucket: [], paint: 'va_hvit', paints: ['va_hvit'] }
   return { money: 0, gear: freshGear(), bucket: [], paint: 'hvit', paints: ['hvit'] }
 }
 
@@ -84,6 +89,10 @@ export function switchWorld(s: Save, to: WorldId) {
   s.paint = p.paint
   s.paints = p.paints
   s.world = to
+  if (to === 'vardo') {
+    s.va = ensureVardo(s.va)
+    setGround(s.va.ground)
+  }
   setWorld(to)
 }
 
@@ -123,6 +132,10 @@ export function load(): Save {
     const raw = saveStore().get(KEY)
     if (raw) {
       const s: Save = { ...fresh(), ...JSON.parse(raw) }
+      if (s.va) {
+        s.va = ensureVardo(s.va)
+        setGround(s.va.ground)
+      }
       setWorld(s.world)
       return s
     }
@@ -155,7 +168,7 @@ export const needsMet = (s: Save, needs?: string) =>
 
 /** Whether you have met the one who hands out quests where you are */
 export const questsOpen = (s: Save) =>
-  !!(s.world === 'alaska' ? s.flags.ak_metRay : s.world === 'hawaii' ? s.flags.hi_metKimo : s.world === 'lofoten' ? s.flags.lo_metJohan : s.flags.metHalvor)
+  !!(s.world === 'alaska' ? s.flags.ak_metRay : s.world === 'hawaii' ? s.flags.hi_metKimo : s.world === 'lofoten' ? s.flags.lo_metJohan : s.world === 'vardo' ? s.flags.va_metBrita : s.flags.metHalvor)
 
 /** The three earliest unfinished quests are active */
 export function activeQuests(s: Save) {

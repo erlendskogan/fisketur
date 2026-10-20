@@ -1,6 +1,6 @@
 // Everything people say. `who` is a portrait id, or null for narration.
 
-export type Who = 'marit' | 'halvor' | 'selma' | 'edvard' | 'pus' | 'astrid' | 'ray' | 'leilani' | 'kimo' | 'tutu' | 'ingvild' | 'johan' | null
+export type Who = 'marit' | 'halvor' | 'selma' | 'edvard' | 'pus' | 'astrid' | 'ray' | 'leilani' | 'kimo' | 'tutu' | 'ingvild' | 'johan' | 'nadja' | 'brita' | 'aslak' | 'frida' | null
 export interface Line {
   who: Who
   text: string
@@ -32,6 +32,10 @@ export const NAMES: Record<string, string> = {
   tutu: 'Tūtū',
   ingvild: 'Ingvild',
   johan: 'Johan',
+  nadja: 'Nadja',
+  brita: 'Brita',
+  aslak: 'Aslak',
+  frida: 'Frida',
 }
 
 export const INTRO: Line[] = [
@@ -514,6 +518,10 @@ export const AFTER_HI_ENDING: string[] = [
 export const BACK_TO_HAWAII: Line[] = [n('Flyet senker seg over regnskogen, og der ligger Hilo. Leilani vinker fra fiskeboden med en hel fisk.')]
 
 export const FLY_HOME_HI: Line[] = [n('Fra Hilo til Honolulu, og videre over hele jorda. Tre dager senere står du på kaia i Skjærvik med solbrent nese.')]
+
+/** Home by sea: Hurtigruten south from Henningsvær or all the way from Vardø */
+export const BOAT_HOME_LO: Line[] = [n('Hurtigruten går sørover over Vestfjorden i natt. Om morgenen glir fyret i Skjærvik fram av disen, og Måken ligger ved Bryggen der du forlot henne.')]
+export const BOAT_HOME_VA: Line[] = [n('Hurtigruten tar deg sørover langs hele kysten. Pus sover i lugaren i tre døgn. Så står fyret i Skjærvik der, hvitt og rødt som før.')]
 
 /** What they say at home once you have been away */
 export const HOME_NEWS: Record<'marit' | 'halvor', string[]> = {
