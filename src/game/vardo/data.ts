@@ -25,7 +25,7 @@ export const VA_GROUNDS: Record<GroundId, Ground> = {
     text: 'Den brede fjorden inn mot Kirkenes. Her går kongekrabba på bunnen.',
     zones: [
       { name: 'Strandberget', from: 0, to: 30, water: ['#2e8a88', '#267878'], rock: '#56605a' },
-      { name: 'Tarebakken', from: 30, to: 80, water: ['#267878', '#1e6268'], rock: '#48524e' },
+      { name: 'Steinbakken', from: 30, to: 80, water: ['#267878', '#1e6268'], rock: '#48524e' },
       { name: 'Krabbebunnen', from: 80, to: 150, water: ['#1e6268', '#184c5c'], rock: '#3e4648' },
       { name: 'Midtfjorden', from: 150, to: 250, water: ['#184c5c', '#14384e'], rock: '#343c44' },
       { name: 'Mudderbunnen', from: 250, to: 330, water: ['#14384e', '#102840'], rock: '#3a3830' },
@@ -67,7 +67,7 @@ export const VA_SPECIES: Species[] = [
   {
     id: 'v_tangsprell', name: 'Tangsprell', ground: 'sundet', zone: 0, weight: 18, value: 8, cm: [10, 25], kg: [0.02, 0.1], difficulty: 1, behavior: 'dart',
     look: { shape: 'eel', len: 16, h: 4, top: '#7a5a2e', mid: '#b8844a', belly: '#ecc890', fin: '#9a6a3a', pattern: 'spots', pat: '#1e1418', tail: 'round', dorsal: 'long' },
-    text: 'Når sjøen trekker seg ut, gjemmer den seg under en våt stein og venter. Den tåler å ligge på land i flere timer.',
+    text: 'Når det er fjære, gjemmer den seg under en våt stein og venter på sjøen. Den klarer seg flere timer uten vann.',
   },
   {
     id: 'v_ulke', name: 'Ulke', ground: 'sundet', zone: 0, weight: 20, value: 12, cm: [15, 40], kg: [0.1, 1.2], difficulty: 2, behavior: 'sinker',
@@ -77,13 +77,13 @@ export const VA_SPECIES: Species[] = [
   {
     id: 'v_alekvabbe', name: 'Ålekvabbe', ground: 'sundet', zone: 0, weight: 14, value: 14, cm: [20, 45], kg: [0.1, 0.5], difficulty: 2, behavior: 'calm',
     look: { shape: 'eel', len: 20, h: 6, top: '#6e6436', mid: '#a09448', belly: '#e4d68c', fin: '#82763e', pattern: 'mottled', pat: '#443a20', tail: 'point', dorsal: 'long' },
-    text: 'En av de få fiskene i havet som føder levende unger. Beina blir grønne når du koker den, helt ufarlig.',
+    text: 'En av de få fiskene i havet som føder levende unger. Beina blir grønne når den kokes, men det er helt ufarlig.',
   },
   // Tareskogen
   {
     id: 'v_rognkjeks', name: 'Rognkjeks', ground: 'sundet', zone: 1, weight: 14, value: 30, cm: [20, 50], kg: [0.5, 5], difficulty: 2, behavior: 'sinker',
     look: { shape: 'round', len: 14, h: 12, top: '#4a7a42', mid: '#86ae60', belly: '#e8904a', fin: '#689a4e', pattern: 'spots', pat: '#2c4a22', tail: 'round', dorsal: 'none' },
-    text: 'Hunnen heter rognkjeks og hannen rognkall. Han suger seg fast på en stein med magen og passer eggene alene.',
+    text: 'Hunnen heter rognkjeks og hannen rognkall. Han suger seg fast på en stein med sugeskiva under buken og passer eggene alene.',
   },
   {
     id: 'v_sei', name: 'Sei', ground: 'sundet', zone: 1, weight: 26, value: 22, cm: [25, 70], kg: [0.3, 3.5], difficulty: 2, behavior: 'calm',
@@ -93,12 +93,12 @@ export const VA_SPECIES: Species[] = [
   {
     id: 'v_pukkellaks', name: 'Pukkellaks', ground: 'sundet', zone: 1, weight: 16, value: 25, cm: [40, 65], kg: [1, 3], difficulty: 3, behavior: 'dart',
     look: { shape: 'fusiform', len: 21, h: 9, top: '#5a6a62', mid: '#b8b8a8', belly: '#f0e8e4', fin: '#6a7068', pattern: 'spots', pat: '#1e2420', tail: 'fork', dorsal: 'high' },
-    text: 'Russerne satte den ut i elvene på Kola for over seksti år siden. Nå kommer den i tusenvis hvert annet år, og den hører ikke hjemme her.',
+    text: 'Den ble satt ut i elvene på Kola for over seksti år siden. Nå kommer den i tusenvis hvert annet år, og den hører ikke hjemme her.',
   },
   {
     id: 'v_sjoroye', name: 'Sjørøye', ground: 'sundet', zone: 1, weight: 4, rare: true, time: 'day', value: 320, cm: [30, 70], kg: [0.5, 5], difficulty: 6, behavior: 'dart',
     look: { shape: 'fusiform', len: 22, h: 8, top: '#3e5a6a', mid: '#c0ccd0', belly: '#f4d8c0', fin: '#c86a4a', pattern: 'spots', pat: '#f4c8b8', tail: 'square', dorsal: 'low' },
-    text: 'Den er i sjøen bare noen få uker om sommeren for å spise seg feit. Så svømmer den tilbake til elva og vannet den kom fra.',
+    text: 'Den er i sjøen bare noen få uker om sommeren for å spise seg feit. Så går den tilbake til elva og vannet den kom fra.',
   },
   // Sandbunnen
   {
@@ -120,12 +120,12 @@ export const VA_SPECIES: Species[] = [
   {
     id: 'v_torsk', name: 'Kysttorsk', ground: 'sundet', zone: 3, weight: 26, value: 70, cm: [40, 110], kg: [0.8, 14], difficulty: 3, behavior: 'heavy',
     look: { shape: 'fusiform', len: 23, h: 9, top: '#6e6a3a', mid: '#b4a86a', belly: '#f0e8c8', fin: '#948a56', pattern: 'mottled', pat: '#524a26', tail: 'square', dorsal: 'low', barbel: true },
-    text: 'Kysttorsken blir i fjorden hele livet, mens skreien vandrer. Forskerne ser forskjell på dem på formen på øresteinene.',
+    text: 'Kysttorsken holder seg nær land hele livet, mens skreien vandrer. Forskerne skiller dem på mønsteret i øresteinene.',
   },
   {
     id: 'v_hyse', name: 'Hyse', ground: 'sundet', zone: 3, weight: 20, value: 50, cm: [30, 70], kg: [0.4, 4], difficulty: 3, behavior: 'calm',
     look: { shape: 'fusiform', len: 20, h: 7, top: '#46464e', mid: '#a4a8b0', belly: '#eaecf0', fin: '#3a3a42', pattern: 'line', pat: '#1e1e26', tail: 'square', dorsal: 'high', barbel: true },
-    text: 'Den har en svart flekk bak gjellene og en svart strek langs siden. Den lever av slangestjerner og mark på bunnen.',
+    text: 'Den har en svart flekk over brystfinnen og en svart strek langs siden. Den lever av slangestjerner og mark på bunnen.',
   },
   // Renna
   {
@@ -160,7 +160,7 @@ export const VA_SPECIES: Species[] = [
   {
     id: 'v_sild', name: 'Sild', ground: 'fjorden', zone: 0, weight: 26, value: 40, cm: [20, 35], kg: [0.1, 0.4], difficulty: 3, behavior: 'calm',
     look: { shape: 'fusiform', len: 13, h: 5, top: '#2e5a96', mid: '#a4c8de', belly: '#eef5f7', fin: '#8cb2c6', dorsal: 'low', tail: 'fork' },
-    text: 'Sild snakker sammen om natta ved å slippe små luftbobler ut bakfra. Det høres ut som en liten prutt.',
+    text: 'Om natta slipper silda små luftbobler ut bakfra. Det høres ut som en liten prompelyd, og forskerne tror stimen holder sammen med den.',
   },
   {
     id: 'v_lodde', name: 'Lodde', ground: 'fjorden', zone: 0, weight: 24, value: 45, cm: [12, 20], kg: [0.01, 0.05], difficulty: 3, behavior: 'dart',
@@ -172,7 +172,7 @@ export const VA_SPECIES: Species[] = [
     look: { shape: 'fusiform', len: 17, h: 6, top: '#1e8670', mid: '#84d0b4', belly: '#f2f8ee', fin: '#58a68e', pattern: 'wavy', pat: '#123a3c', dorsal: 'low', tail: 'fork' },
     text: 'Før kom den nesten aldri så langt nord. Nå er havet blitt varmere, og om sensommeren svømmer den helt hit.',
   },
-  // Tarebakken
+  // Steinbakken
   {
     id: 'v_gapeflyndre', name: 'Gapeflyndre', ground: 'fjorden', zone: 1, weight: 22, value: 60, cm: [20, 50], kg: [0.1, 1.5], difficulty: 3, behavior: 'sinker',
     look: { shape: 'flat', len: 18, h: 10, top: '#a0846a', mid: '#c0a488', belly: '#d4b898', fin: '#b0947a', tail: 'round', dorsal: 'long', bigMouth: true },
@@ -186,7 +186,7 @@ export const VA_SPECIES: Species[] = [
   {
     id: 'v_kongekrabbe', name: 'Kongekrabbe', ground: 'fjorden', zone: 1, weight: 24, pot: true, value: 450, cm: [9, 20], kg: [1, 10], difficulty: 5, behavior: 'heavy',
     look: { shape: 'crab', len: 22, h: 12, top: '#8a2a2a', mid: '#b2443a', belly: '#f0dcc4', fin: '#a03a32', pattern: 'spots', pat: '#e88a6a' },
-    text: 'Sovjetiske forskere slapp den ut i Murmanskfjorden på 1960-tallet. Nå går den i Varangerfjorden, og beina kan spenne over halvannen meter.',
+    text: 'Forskere slapp den ut i fjordene på Kola på 1960-tallet. Nå går den i Varangerfjorden, og beina kan spenne over halvannen meter.',
   },
   // Krabbebunnen
   {
@@ -212,7 +212,7 @@ export const VA_SPECIES: Species[] = [
   },
   // Mudderbunnen
   {
-    id: 'v_vahls', name: 'Vahls ålebrosme', ground: 'fjorden', zone: 4, weight: 16, value: 220, cm: [20, 50], kg: [0.1, 0.8], difficulty: 5, behavior: 'sinker',
+    id: 'v_vahls', name: 'Vanlig ålebrosme', ground: 'fjorden', zone: 4, weight: 16, value: 220, cm: [20, 50], kg: [0.1, 0.8], difficulty: 5, behavior: 'sinker',
     look: { shape: 'eel', len: 24, h: 6, top: '#7a6650', mid: '#9a866c', belly: '#d8c8b0', fin: '#6a5844', pattern: 'bars', pat: '#4a3a2c', tail: 'round', dorsal: 'long' },
     text: 'Den ligger stille på mudderbunnen og spiser små krepsdyr. Den legger få egg, men de er store som erter.',
   },
@@ -233,7 +233,7 @@ export const VA_SPECIES: Species[] = [
   {
     id: 'v_polartorsk', name: 'Polartorsk', ground: 'banken', zone: 0, weight: 24, value: 140, cm: [15, 30], kg: [0.05, 0.25], difficulty: 4, behavior: 'dart',
     look: { shape: 'fusiform', len: 14, h: 5, top: '#6e7280', mid: '#c4c6d0', belly: '#f0f0f6', fin: '#848a98', tail: 'fork', dorsal: 'low', eye: 2, barbel: true },
-    text: 'Den lever lengre nord enn noen annen fisk. Om vinteren gjemmer den seg i sprekker under havisen.',
+    text: 'Den lever lenger nord enn noen annen fisk. Om vinteren gjemmer den seg i sprekker under havisen.',
   },
   {
     id: 'v_havsil', name: 'Havsil', ground: 'banken', zone: 0, weight: 20, value: 120, cm: [10, 25], kg: [0.01, 0.05], difficulty: 4, behavior: 'dart',
@@ -265,7 +265,7 @@ export const VA_SPECIES: Species[] = [
   {
     id: 'v_smorflyndre', name: 'Smørflyndre', ground: 'banken', zone: 2, weight: 18, value: 240, cm: [25, 55], kg: [0.2, 1.8], difficulty: 5, behavior: 'sinker',
     look: { shape: 'flat', len: 19, h: 10, top: '#968676', mid: '#b4a494', belly: '#c4b4a4', fin: '#867666', tail: 'round', dorsal: 'long', eye: 2 },
-    text: 'Tynn og glatt, med et kjøtt så mildt at den har fått navn etter smør. Den kan bli over tjue år gammel.',
+    text: 'Tynn og slimete, med kjøtt så mildt at det smelter som smør. Den kan bli over tjue år gammel.',
   },
   // Bankskråningen
   {
@@ -285,9 +285,9 @@ export const VA_SPECIES: Species[] = [
   },
   // Polarfronten
   {
-    id: 'v_esmark', name: 'Esmarks ålebrosme', ground: 'banken', zone: 4, weight: 18, value: 700, cm: [30, 75], kg: [0.4, 2.5], difficulty: 6, behavior: 'sinker',
+    id: 'v_esmark', name: 'Ulvefisk', ground: 'banken', zone: 4, weight: 18, value: 700, cm: [30, 75], kg: [0.4, 2.5], difficulty: 6, behavior: 'sinker',
     look: { shape: 'eel', len: 28, h: 7, top: '#665848', mid: '#887866', belly: '#c4b49e', fin: '#58483a', pattern: 'bars', pat: '#3a2e24', tail: 'round', dorsal: 'long' },
-    text: 'En av de største ålebrosmene, over sytti centimeter lang. Den liker vann som holder seg rundt null grader.',
+    text: 'Den største av ålebrosmene her, over sytti centimeter lang. Den lever nesten bare av slangestjerner.',
   },
   {
     id: 'v_haakjerring', name: 'Håkjerring', ground: 'banken', zone: 4, weight: 3, rare: true, value: 4800, cm: [250, 450], kg: [200, 700], difficulty: 9, behavior: 'heavy',
@@ -296,12 +296,12 @@ export const VA_SPECIES: Species[] = [
   },
   // Dyprenna
   {
-    id: 'v_gelatinringbuk', name: 'Gelatinringbuk', ground: 'banken', zone: 5, weight: 16, value: 1100, cm: [10, 30], kg: [0.05, 0.5], difficulty: 6, behavior: 'floater',
+    id: 'v_gelatinringbuk', name: 'Polarringbuk', ground: 'banken', zone: 5, weight: 16, value: 1100, cm: [10, 30], kg: [0.05, 0.5], difficulty: 6, behavior: 'floater',
     look: { shape: 'chimaera', len: 18, h: 9, top: '#c8a8a8', mid: '#e4c8c8', belly: '#f6e6e6', fin: '#d8b8bc', tail: 'point', dorsal: 'long', eye: 1 },
     text: 'Myk som gelé, med en sugeskive under buken. Den lever langt nord, både på bunnen og oppe i vannet.',
   },
   {
-    id: 'v_ishavsringbuk', name: 'Ringbuk', ground: 'banken', zone: 5, weight: 14, value: 1400, cm: [8, 20], kg: [0.03, 0.2], difficulty: 6, behavior: 'floater',
+    id: 'v_ishavsringbuk', name: 'Vanlig ringbuk', ground: 'banken', zone: 5, weight: 14, value: 1400, cm: [8, 20], kg: [0.03, 0.2], difficulty: 6, behavior: 'floater',
     look: { shape: 'chimaera', len: 15, h: 8, top: '#8a6a4a', mid: '#b08a64', belly: '#e8d4b8', fin: '#9a7a58', pattern: 'mottled', pat: '#5a4430', tail: 'point', dorsal: 'long', eye: 1 },
     text: 'Bukfinnene har vokst sammen til en sugeskive, som en ring under buken. Med den holder den seg fast på steinene.',
   },
@@ -330,9 +330,9 @@ export const VA_SPECIES: Species[] = [
     text: 'Langens blågrå slektning fra dypet. Den samles på noen få faste steder langs kanten for å gyte.',
   },
   {
-    id: 'v_perlemorfisk', name: 'Perlemorfisk', ground: 'eggakanten', zone: 1, weight: 16, time: 'night', value: 800, cm: [3, 7], kg: [0.005, 0.02], difficulty: 5, behavior: 'dart',
+    id: 'v_perlemorfisk', name: 'Laksesild', ground: 'eggakanten', zone: 1, weight: 16, time: 'night', value: 800, cm: [3, 7], kg: [0.005, 0.02], difficulty: 5, behavior: 'dart',
     look: { shape: 'fusiform', len: 10, h: 4, top: '#2e3e54', mid: '#a8b8c8', belly: '#e0e8f0', fin: '#5a6a80', glow: '#8ad8ff', glowAt: 'row', eye: 3 },
-    text: 'Bare noen få centimeter lang, med en rad små lys langs buken. Om natta kommer den opp mot overflata for å spise.',
+    text: 'Ingen laks og ingen sild, bare noen få centimeter lang, med en rad små lys langs buken. Om natta kommer den opp mot overflata for å spise.',
   },
   // Skråningen
   {
@@ -341,9 +341,9 @@ export const VA_SPECIES: Species[] = [
     text: 'Halen blir tynnere og tynnere til den bare er en tråd. Hele huden er ru av små pigger.',
   },
   {
-    id: 'v_oksefisk', name: 'Øksefisk', ground: 'eggakanten', zone: 2, weight: 14, value: 1800, cm: [4, 9], kg: [0.005, 0.03], difficulty: 6, behavior: 'floater',
+    id: 'v_oksefisk', name: 'Stor perlemorfisk', ground: 'eggakanten', zone: 2, weight: 14, value: 1800, cm: [4, 9], kg: [0.005, 0.03], difficulty: 6, behavior: 'floater',
     look: { shape: 'hatchet', len: 11, h: 9, top: '#5a6a7a', mid: '#c8d4e0', belly: '#eef2f8', fin: '#8a9aaa', glow: '#9ae0ff', glowAt: 'belly', eye: 3 },
-    text: 'Den er flat som et øksehode, og øynene peker rett opp. Lysene på buken gjør at den ikke synes mot det svake lyset ovenfra.',
+    text: 'Den er flat som et øksehode og skinner som perlemor, og øynene peker rett opp. Lysene på buken gjør at den ikke synes mot det svake lyset ovenfra.',
   },
   {
     id: 'v_lysprikkfisk', name: 'Nordlig lysprikkfisk', ground: 'eggakanten', zone: 2, weight: 18, value: 1100, cm: [4, 10], kg: [0.01, 0.03], difficulty: 5, behavior: 'dart',
@@ -357,9 +357,9 @@ export const VA_SPECIES: Species[] = [
     text: 'Store øyne og en hale som ender i en tråd. Den kan bli over femti år gammel.',
   },
   {
-    id: 'v_arktisk_alebrosme', name: 'Arktisk ålebrosme', ground: 'eggakanten', zone: 3, weight: 16, value: 2600, cm: [30, 75], kg: [0.4, 3], difficulty: 7, behavior: 'sinker',
+    id: 'v_arktisk_alebrosme', name: 'Nettålebrosme', ground: 'eggakanten', zone: 3, weight: 16, value: 2600, cm: [30, 75], kg: [0.4, 3], difficulty: 7, behavior: 'sinker',
     look: { shape: 'eel', len: 28, h: 7, top: '#5a4a3e', mid: '#7e6a58', belly: '#c8b49c', fin: '#4a3c30', pattern: 'mottled', pat: '#2e241c', tail: 'round', dorsal: 'long' },
-    text: 'Den har et mønster som et nett over ryggen. Derfor heter den reticulatus, «nettet», på latin.',
+    text: 'Den har et mønster som et nett over ryggen. Derfor heter den nettålebrosme, og reticulatus, «nettet», på latin.',
   },
   // Kaldtvannet
   {
@@ -376,7 +376,7 @@ export const VA_SPECIES: Species[] = [
   {
     id: 'v_svart_ringbuk', name: 'Svart ringbuk', ground: 'eggakanten', zone: 5, weight: 20, value: 4000, cm: [10, 25], kg: [0.03, 0.3], difficulty: 8, behavior: 'floater',
     look: { shape: 'chimaera', len: 17, h: 8, top: '#1a1418', mid: '#2a2228', belly: '#3a3036', fin: '#221a20', tail: 'point', dorsal: 'long', eye: 1 },
-    text: 'Svart helt inn i munnen, og myk som gelé. Den lever dypere enn nesten alle andre fisker i Norskehavet.',
+    text: 'Svart over hele kroppen, og myk som gelé. Den lever dypere enn nesten alle andre fisker i Norskehavet.',
   },
   // ===== Den unge =====
   {
@@ -404,22 +404,22 @@ export const VA_SPECIES: Species[] = [
   {
     id: 'v_lavedora', name: 'Låvedøra', ground: 'banken', zone: 2, weight: 0, legend: true, value: 25000, cm: [280, 300], kg: [280, 320], difficulty: 10, behavior: 'heavy',
     look: { shape: 'flat', len: 60, h: 30, top: '#2e3028', mid: '#4a4c40', belly: '#ecece2', fin: '#3a3c32', pattern: 'mottled', pat: '#1e2018', tail: 'lunate', dorsal: 'long', eye: 3 },
-    text: 'En kveite på størrelse med ei låvedør. Det sies at den har slitt av flere snører enn noen kan telle.',
+    text: 'En kveite på størrelse med en låvedør. Det sies at den har slitt av flere snører enn noen kan telle.',
   },
   {
     id: 'v_isdronninga', name: 'Isdronninga', ground: 'eggakanten', zone: 3, weight: 0, legend: true, time: 'night', value: 40000, cm: [125, 135], kg: [40, 48], difficulty: 10, behavior: 'heavy',
     look: { shape: 'flat', len: 44, h: 20, top: '#c8d4e4', mid: '#e0e8f2', belly: '#f6f8fc', fin: '#b0c0d8', tail: 'square', dorsal: 'long', eye: 3, eyeColor: '#9ae8ff', teeth: true },
-    text: 'En blåkveite nesten helt hvit, som is. Ingen vet om den er en eventyrfisk eller bare veldig gammel.',
+    text: 'En blåkveite som er nesten helt hvit, som is. Ingen vet om den er en eventyrfisk eller bare veldig gammel.',
   },
 ]
 
 /** When a legend may bite; chance is per bite (or per pot haul for crabs) while the rule holds */
 export const VA_LEGEND_RULES: { id: string; ground: GroundId; zone: number; time?: 'day' | 'night' | 'dawn'; weather?: 'rain' | 'fog'; minBoat?: number; chance: number; hint: string }[] = [
-  { id: 'v_gamlegra', ground: 'sundet', zone: 3, time: 'dawn', chance: 0.04, hint: 'Gamle Grå står i Strømmen i Bussesundet, og han biter bare når sola står opp.' },
+  { id: 'v_gamlegra', ground: 'sundet', zone: 3, time: 'dawn', chance: 0.04, hint: 'Gamle Grå står i Strømmen i Bussesundet. Han biter bare i grålysningen, når sola står opp.' },
   { id: 'v_kongen', ground: 'fjorden', zone: 1, minBoat: 1, chance: 0.02, hint: 'Aslak sier Kongen av Varanger går i teina én gang i livet, hvis du er heldig.' },
-  { id: 'v_gullsjarken', ground: 'fjorden', zone: 3, weather: 'fog', chance: 0.035, hint: 'Mor sa at Gullsjarken bare viser seg midt i fjorden når havtåka ligger tett.' },
-  { id: 'v_lavedora', ground: 'banken', zone: 2, weather: 'rain', minBoat: 2, chance: 0.03, hint: 'Far sa at Låvedøra bare biter når det regner på banken.' },
-  { id: 'v_isdronninga', ground: 'eggakanten', zone: 3, time: 'night', minBoat: 3, chance: 0.025, hint: 'Isdronninga kommer opp langs eggakanten om natta, når alle andre sover.' },
+  { id: 'v_gullsjarken', ground: 'fjorden', zone: 3, weather: 'fog', chance: 0.035, hint: 'Bestefar sier at Gullsjarken bare viser seg midt i fjorden når havtåka ligger tett.' },
+  { id: 'v_lavedora', ground: 'banken', zone: 2, weather: 'rain', minBoat: 2, chance: 0.03, hint: 'Bestefar sier at Låvedøra bare biter når det regner på Tiddlybanken.' },
+  { id: 'v_isdronninga', ground: 'eggakanten', zone: 3, time: 'night', minBoat: 3, chance: 0.025, hint: 'Isdronninga kommer opp langs Eggakanten om natta, når alle andre sover.' },
 ]
 
 // ---------- gear ----------
@@ -429,17 +429,17 @@ export const VA_GEAR: Record<GearKind, { title: string; levels: GearLevel[] }> =
     title: 'Snøre',
     levels: [
       { name: 'Håndsnøre', price: 0, value: 30, text: 'Signes gamle håndsnøre fra loftet. Rekker 30 meter.' },
-      { name: 'Sundsnøre', price: 500, value: 80, text: 'Ned i renna i sundet, 80 meter.' },
-      { name: 'Fjordline', price: 2400, value: 160, text: 'Ned på krabbebunnen i fjorden. 160 meter.', needs: 'va_boat1', needsText: 'Krever sjark' },
-      { name: 'Bankline', price: 8000, value: 400, text: 'Helt ned i Polarfronten, 400 meter.', needs: 'va_boat2', needsText: 'Krever kystbåt' },
-      { name: 'Eggaline', price: 22000, value: 800, text: 'Nedover skråningen på eggakanten, 800 meter.', needs: 'va_boat3', needsText: 'Krever havfiskebåt' },
+      { name: 'Sundsnøre', price: 500, value: 80, text: 'Ned i Strømmen i sundet, 80 meter.' },
+      { name: 'Fjordline', price: 2400, value: 160, text: 'Forbi Krabbebunnen i fjorden, 160 meter.', needs: 'va_boat1', needsText: 'Krever sjark' },
+      { name: 'Bankline', price: 8000, value: 400, text: 'Ned i Polarfronten på banken, 400 meter.', needs: 'va_boat2', needsText: 'Krever kystbåt' },
+      { name: 'Eggaline', price: 22000, value: 800, text: 'Nedover skråningen på Eggakanten, 800 meter.', needs: 'va_boat3', needsText: 'Krever havfiskebåt' },
       { name: 'Elles line', price: 0, value: 2000, text: 'Elle egnet denne linja i femti år. Aslak sier den rekker helt til bunns.', gift: true },
     ],
   },
   rod: {
     title: 'Stang',
     levels: [
-      { name: 'Pilkestang', price: 0, value: 0.27, text: 'Den stod bak døra i Signes gang.' },
+      { name: 'Pilkestang', price: 0, value: 0.27, text: 'Den sto bak døra i gangen hos Signe.' },
       { name: 'Kystpilk', price: 700, value: 0.33, text: 'Større fangstfelt.' },
       { name: 'Barentsstang', price: 3200, value: 0.39, text: 'Tåler høststormene i Barentshavet.' },
       { name: 'Aslaks stang', price: 12000, value: 0.46, text: 'Aslak spikket den av bjørk fra Varangerhalvøya. Han sier den vet hvor fisken står.', needs: 'va_metAslak', needsText: 'Bli kjent med Aslak først' },
@@ -466,9 +466,9 @@ export const VA_GEAR: Record<GearKind, { title: string; levels: GearLevel[] }> =
   lure: {
     title: 'Agn',
     levels: [
-      { name: 'Blank pilk', price: 0, value: 1, text: 'Det glinser, og torsken vil ha det.' },
-      { name: 'Lodde på krok', price: 800, value: 1.35, text: 'Alt i Barentshavet spiser lodde. Sjeldne fisk blir nysgjerrige.' },
-      { name: 'Rød sprut', price: 3300, value: 1.7, text: 'En gummiblekksprut. Enda flere sjeldne fisk.' },
+      { name: 'Blank pilk', price: 0, value: 1, text: 'Den glinser, og torsken vil ha den.' },
+      { name: 'Lodde på krok', price: 800, value: 1.35, text: 'Alt i Barentshavet spiser lodde. Sjeldne fisker blir nysgjerrige.' },
+      { name: 'Rød sprut', price: 3300, value: 1.7, text: 'En blekksprut av gummi. Enda flere sjeldne fisker.' },
       { name: 'Selvlysende pilk', price: 10000, value: 2.2, text: 'Den lyser i høstmørket. Ingen fisk kan la den være.' },
     ],
   },
@@ -491,7 +491,7 @@ export const VA_QUESTS: Quest[] = [
   { id: 'v2', title: 'Fang en kysttorsk', goal: { kind: 'species', id: 'v_torsk', n: 1 }, money: 300 },
   { id: 'v3', title: 'Fang tre pukkellaks', goal: { kind: 'species', id: 'v_pukkellaks', n: 3 }, money: 500 },
   { id: 'v4', title: 'Selg fisk for 1500 kr', goal: { kind: 'sell', kr: 1500 }, money: 400 },
-  { id: 'v5', title: 'Fang tre ulike arter på grunna', goal: { kind: 'distinct', zone: 0, n: 3 }, money: 600 },
+  { id: 'v5', title: 'Fang tre ulike arter i det grunneste beltet', goal: { kind: 'distinct', zone: 0, n: 3 }, money: 600 },
   { id: 'v6', title: 'Fang en rognkjeks', goal: { kind: 'species', id: 'v_rognkjeks', n: 1 }, money: 500 },
   { id: 'v7', title: 'Fang tre fisk om natta', goal: { kind: 'night', n: 3 }, money: 800 },
   { id: 'v8', title: 'Slipp ut fem fisk', goal: { kind: 'release', n: 5 }, money: 800 },
@@ -534,7 +534,7 @@ export const VA_PAINTS: { id: string; name: string; hull: string; stripe: string
   { id: 'va_krykkje', name: 'Krykkje', hull: '#e8e8e4', stripe: '#2a2a2e', price: 1200 },
   { id: 'va_pomor', name: 'Pomor', hull: '#2a5a3e', stripe: '#e8c04a', price: 1500 },
   { id: 'va_nordlys', name: 'Nordlys', hull: '#1e2a4a', stripe: '#8affd8', price: 1500 },
-  { id: 'va_regatta', name: 'Regatta', hull: '#f2f0ea', stripe: '#1e6ac8', price: 0, needs: 'va_regattaWon' },
+  { id: 'va_regatta', name: 'Slippen-blå', hull: '#f2f0ea', stripe: '#1e6ac8', price: 0, needs: 'va_regattaWon' },
   { id: 'va_gull', name: 'Gull', hull: '#f2c24a', stripe: '#8a5a2a', price: 0, needs: 'va_goldpaint' },
 ]
 

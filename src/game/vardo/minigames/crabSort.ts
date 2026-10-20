@@ -21,24 +21,44 @@ interface Spr {
 const sprites = new Map<string, Spr>()
 export const isSnowCrab = (id: string) => /sn(o|ø)|snow|opilio/i.test(id)
 
+/** Which crab to draw: king crab, snow crab, the small decorator crab or the spiny stone crab */
+export type CrabKind = 'king' | 'snow' | 'pynt' | 'troll'
+export const crabKind = (id: string): CrabKind => (isSnowCrab(id) ? 'snow' : /pynt/.test(id) ? 'pynt' : /troll/.test(id) ? 'troll' : 'king')
+
+// shape and colour per kind: carapace length/width, leg length, leg pairs and thickness, claw size, spines
+const KINDS: Record<CrabKind, { ch: number; leg: (cw: number) => number; pairs: number[]; bend: number; thick: number[]; arm: number; hand: [number, number]; spines: number; pal: { base: string; light: string; dark: string; spine: string; under: string; legU: string; eggs: string } }> = {
+  king: { ch: 1, leg: (cw) => cw * 1.1 + 6, pairs: [-0.45, 0.08, 0.6], bend: 0.75, thick: [1.7, 1.3, 0.8], arm: 1.6, hand: [3.2, 2.3], spines: 3, pal: { base: '#8a2e24', light: '#c4563a', dark: '#561a1c', spine: '#eca07a', under: '#ecd6b6', legU: '#d8986a', eggs: '#8a2e4a' } },
+  snow: { ch: 0.9, leg: (cw) => cw * 1.45 + 6, pairs: [-0.6, -0.2, 0.2, 0.6], bend: 0.55, thick: [1.1, 0.8, 0.5], arm: 1, hand: [1.6, 1.6], spines: 0, pal: { base: '#d8844a', light: '#f2b878', dark: '#a0522e', spine: '#f8d0a0', under: '#f4e2c4', legU: '#eac08a', eggs: '#e8742a' } },
+  // Hyas: a small brown spider crab, pear-shaped, wearing weed and sponge it has stuck on itself
+  pynt: { ch: 1.2, leg: (cw) => cw * 0.95 + 5, pairs: [-0.55, -0.15, 0.25, 0.65], bend: 0.6, thick: [1, 0.8, 0.5], arm: 0.9, hand: [1.5, 1.5], spines: 0, pal: { base: '#7a5a3e', light: '#a8845a', dark: '#4e3a2a', spine: '#c8a878', under: '#e8d8b8', legU: '#d8c098', eggs: '#d0802a' } },
+  // Lithodes: orange-red and covered in spines, with shorter, stouter legs than the king crab
+  troll: { ch: 1.05, leg: (cw) => cw * 0.8 + 5, pairs: [-0.45, 0.08, 0.6], bend: 0.7, thick: [1.9, 1.5, 1], arm: 1.7, hand: [2.8, 2.2], spines: 2, pal: { base: '#c0502e', light: '#e8784a', dark: '#7e2e1e', spine: '#ffc890', under: '#f0dcc0', legU: '#e8b088', eggs: '#8a2e4a' } },
+}
+const CRAB_NAME: Record<CrabKind, string> = { king: 'KONGEKRABBE', snow: 'SNØKRABBE', pynt: 'PYNTEKRABBE', troll: 'TROLLKRABBE' }
+const WEED = ['#5a7a32', '#7a9a3a', '#4a6a2a']
+const SPONGE = ['#e8c86a', '#d89a8a', '#e8e0c8']
+
 /** A crab seen from above (or from below, turned over), facing up the screen */
-export function crabSprite(snow: boolean, cw: number, male: boolean, under: boolean, fr: number): Spr {
+export function crabSprite(kind: CrabKind, cw: number, male: boolean, under: boolean, fr: number): Spr {
   cw = Math.max(8, Math.round(cw))
-  const key = `${snow ? 's' : 'k'}${cw}${male ? 'm' : 'f'}${under ? 'u' : 't'}${fr}`
+  const key = `${kind}${cw}${male ? 'm' : 'f'}${under ? 'u' : 't'}${fr}`
   const hit = sprites.get(key)
   if (hit) return hit
-  const ch = Math.round(cw * (snow ? 0.9 : 1))
-  const legLen = snow ? cw * 1.45 + 6 : cw * 1.1 + 6
+  const K = KINDS[kind]
+  const snow = kind === 'snow'
+  const pynt = kind === 'pynt'
+  const ch = Math.round(cw * K.ch)
+  const legLen = K.leg(cw)
   const S = Math.ceil(cw + legLen * 2.1 + 14)
   const SH = Math.ceil(ch + legLen * 1.7 + 18)
   const p = new Pix(S, SH)
   const cx = S / 2
   const cy = SH / 2 + 2
   const seed = hash(key.slice(0, -1))
-
-  const pal = snow
-    ? { base: '#d8844a', light: '#f2b878', dark: '#a0522e', spine: '#f8d0a0', under: '#f4e2c4', legU: '#eac08a' }
-    : { base: '#8a2e24', light: '#c4563a', dark: '#561a1c', spine: '#eca07a', under: '#ecd6b6', legU: '#d8986a' }
+  const pal = K.pal
+  const rnd = (x: number, y: number) => hash(`${Math.round(x)},${Math.round(y)},${seed}`) % 100
+  // soft blotches for the decorator crab's weed
+  const vnz = (x: number, y: number) => 0.5 + 0.3 * Math.sin(x * 1.3 + seed) * Math.cos(y * 1.1 - seed * 0.3) + 0.2 * Math.sin((x - y) * 0.9 + seed * 0.7)
 
   const disk = (x: number, y: number, r: number, c: string) => {
     for (let j = -Math.ceil(r); j <= Math.ceil(r); j++)
@@ -52,47 +72,47 @@ export function crabSprite(snow: boolean, cw: number, male: boolean, under: bool
       const y = lerp(y0, y1, k)
       disk(x, y, lerp(r0, r1, k), c)
     }
-    // a lit top edge and, on the king crab, spines along the leg
+    // a lit top edge; spines along the legs of the stone crabs, bits of weed on the decorator crab
     for (let i = 1; i < n; i++) {
       const k = i / n
       const x = lerp(x0, x1, k)
       const y = lerp(y0, y1, k)
       p.set(x, y - Math.max(0, lerp(r0, r1, k) - 0.5), shade(c, 0.22))
-      if (spiky && i % 3 === 0) p.set(x, y - lerp(r0, r1, k) - 1, under ? shade(c, -0.2) : pal.spine)
+      if (spiky && K.spines && i % K.spines === 0) p.set(x, y - lerp(r0, r1, k) - 1, under ? shade(c, -0.2) : pal.spine)
+      if (spiky && pynt && !under && rnd(x, y) < 22) p.set(x, y - lerp(r0, r1, k) - 1, rnd(y, x) < 60 ? WEED[i % 3] : SPONGE[i % 3])
     }
   }
 
   // legs first, the body covers their roots
   const legC = under ? pal.legU : pal.base
-  const pairs = snow ? [-0.6, -0.2, 0.2, 0.6] : [-0.45, 0.08, 0.6]
   for (const s of [-1, 1]) {
-    pairs.forEach((a0, i) => {
+    K.pairs.forEach((a0, i) => {
       const a = a0 + (fr ? (i % 2 ? 0.07 : -0.05) : 0)
-      const rx = cx + s * cw * 0.4
+      const rx = cx + s * cw * (pynt ? 0.3 + 0.12 * (a0 + 0.6) : 0.4)
       const ry = cy + ch * 0.4 * Math.sin(a) + ch * 0.05
       const l1 = legLen * 0.5
       const l2 = legLen * 0.58
       const jx = rx + s * Math.cos(a) * l1
       const jy = ry + Math.sin(a) * l1
-      const b = a + (snow ? 0.55 : 0.75)
+      const b = a + K.bend
       const tx = jx + s * Math.cos(b) * l2
       const ty = jy + Math.sin(b) * l2
       const d = b + 0.7
-      const thick = snow ? [1.1, 0.8, 0.5] : [1.7, 1.3, 0.8]
-      seg(rx, ry, jx, jy, thick[0], thick[1], legC, !snow)
-      seg(jx, jy, tx, ty, thick[1], thick[2], legC, !snow)
-      seg(tx, ty, tx + s * Math.cos(d) * 3, ty + Math.sin(d) * 3, thick[2], 0.4, shade(legC, -0.15), false)
+      const th = K.thick
+      seg(rx, ry, jx, jy, th[0], th[1], legC, !snow)
+      seg(jx, jy, tx, ty, th[1], th[2], legC, !snow)
+      seg(tx, ty, tx + s * Math.cos(d) * 3, ty + Math.sin(d) * 3, th[2], 0.4, shade(legC, -0.15), false)
       p.set(jx, jy, shade(legC, -0.3))
     })
-    // the claws: the king crab's right one is much bigger
+    // the claws: on the stone crabs the right one is much bigger
     const big = s === 1
-    const ax = cx + s * cw * 0.26
-    const ay = cy - ch * 0.36
-    const armL = cw * (snow ? 0.45 : 0.42) + 3
+    const ax = cx + s * cw * (pynt ? 0.16 : 0.26)
+    const ay = cy - ch * (pynt ? 0.2 : 0.36)
+    const armL = cw * (snow ? 0.45 : pynt ? 0.5 : 0.42) + 3
     const ex = ax + s * armL * 0.55
     const ey = ay - armL * 0.75
-    seg(ax, ay, ex, ey, snow ? 1 : 1.6, snow ? 0.9 : 1.4, legC, !snow)
-    const hr = snow ? 1.6 : big ? 3.2 : 2.3
+    seg(ax, ay, ex, ey, K.arm, K.arm * 0.88, legC, !snow)
+    const hr = big ? K.hand[0] : K.hand[1]
     const hx = ex + s * 0.5
     const hy = ey - hr
     disk(hx, hy, hr, under ? shade(pal.legU, 0.08) : shade(pal.base, 0.06))
@@ -100,8 +120,15 @@ export function crabSprite(snow: boolean, cw: number, male: boolean, under: bool
     seg(hx + s * hr * 0.4, hy - hr * 0.6, hx + s * hr * 0.2, hy - hr - 3, 0.9, 0.4, under ? pal.legU : pal.dark, false)
   }
 
-  // the carapace (or, turned over, the sternum)
-  const inside = (u: number, v: number) => (snow ? u * u + v * v * 1.05 < 1 : u * u + Math.pow(v * (1 - 0.22 * v), 2) < 1 && !(v > 0.92 && Math.abs(u) > 0.5))
+  // the carapace (or, turned over, the sternum); the decorator and stone crabs are pear-shaped, narrow in front
+  const inside = (u: number, v: number) =>
+    snow
+      ? u * u + v * v * 1.05 < 1
+      : pynt
+        ? Math.pow(u / (0.62 + 0.36 * v), 2) + v * v < 1
+        : kind === 'troll'
+          ? Math.pow(u / (0.84 + 0.16 * v), 2) + v * v < 1
+          : u * u + Math.pow(v * (1 - 0.22 * v), 2) < 1 && !(v > 0.92 && Math.abs(u) > 0.5)
   for (let y = -ch; y <= ch; y++)
     for (let x = -cw; x <= cw; x++) {
       const u = x / (cw / 2)
@@ -111,31 +138,63 @@ export function crabSprite(snow: boolean, cw: number, male: boolean, under: bool
       if (under) {
         c = pal.under
         if (Math.abs(u) > 0.72) c = shade(c, -0.08)
-        if (!snow && (hash(`${x},${y},${seed}`) % 29) === 0) c = '#d89060'
+        if (!snow && !pynt && rnd(x, y) % 29 === 0) c = '#d89060'
       } else {
         const lit = (-u - v) * 0.16
         c = lit > 0.12 ? pal.light : lit < -0.14 ? pal.dark : pal.base
         c = shade(c, lit * 0.6)
-        const nz = hash(`${x},${y},${seed}`) % 100
-        if (!snow && nz < 11) c = pal.spine
-        else if (!snow && nz < 18) c = pal.dark
+        const nz = rnd(x, y)
+        if (kind === 'king' && nz < 11) c = pal.spine
+        else if (kind === 'king' && nz < 18) c = pal.dark
+        else if (kind === 'troll' && nz < 22) c = pal.spine
+        else if (kind === 'troll' && nz < 30) c = pal.dark
         else if (snow && nz < 6) c = pal.light
+        // weed and sponge stuck on in patches
+        else if (pynt && ((vnz(x, y) > 0.68 && nz < 80) || nz < 7)) c = nz < 55 ? WEED[nz % 3] : SPONGE[nz % 3]
         // the groove that runs across the back
-        if (Math.abs(v + 0.1 - Math.abs(u) * 0.3) < 0.06 && Math.abs(u) < 0.55) c = shade(c, -0.25)
+        if (!pynt && Math.abs(v + 0.1 - Math.abs(u) * 0.3) < 0.06 && Math.abs(u) < 0.55) c = shade(c, -0.25)
       }
       p.set(cx + x, cy + y, c)
     }
   if (!under) {
-    // the rostrum and the eyes at the front
-    if (!snow) {
-      p.set(cx, cy - ch / 2 - 1, pal.base)
-      p.set(cx, cy - ch / 2 - 2, pal.spine)
-      p.set(cx - 1, cy - ch / 2 - 1, pal.dark)
-      p.set(cx + 1, cy - ch / 2 - 1, pal.dark)
+    const top = cy - ch / 2
+    if (kind === 'king') {
+      // the rostrum and the eyes at the front
+      p.set(cx, top - 1, pal.base)
+      p.set(cx, top - 2, pal.spine)
+      p.set(cx - 1, top - 1, pal.dark)
+      p.set(cx + 1, top - 1, pal.dark)
+    } else if (kind === 'troll') {
+      // a long spiny rostrum, and spines sticking out all round the edge
+      for (let k = 1; k <= 3; k++) p.set(cx, top - k, k === 3 ? pal.spine : pal.base)
+      p.set(cx - 1, top - 2, pal.spine)
+      p.set(cx + 1, top - 2, pal.spine)
+      for (let a = 0; a < Math.PI * 2; a += 0.35) {
+        const u = Math.sin(a)
+        const v = -Math.cos(a)
+        const w = 0.84 + 0.16 * v
+        p.set(cx + Math.round(u * w * (cw / 2 + 1.2)), cy + Math.round(v * (ch / 2 + 1.2)), pal.spine)
+      }
+    } else if (pynt) {
+      // two horns in front, and tufts of weed sticking up off the back
+      p.set(cx - 1, top - 1, pal.base)
+      p.set(cx + 1, top - 1, pal.base)
+      p.set(cx - 1, top - 2, pal.dark)
+      p.set(cx + 1, top - 2, pal.dark)
+      for (let i = 0; i < 3 + Math.floor(cw / 6); i++) {
+        const u = ((hash(`${seed}t${i}`) % 100) / 100 - 0.5) * 1.2
+        const v = ((hash(`${seed}v${i}`) % 100) / 100) * 0.9
+        const bx = cx + Math.round(u * (0.62 + 0.36 * v) * (cw / 2))
+        const by = cy + Math.round(v * (ch / 2))
+        const h = 2 + (i % 3)
+        for (let k = 0; k < h; k++) p.set(bx + (k > 1 ? (i % 2 ? 1 : -1) : 0), by - k, k === h - 1 ? shade(WEED[i % 3], 0.3) : WEED[i % 3])
+      }
     }
+    const ey = top + (snow ? 0 : pynt ? 2 : kind === 'troll' ? 1 : -1)
+    const ex = pynt ? 1 : 2
     for (const s of [-1, 1]) {
-      p.set(cx + s * 2, cy - ch / 2 + (snow ? 0 : -1), '#1a1418')
-      p.set(cx + s * 2, cy - ch / 2 + (snow ? 1 : 0), shade(pal.base, -0.3))
+      p.set(cx + s * ex, ey, '#1a1418')
+      p.set(cx + s * ex, ey + 1, shade(pal.base, -0.3))
     }
   } else {
     // the tail flap folded under the body: a narrow triangle on males, a broad round fan on females
@@ -154,7 +213,7 @@ export function crabSprite(snow: boolean, cw: number, male: boolean, under: bool
         // the segments of the flap
         if (Math.round(v * ch * 0.5) % 3 === 0) c = shade(fill, -0.18)
         // a berried female carries her eggs under the flap
-        if (!male && (x + y * 3) % 5 === 0 && v > 0.05) c = snow ? '#e8742a' : '#8a2e4a'
+        if (!male && (x + y * 3) % 5 === 0 && v > 0.05) c = pal.eggs
         p.set(cx + x, cy + y, c)
       }
   }
@@ -187,7 +246,7 @@ export class CrabSort extends Mini<CrabSortResult> {
   private shakeT = 0
   private bits = new Bits()
   private pops: { x: number; y: number; t: number; s: string; c: string }[] = []
-  private inTub: { snow: boolean; cw: number; male: boolean; x: number; y: number }[] = []
+  private inTub: { kind: CrabKind; cw: number; male: boolean; x: number; y: number }[] = []
   private W = 196
   private H = 420
   private tutorial: boolean
@@ -270,7 +329,7 @@ export class CrabSort extends Mini<CrabSortResult> {
       const c = this.crab!
       if (this.st === 'keep') {
         const tp = this.tubPos
-        this.inTub.push({ snow: isSnowCrab(c.id), cw: 8, male: c.male, x: tp.x + ((this.inTub.length * 7) % 18) - 9, y: tp.y + ((this.inTub.length * 5) % 10) - 5 })
+        this.inTub.push({ kind: crabKind(c.id), cw: 8, male: c.male, x: tp.x + ((this.inTub.length * 7) % 18) - 9, y: tp.y + ((this.inTub.length * 5) % 10) - 5 })
         sfx.plop()
       }
       this.i++
@@ -433,7 +492,7 @@ export class CrabSort extends Mini<CrabSortResult> {
           g.fillRect(x + i, y + j, 1, 1)
         }
       for (const c of this.inTub) {
-        const s = crabSprite(c.snow, c.cw, c.male, false, 0)
+        const s = crabSprite(c.kind, c.cw, c.male, false, 0)
         g.drawImage(s.c, Math.round(c.x - s.w / 2), Math.round(c.y - s.h / 2))
       }
     } else {
@@ -442,7 +501,7 @@ export class CrabSort extends Mini<CrabSortResult> {
   }
 
   private drawCrab(g: CanvasRenderingContext2D, c: CrabCatch) {
-    const snow = isSnowCrab(c.id)
+    const kind = crabKind(c.id)
     const cw = c.mm * PX_PER_MM
     const fr = Math.floor(this.t * (this.st === 'sort' ? 3 : 8)) % 2
     let x = this.center.x + this.dragX
@@ -480,7 +539,7 @@ export class CrabSort extends Mini<CrabSortResult> {
         sfx.splash()
       }
     }
-    const s = crabSprite(snow, cw, c.male, under, fr)
+    const s = crabSprite(kind, cw, c.male, under, fr)
     const w = Math.round(s.w * scale)
     const h = Math.max(1, Math.round(s.h * sy * scale))
     // a soft shadow on the table
@@ -527,6 +586,8 @@ export class CrabSort extends Mini<CrabSortResult> {
     g.fillStyle = '#a8862e'
     for (let mm = Math.ceil(lo / 5) * 5; mm <= hi; mm += 5) g.fillRect(at(mm), y, 1, mm % 10 === 0 ? 4 : 2)
     for (let mm = Math.ceil(lo / 20) * 20; mm <= hi; mm += 20) text(g, `${mm}`, at(mm) - Math.round(textW(`${mm}`) / 2), y + 12, '#d8c8a0', { outline: INK })
+    // which crab it is, so the small ones are not mistaken for king crabs
+    if (c && this.st !== 'in') textC(g, CRAB_NAME[crabKind(c.id)], W / 2, y - (free ? 32 : 24), COL.paper)
     // the legal line
     if (free) textC(g, 'INGEN MINSTEMÅL', W / 2, y - 22, '#cfe8f4')
     else {

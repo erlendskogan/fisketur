@@ -217,7 +217,8 @@ export function buildWater(W: number, world = 'norge'): Water {
   for (let y = 0; y < Hh; y++) {
     const base = rockAt(y)
     const rim = mix(shade(base, 0.32), waterAt(y), 0.25)
-    const shallow = y < ZONE_H * 1.6
+    // green weed on the ledges only where light reaches; off Vardø that stops at about 35 metres
+    const shallow = y < (vg ? ({ sundet: 620, fjorden: 330, banken: 175 } as Record<string, number>)[vg] ?? 0 : ZONE_H * 1.6)
     const paint = (x: number, d: number, wall: number[], side: number) => {
       // d is the distance in from the face of the wall
       let col: string
@@ -780,8 +781,9 @@ function vardoLife(
       deco.push({ x: onWall(y, sd), y, kind: 'grass', len: 5 + r() * 7, side: sd, seed: r() * 10, color: r() < 0.5 ? '#8a7a3a' : '#6a7a32' })
     }
     mussels(50, 60, 320)
+    // tare down to about 33 metres, where the light gives out
     for (let i = 0; i < 40; i++) {
-      const y = 150 + r() * 600
+      const y = 150 + r() * 480
       const sd = side()
       deco.push({ x: onWall(y, sd), y, kind: 'kelp', len: 22 + r() * 42, side: sd, seed: r() * 10, color: ['#6a6a2a', '#7a6a32', '#5a7a32'][Math.floor(r() * 3)] })
     }
@@ -809,9 +811,9 @@ function vardoLife(
   }
 
   if (ground === 'fjorden') {
-    // Varangerfjorden: kelp near the top, then ledge after ledge of rock with king crabs on them
+    // Varangerfjorden: kelp near the top (no deeper than about 35 metres), then ledge after ledge of rock with king crabs on them
     for (let i = 0; i < 18; i++) {
-      const y = 80 + r() * 400
+      const y = 80 + r() * 250
       const sd = side()
       deco.push({ x: onWall(y, sd), y, kind: 'kelp', len: 16 + r() * 26, side: sd, seed: r() * 10, color: r() < 0.5 ? '#6a6a2a' : '#7a6a32' })
     }
@@ -874,8 +876,8 @@ function vardoLife(
       })
     }
     mussels(30, 60, 300)
-    for (let i = 0; i < 12; i++) {
-      const y = 60 + r() * 300
+    for (let i = 0; i < 8; i++) {
+      const y = 90 + r() * 80
       const sd = side()
       deco.push({ x: onWall(y, sd), y, kind: 'kelp', len: 12 + r() * 18, side: sd, seed: r() * 10, color: '#6a6a2a' })
     }
@@ -893,17 +895,36 @@ function vardoLife(
     return
   }
 
-  // Eggakanten: a lip of kelp and sponges on the shelf, Lophelia and glass sponges down the cliff, lights in the deep
-  for (let i = 0; i < 10; i++) {
-    const y = 40 + r() * 100
-    deco.push({ x: onWall(y, 1), y, kind: 'kelp', len: 10 + r() * 14, side: 1, seed: r() * 10, color: '#6a6a2a' })
+  // Eggakanten: far too deep for kelp. Sponges, sea pens and feather stars on the shelf,
+  // Lophelia and glass sponges down the cliff, brittle stars everywhere, lights in the deep
+  const seaPen = (x: number, y: number, c: string) => {
+    const h = 4 + Math.floor(r() * 4)
+    for (let k = 0; k < h; k++) px(x, y - k, k < 2 ? shade(c, -0.35) : c)
+    for (let k = 2; k < h; k += 1) px(x + (k % 2 ? 1 : -1), y - k, shade(c, 0.2))
+    if (r() < 0.3) glows.push({ x, y: y - h, c: '#9ae8ff', r: 1 })
+  }
+  const featherStar = (x: number, y: number, c: string) => {
+    // a feather star on a short stalk, its arms curling up and out
+    px(x, y, shade(c, -0.3))
+    px(x, y - 1, c)
+    for (const [dx, dy] of [[-1, -2], [-2, -3], [-3, -3], [1, -2], [2, -3], [3, -3], [0, -2], [0, -3], [-1, -4], [1, -4]]) px(x + dx, y + dy, dy < -3 ? shade(c, 0.3) : c)
   }
   // the top of the shelf, its flat face
   const shelfX = onWall(160, 1)
-  for (let i = 0; i < Math.round(shelfX / 6); i++) {
+  // the shelf rounds over, so each thing sits on the first rock under it
+  const top = (x: number) => {
+    let y = 100
+    while (y < 160 && onWall(y, 1) <= x) y++
+    return y
+  }
+  for (let i = 0; i < Math.round(shelfX / 5); i++) {
     const x = Math.round(2 + r() * (shelfX - 4))
-    if (r() < 0.5) sponge(x, 150, ['#e8c86a', '#c8b898'][Math.floor(r() * 2)], 2 + Math.floor(r() * 3), 1)
-    else deco.push({ x, y: 150, kind: 'grass', len: 3 + r() * 4, side: 1, seed: r() * 10, color: '#7a7a3a' })
+    const y = top(x)
+    const k = r()
+    if (k < 0.35) sponge(x, y, ['#e8c86a', '#c8b898', '#e8e0c8'][Math.floor(r() * 3)], 2 + Math.floor(r() * 3), 1)
+    else if (k < 0.6) seaPen(x, y, r() < 0.5 ? '#e8826a' : '#f0c08a')
+    else if (k < 0.8) featherStar(x, y, r() < 0.5 ? '#e8a05a' : '#d8705a')
+    else brittle(x, y - 1, ['#c88a6a', '#d8a87a'][Math.floor(r() * 2)])
   }
   for (let i = 0; i < 40; i++) {
     const y = Math.round(220 + r() * 800)
@@ -927,6 +948,19 @@ function vardoLife(
       g.fillRect(x + 2, y - k, 1, 1)
     }
     if (r() < 0.35) glows.push({ x: x + 1, y: y - 5, c: '#b8f0ff', r: 1 })
+  }
+  for (let i = 0; i < 24; i++) {
+    const y = Math.round(200 + r() * 1300)
+    const k = r()
+    if (k < 0.5) brittle(onWall(y, 1) + 3, y, ['#c88a6a', '#a87a8a', '#d8a87a'][Math.floor(r() * 3)])
+    else featherStar(onWall(y, 1) + 2, y, ['#e8a05a', '#d8705a', '#f0d8a8'][Math.floor(r() * 3)])
+  }
+  // sea pens standing in the ooze on the bottom
+  const bedL = onWall(SEABED, 1) + 4
+  const bedR = onWall(SEABED, -1) - 4
+  for (let i = 0; i < 12; i++) {
+    const x = Math.round(bedL + r() * (bedR - bedL))
+    seaPen(x, SEABED - 1 + Math.round(3 * Math.sin(x * 0.09) + 2 * Math.sin(x * 0.23 + 1)), r() < 0.5 ? '#e8826a' : '#f0c08a')
   }
   for (let i = 0; i < 30; i++) {
     const y = 1200 + r() * 560

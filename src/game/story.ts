@@ -170,7 +170,7 @@ export const CHATTER: Record<'marit' | 'halvor' | 'selma' | 'edvard' | 'astrid' 
     'Jeg har aldri sett en håkjerring i levende live. Si fra hvis du får en!',
     'Knut sier det bor noe stort i Grøfta. Instrumentene mine finner ingenting. Jeg tror mer på Knut.',
     'Noen arter kommer bare fram om natta, og noen bare om dagen. Fiskeboka viser når.',
-    'Lysprikkfisk er den vanligste fisken i hele verden. Ingen har hørt om den.',
+    'Det finnes milliarder av lysprikkfisk i havet. Ingen har hørt om dem.',
   ],
   edvard: [
     'Ta deg en kopp kaffe. Den er fra i går, men den er god.',
@@ -522,6 +522,19 @@ export const FLY_HOME_HI: Line[] = [n('Fra Hilo til Honolulu, og videre over hel
 /** Home by sea: Hurtigruten south from Henningsvær or all the way from Vardø */
 export const BOAT_HOME_LO: Line[] = [n('Hurtigruten går sørover over Vestfjorden i natt. Om morgenen glir fyret i Skjærvik fram av disen, og Måken ligger ved Bryggen der du forlot henne.')]
 export const BOAT_HOME_VA: Line[] = [n('Hurtigruten tar deg sørover langs hele kysten. Pus sover i lugaren i tre døgn. Så står fyret i Skjærvik der, hvitt og rødt som før.')]
+
+/** From Alaska or Hawaii there is no boat to Vardø: three planes, a bus and the tunnel under the sound */
+export const FLY_TO_VA: Line[] = [
+  n('To lange dager med fly: over havet til Oslo, nordover til Kirkenes, og til slutt Widerøes lille propellfly over Varangerfjorden.'),
+  n('Flyet humper ned på Svartnes, den lille flyplassen på fastlandet. Pus har ikke sagt et ord siden Kirkenes.'),
+  n('Vardø ligger ute på øya rett over sundet. Bussen tar deg gjennom tunnelen under havet, og så er du der.'),
+]
+
+/** And the same way back out */
+export const FLY_FROM_VA: Line[] = [
+  n('Bussen tar deg gjennom tunnelen til Svartnes. Propellflyet letter, og Vardø blir en stripe med farger i havtåka.'),
+  n('Pus ser ut av vinduet helt til Kirkenes. Huset venter. Det har ventet lenge før, det klarer det igjen.'),
+]
 
 /** What they say at home once you have been away */
 export const HOME_NEWS: Record<'marit' | 'halvor', string[]> = {

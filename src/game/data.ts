@@ -204,7 +204,7 @@ const NO_SPECIES: Species[] = [
     text: 'Små lykter i mørket. Det finnes flere av dem enn av nesten noe annet dyr på jorda.',
   },
   {
-    id: 'okse', name: 'Øksefisk', zone: 4, weight: 18, value: 115, cm: [4, 12], kg: [0.01, 0.06], difficulty: 3, behavior: 'floater',
+    id: 'okse', name: 'Perlemorfisk', zone: 4, weight: 18, value: 115, cm: [4, 12], kg: [0.01, 0.06], difficulty: 3, behavior: 'floater',
     look: { shape: 'hatchet', len: 12, h: 10, top: '#a8b8c8', mid: '#dce8f2', belly: '#eef6fa', fin: '#b8c8d6', glow: '#8affff', glowAt: 'belly', eye: 2, tail: 'square', dorsal: 'low' },
     text: 'Tynn som et barberblad og blank som et speil. Lyser under magen så den forsvinner mot lyset ovenfra.',
   },

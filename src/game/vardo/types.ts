@@ -200,6 +200,8 @@ export interface VardoState {
   legends: string[]
   races: number
   fines: number
+  /** illegal crabs Brita has yet to find in your hold: count and fine, settled at Havnekontoret */
+  fineDue?: { n: number; kr: number }
   /** Aslak's grandson hauling your full nets once you have a jetty: on or off, and what he has sold for you */
   mikkel?: { on: boolean; cash: number }
   stats: { netFish: number; crabs: number; smoked: number; guestNights: number; passive: number; ghostnets: number }

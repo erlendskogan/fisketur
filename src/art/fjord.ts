@@ -707,6 +707,17 @@ export class Backdrop {
       })
       sg.fill()
     }
+    // a soft green glow under the hem fading into the sky, so the lower edge never reads as the outline of a hill
+    const glow = Math.max(4, Math.round(H * 0.06))
+    for (const [lo, hi, m] of [[0.08, 0.3, 0.5], [0.3, 9, 1]])
+      for (let j = 0; j < glow; j++) {
+        sg.fillStyle = rgba('#3aff9a', 0.2 * m * a * (1 - j / glow) ** 2)
+        sg.beginPath()
+        cols.forEach(({ top, len, k }, x) => {
+          if (k >= lo && k < hi) sg.rect(x, Math.round(top + len) + j, 1, 1)
+        })
+        sg.fill()
+      }
     sg.globalCompositeOperation = 'source-over'
   }
 

@@ -154,7 +154,7 @@ export const LO_SPECIES: Species[] = [
     text: 'En lyshai. Magen lyser svakt grønt, så den forsvinner mot det lille lyset ovenfra.',
   },
   {
-    id: 'ringbuk_lo', name: 'Gelatinringbuk', zone: 4, weight: 10, value: 70, cm: [10, 30], kg: [0.05, 0.5], difficulty: 4, behavior: 'floater',
+    id: 'ringbuk_lo', name: 'Polarringbuk', zone: 4, weight: 10, value: 70, cm: [10, 30], kg: [0.05, 0.5], difficulty: 4, behavior: 'floater',
     look: { shape: 'chimaera', len: 18, h: 9, top: '#d8b8c0', mid: '#ecd0d4', belly: '#f8e8ea', fin: '#e0c4ca', tail: 'point', dorsal: 'long', eye: 1 },
     text: 'Myk som gelé og nesten gjennomsiktig. Den lever i kaldt vann der det ikke finnes noen annen fisk som ligner.',
   },
@@ -171,9 +171,9 @@ export const LO_SPECIES: Species[] = [
 
   // Norskehavet
   {
-    id: 'esmark', name: 'Esmarks ålebrosme', zone: 5, weight: 18, value: 120, cm: [30, 70], kg: [0.4, 2], difficulty: 5, behavior: 'sinker',
+    id: 'esmark', name: 'Ulvefisk', zone: 5, weight: 18, value: 120, cm: [30, 70], kg: [0.4, 2], difficulty: 5, behavior: 'sinker',
     look: { shape: 'eel', len: 28, h: 7, top: '#6a5a4a', mid: '#8a7a68', belly: '#c8b8a0', fin: '#5a4a3a', pattern: 'bars', pat: '#3a2e24', tail: 'round', dorsal: 'long' },
-    text: 'En ålekvabbe fra det iskalde dypet, oppkalt etter en norsk zoolog. Den lever der vannet holder seg rundt null grader hele året.',
+    text: 'Den største ålebrosmen i nord, og latinnavnet har den etter den norske zoologen Esmark. Den spiser nesten bare slangestjerner.',
   },
   {
     id: 'nordlyslykt', name: 'Nordlig lysprikkfisk', zone: 5, weight: 22, value: 90, cm: [4, 10], kg: [0.01, 0.03], difficulty: 3, behavior: 'dart',

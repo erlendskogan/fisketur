@@ -57,12 +57,12 @@ const T: Record<ContractKind, { title: string; by: Partial<Record<VaWho, string[
     title: '{n} fisk på {min} minutter',
     by: {
       nadja: [
-        'Nadja har en buss med turister på vei. Hun trenger {n} fisk fra {at}, og hun trenger dem nå.',
+        'Nadja har en buss med turister på vei. Hun trenger {n} fisk {at}, og hun trenger dem nå.',
         '«Restauranten i Kiberg har glemt å bestille. Igjen.» Nadja vil ha {n} fisk {at}, fort.',
       ],
       brita: [
         '«Kokken på Hurtigruten ringte. {N} fisk {at} før de legger fra.» Brita ser på klokka.',
-        'Brita har lovet kystvakta middag. {N} fisk {at}. «Klokka går.»',
+        'Brita har lovet mannskapet på kystvaktskipet middag. {N} fisk {at}. «Klokka går.»',
       ],
     },
   },
@@ -74,7 +74,7 @@ const T: Record<ContractKind, { title: string; by: Partial<Record<VaWho, string[
         'En kokk i Vadsø vil ha {n} {sp} før dagen er omme. Nadja har allerede sagt ja.',
       ],
       aslak: [
-        'Aslak vil ha {n} {sp} til tørk. «Elle tørket alltid {sp} på denne tida.»',
+        'Aslak vil ha {n} {sp}. «Elle sa alltid at {sp} smakte best på denne tida.»',
         '«{N} {sp}.» Aslak sier ikke mer. Det trenger han ikke.',
       ],
     },
@@ -88,17 +88,17 @@ const T: Record<ContractKind, { title: string; by: Partial<Record<VaWho, string[
       ],
       frida: [
         'Frida skal bygge en ny fiskekasse og vil ha en ordentlig fisk å måle. Over {kg} kg, {at}. «Ellers blir målene feil.»',
-        '«Bestefar hadde en vekt som gikk til {kg} kg. Jeg vil se den slå i bunn.» Frida peker {at}.',
+        '«Bestefar hadde en vekt som gikk til {kg} kg. Jeg vil se den slå i bunn.» Fisken skal være fra et sted {at}.',
       ],
     },
   },
   deliver: {
-    title: 'Selg for {kr} til Nadja',
+    title: 'Selg fisk for {kr} til Nadja',
     by: {
       nadja: [
-        'Nadja skal fylle en hel bil til Kirkenes. Selg henne fisk for {kr}.',
-        '«Disken er tom og det er lørdag.» Selg Nadja fisk for {kr}.',
-        'Pomorbrygga har fått en stor ordre fra Murmansk-båten. Nadja trenger fisk for {kr}.',
+        'Nadja skal fylle en hel bil med fisk til Kirkenes. Selg henne fisk for {kr}.',
+        '«Disken er tom, og det er lørdag.» Selg Nadja fisk for {kr}.',
+        'Pomorbrygga har fått en stor ordre fra et hotell i Tromsø. Nadja trenger fisk for {kr}.',
       ],
     },
   },
@@ -107,11 +107,11 @@ const T: Record<ContractKind, { title: string; by: Partial<Record<VaWho, string[
     by: {
       aslak: [
         'Aslak sier fisken står høyere om natta. «Fang {n}, så skal du se.»',
-        '«Bestemor fisket bare om natta. Hun sa fisken var mindre redd da.» Aslak vil ha {n}.',
+        '«Farmor fisket bare om natta. Hun sa fisken var mindre redd da.» Aslak vil ha {n}.',
       ],
       brita: [
-        'Brita trenger noen ute i natt likevel, for å se etter lys. Ta {n} fisk mens du er der.',
-        '«Det er fullmåne og stille sjø. Jeg ville vært ute om jeg var deg.» Brita vil ha {n} fisk.',
+        'Brita trenger noen ute i natt som kan holde utkikk etter lys. Ta {n} fisk mens du er der.',
+        '«Det er fullmåne og stille sjø. Hadde jeg vært deg, hadde jeg vært ute.» Brita vil ha {n} fisk.',
       ],
     },
   },
@@ -134,7 +134,7 @@ const T: Record<ContractKind, { title: string; by: Partial<Record<VaWho, string[
       ],
       aslak: [
         'Aslak vil ha {n} krabber til en fest i naustet. «Store hanner. Ikke tull.»',
-        '«Barnebarnet fyller år.» Aslak vil ha {n} krabber. Store hanner, selvsagt.',
+        '«Mikkel fyller år.» Aslak vil ha {n} krabber til barnebarnet. Store hanner, selvsagt.',
       ],
     },
   },
@@ -142,9 +142,9 @@ const T: Record<ContractKind, { title: string; by: Partial<Record<VaWho, string[
     title: 'Fugletur til Hornøya',
     by: {
       selma: [
-        'Gjestene vil se lundefugl. Selma har lovet dem en tur til Hornøya. Ta {n} gode bilder.',
+        'Gjestene vil se lunde. Selma har lovet dem en tur til Hornøya. Ta {n} gode bilder.',
         'Selma har med seg to fuglekikkere fra Bergen. «De vil se lomvi. Og lunde. Og alt.» {N} gode bilder.',
-        '«Krykkjene er tilbake på fuglefjellet.» Selma vil ha {n} skarpe bilder til gjesteboka.',
+        '«Det er fullt liv på fuglefjellet nå.» Selma vil ha {n} skarpe bilder til gjesteboka.',
       ],
     },
   },
@@ -153,8 +153,8 @@ const T: Record<ContractKind, { title: string; by: Partial<Record<VaWho, string[
     by: {
       frida: [
         'Frida har meldt deg på regattaen. «{Goal}, så er båten din god nok.»',
-        'Kiberg trenger en pakke medisiner før fergen. Frida mener du er raskest. {Goal}.',
-        '«Bestefar vant denne tre år på rad.» Frida rekker deg et startnummer. {Goal}.',
+        'Legekontoret i Kiberg trenger en pakke medisiner før kvelden. Frida mener du er raskest. {Goal}.',
+        '«Bestefar vant denne så mange ganger at de sluttet å telle.» Frida rekker deg et startnummer. {Goal}.',
       ],
     },
   },

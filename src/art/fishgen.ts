@@ -228,6 +228,22 @@ function genCrab(look: Look, id: string): FishArt {
         p.set(x, y, look.pat ?? shade(look.top, 0.35))
         if (b < 0.3) p.set(x, y - 1, shade(look.top, -0.1))
       }
+    // the stone crabs are spiny all over: short spines standing up off the shell
+    if (look.pattern === 'spots')
+      for (let x = x0 + 1; x < x1; x += 2) {
+        const u = (x - x0) / Math.max(1, x1 - x0) * 2 - 1
+        const h = Math.max(2, Math.round(bodyH * Math.sqrt(Math.max(0, 1 - u * u * 0.85))))
+        p.set(x, base - h - 1, look.pat ?? shade(look.top, 0.35))
+      }
+    // a decorator crab wears tufts of weed stuck on its back
+    if (look.pattern === 'mottled')
+      for (const [a] of knobs.slice(0, 3)) {
+        const x = Math.round(x0 + 1 + a * (bodyW - 3))
+        const u = (x - x0) / Math.max(1, x1 - x0) * 2 - 1
+        const y = base - Math.round(bodyH * Math.sqrt(Math.max(0, 1 - u * u * 0.85)))
+        p.set(x, y - 1, look.pat ?? look.fin)
+        p.set(x + (a < 0.5 ? -1 : 1), y - 2, shade(look.pat ?? look.fin, 0.25))
+      }
     // the claw, held forward: an arm and a pincer that opens a little on the second frame
     const ax = x1 - 1
     const ay = base - 1

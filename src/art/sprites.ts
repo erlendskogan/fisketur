@@ -877,6 +877,21 @@ export const ICONS: Record<string, string[]> = {
     'kkkkkkkkkkkk',
     '............',
   ],
+  // a VHF handset with its stubby aerial
+  radio: [
+    '..kk........',
+    '..kGk.......',
+    '..kGk.......',
+    '..kGkkkkk...',
+    '.kvvvvvvvk..',
+    '.kvffffFvk..',
+    '.kvfFFFFvk..',
+    '.kvvvvvvvk..',
+    '.kvMvMvMvk..',
+    '.kvvMvMvvk..',
+    '.kvMvrvMvk..',
+    '..kkkkkkk...',
+  ],
 }
 
 /** Round things are easier to draw than to type */

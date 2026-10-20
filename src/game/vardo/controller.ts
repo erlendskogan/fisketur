@@ -9,7 +9,7 @@ import { SPECIES_BY_ID, WORLDS, setGround, type BookReward, type Species, type W
 import type { Harbor, SpotId } from '../harbor'
 import { artFor, type Sea } from '../sea'
 import { bookCount, bucketValue, gearValue, type Save } from '../state'
-import { DERBY, LO_HOME_CALL, type Line } from '../story'
+import { DERBY, LO_HOME_CALL, NAMES, type Line } from '../story'
 import { esc, iconImg, kr, type UI } from '../../ui/ui'
 import { CRAB_MIN_MM, VA_BOOK, VA_GEAR, VA_GHOSTNET_DEPTHS, VA_GROUNDS, VA_LEGEND_RULES, VA_SPECIES } from './data'
 import {
@@ -198,6 +198,8 @@ export class Vardo {
   /** Mikkel's hauls since his last word, told in one toast */
   private mikkelNews = { n: 0, t: 0 }
   hudKey = ''
+  /** what Frida said when you came in, kept while you switch tabs */
+  private fridaLine = ''
 
   constructor(private host: VaHost) {
     this.house = new HouseScene(host)
@@ -440,6 +442,7 @@ export class Vardo {
         this.xp(20)
         this.host.save()
       }
+      if (va.fineDue) await this.settleFine(va.fineDue)
       return this.brita()
     }
     if (id === 'stasjon') {
@@ -467,6 +470,27 @@ export class Vardo {
     if (id === 'fyret') return this.slippen()
   }
 
+  /** The crabs that should have gone back: a fine you cannot pay in full is not forgiven silently */
+  private async settleFine(due: { n: number; kr: number }) {
+    const s = this.s
+    const va = this.va!
+    const paid = Math.min(s.money, due.kr)
+    s.money -= paid
+    va.fines += due.n
+    va.fineDue = undefined
+    this.host.save()
+    sfx.coin()
+    await this.talk([
+      { who: null, text: `Brita har gått gjennom kassene dine på kaia. Hun legger ${due.n === 1 ? 'én krabbe' : `${['to', 'tre', 'fire', 'fem'][due.n - 2] ?? due.n} krabber`} på disken.` },
+      { who: 'brita', text: pick(BRITA_FINE) },
+      { who: null, text: `Brita skriver en bot på ${kr(due.kr)}.` },
+      ...(paid < due.kr
+        ? [{ who: 'brita' as const, text: paid ? `Du har bare ${kr(paid)}. Jeg tar det og stryker resten. Denne gangen.` : 'Du har ikke en krone. Jeg stryker boten. Denne gangen.' }]
+        : []),
+    ])
+    this.host.refresh()
+  }
+
   /** Places in Vardø with something new waiting */
   badges(): SpotId[] {
     const s = this.s
@@ -479,7 +503,7 @@ export class Vardo {
     const plantNext = f.va_plantTold && !plantOpen(va) && this.plantReady()
     if (!f.va_metNadja || (s.bucket.length && !f.va_sold1) || f.va_pomorFound || (va.boat >= 2 && !f.va_plantTold) || plantNext || va.plant.cash >= plantCashCap(va) * 0.5) out.push('krambua')
     const contractDone = !!va.contract && (va.contract.done || va.contract.failed)
-    if ((f.va_sold1 && !f.va_metBrita) || (r >= 2 && !f.va_board) || (f.va_crabSorted && !f.va_rules) || this.host.bookClaimable() || contractDone) out.push('havnebua')
+    if ((f.va_sold1 && !f.va_metBrita) || (r >= 2 && !f.va_board) || (f.va_crabSorted && !f.va_rules) || va.fineDue || this.host.bookClaimable() || contractDone) out.push('havnebua')
     if (!f.va_houseSeen || (f.va_unge && !f.va_ending) || this.houseCash()) out.push('stasjon')
     if (va.rooms.includes('tak') && (!f.va_metAslak || (f.va_netHauled && !f.va_netDone) || (va.boat >= 1 && !f.va_crab) || (f.va_flukesDone && va.boat >= 2 && !f.va_joik) || (va.rooms.includes('verksted') && !f.va_elleNet))) out.push('naust')
     if (
@@ -535,6 +559,7 @@ export class Vardo {
     if (!f.va_crab) return 'Aslak har teiner til deg i naustet.'
     if (!f.va_crabSorted) return 'Sett teinene i Varangerfjorden under Redskap, og dra dem når de er fulle.'
     if (!f.va_rules) return 'Brita vil snakke med deg om krabbene.'
+    if (va.fineDue) return 'Brita venter på Havnekontoret. Det var krabber i kassa som skulle vært sluppet ut.'
     if (r < 6) return toRank(6, 'Fisk, dra garn og ta kontrakter')
     if (!f.va_selmaLetter) return 'Telefonen ringer. Trykk på et sted på kaia.'
     if (!va.rooms.includes('gjest1')) return `Bygg gjesterommet hos Frida, så Selma har et sted å bo (${kr(VA_ROOMS.gjest1.price)}).`
@@ -799,16 +824,20 @@ export class Vardo {
     const va = this.va!
     const ok = c.done
     const r = finishContract(va, c)
+    // away from the quay the word comes over the radio
+    const v = this.host.view
+    const radio: Line[] = v === 'harbor' || (v === 'house' && c.who === 'selma') ? [] : [{ who: null, text: v === 'house' ? `Telefonen ringer. Det er ${NAMES[c.who]}.` : `VHF-en knitrer. Det er ${NAMES[c.who]}.` }]
     if (ok) {
       this.s.money += r.money
       sfx.fanfare()
       this.talk([
+        ...radio,
         { who: c.who, text: pick(VA_CONTRACT_DONE[c.who]) },
         { who: null, text: `Du fikk ${kr(r.money)} og ${r.xp} XP.${r.streak > 1 ? ` ${r.streak} kontrakter på rad.` : ''}` },
       ])
     } else {
       sfx.lose()
-      this.talk([{ who: c.who, text: pick(VA_CONTRACT_FAIL[c.who]) }])
+      this.talk([...radio, { who: c.who, text: pick(VA_CONTRACT_FAIL[c.who]) }])
     }
     this.host.save()
     this.host.refresh()
@@ -983,38 +1012,51 @@ export class Vardo {
     this.frida()
   }
 
-  /** Rooms for the house, boats and the regatta */
-  frida() {
+  /** Rooms for the house, boats and the regatta, one tab each; opens on whatever you can do next */
+  frida(tab?: 'bat' | 'hus' | 'regatta') {
     const s = this.s
     const f = s.flags
     const va = this.va!
     const offered = [true, !!f.va_fridaSjark, !!f.va_fridaKyst, !!f.va_fridaHav]
-    const boats = VA_BOATS.filter((bt) => bt.tier <= va.boat || (bt.tier === va.boat + 1 && offered[bt.tier]))
-      .map((bt) => {
-        const own = bt.tier <= va.boat
-        const b = canBuy(va, s.money, bt.price, bt.rank, bt.needs, f, bt.needsText)
-        const right = own ? `<span class="muted">${bt.tier === va.boat ? 'Din' : 'Solgt'}</span>` : `<button class="btn" data-boat="${bt.tier}" ${b.ok ? '' : 'disabled'}>${kr(bt.price)}</button>`
-        return `<div class="row"><div class="info"><b>${esc(bt.name)} · ${esc(bt.type)}</b><small>${esc(bt.text)}${own || b.ok || b.why.startsWith('Koster') ? '' : ` ${esc(b.why)}.`}</small></div>${right}</div>`
+    const next = VA_BOATS.find((bt) => bt.tier === va.boat + 1 && offered[bt.tier])
+    const nb = next && canBuy(va, s.money, next.price, next.rank, next.needs, f, next.needsText)
+    const cur = boatOf(va)
+    const boats = `<div class="row"><div class="info"><b>${esc(cur.name)} · ${esc(cur.type)}</b><small>${esc(cur.text)}</small></div><span class="stamp gold">DIN</span></div>${
+      next && nb
+        ? `<div class="row"><div class="info"><b>${esc(next.name)} · ${esc(next.type)}</b><small>${esc(next.text)}${nb.ok || nb.why.startsWith('Koster') ? '' : ` ${esc(nb.why)}.`}</small></div><button class="btn" data-boat="${next.tier}" ${nb.ok ? '' : 'disabled'}>${kr(next.price)}</button></div>`
+        : `<p class="muted">${va.boat >= VA_BOATS.length - 1 ? 'Du har den største båten Frida bygger.' : 'Frida har ikke noe nytt på slippen ennå.'}</p>`
+    }`
+    // rooms you can build now first, then the rest, and the finished ones on a single line
+    const open = ROOM_ORDER.filter((id) => !va.rooms.includes(id)).map((id) => ({ id, b: this.roomCheck(id) }))
+    open.sort((a, b) => Number(b.b.ok) - Number(a.b.ok))
+    const done = ROOM_ORDER.filter((id) => va.rooms.includes(id))
+    const rooms = `${open
+      .map(({ id, b }) => {
+        const rm = VA_ROOMS[id]
+        return `<div class="row"><div class="info"><b>${esc(rm.name)}</b><small>${esc(rm.text)}${b.ok || b.why.startsWith('Koster') ? '' : ` ${esc(b.why)}.`}</small></div><button class="btn" data-room="${id}" ${b.ok ? '' : 'disabled'}>${kr(rm.price)}</button></div>`
       })
-      .join('')
-    const rooms = ROOM_ORDER.map((id) => {
-      const rm = VA_ROOMS[id]
-      if (va.rooms.includes(id)) return `<div class="row"><div class="info"><b>${esc(rm.name)}</b><small>${esc(rm.does)}</small></div><span class="stamp gold">FERDIG</span></div>`
-      const b = this.roomCheck(id)
-      return `<div class="row"><div class="info"><b>${esc(rm.name)}</b><small>${esc(rm.text)}${b.ok || b.why.startsWith('Koster') ? '' : ` ${esc(b.why)}.`}</small></div><button class="btn" data-room="${id}" ${b.ok ? '' : 'disabled'}>${kr(rm.price)}</button></div>`
-    }).join('')
+      .join('')}${done.length ? `<p class="muted" style="margin-top:10px"><b>Ferdig (${done.length} av ${ROOM_ORDER.length}):</b> ${done.map((id) => esc(VA_ROOMS[id].name)).join(', ')}.</p>` : ''}`
     const ri = va.races
+    const raceOk = ri < FRIDA_RACE.length && this.level >= RACE_RANK[ri]
+    const raceShown = f.va_metFrida && this.level >= RACE_RANK[0] - 1
     const race =
       ri < FRIDA_RACE.length
-        ? `<div class="row"><div class="info"><b>Regatta ${ri + 1} av ${FRIDA_RACE.length}</b><small>${this.level >= RACE_RANK[ri] ? 'Frida har et startnummer til deg.' : `Krever rang ${RACE_RANK[ri]}.`}</small></div><button class="btn" data-a="race" ${this.level >= RACE_RANK[ri] ? '' : 'disabled'}>Start</button></div>`
+        ? `<div class="row"><div class="info"><b>Regatta ${ri + 1} av ${FRIDA_RACE.length}</b><small>${raceOk ? 'Frida har et startnummer til deg.' : `Krever rang ${RACE_RANK[ri]}.`}</small></div><button class="btn" data-a="race" ${raceOk ? '' : 'disabled'}>Start</button></div>`
         : '<p class="muted">Du har vunnet alle tre regattaene.</p>'
+    const roomOk = open.some((o) => o.b.ok)
+    const pick0 = tab ?? (nb?.ok ? 'bat' : roomOk ? 'hus' : raceOk ? 'regatta' : 'hus')
+    const tabs: ['bat' | 'hus' | 'regatta', string, boolean][] = [
+      ['hus', 'Huset', roomOk],
+      ['bat', 'Båter', !!nb?.ok],
+      ...(raceShown ? [['regatta', 'Regatta', raceOk] as ['regatta', string, boolean]] : []),
+    ]
     const b = this.ui.sheet(
       'Slippen',
-      `${this.host.placeHead('frida', pick(VA_CHATTER.frida))}
-      <p class="cat">Signes hus</p>${rooms}
-      <p class="cat">Båter</p>${boats}
-      ${f.va_metFrida && this.level >= RACE_RANK[0] - 1 ? `<p class="cat">Regattaen</p>${race}` : ''}`,
+      `${this.host.placeHead('frida', tab && this.fridaLine ? this.fridaLine : (this.fridaLine = pick(VA_CHATTER.frida)))}
+      <div class="tabs3">${tabs.map(([id, name, bad]) => `<button class="btn ${id === pick0 ? '' : 'plain'}" data-tab="${id}">${name}${bad && id !== pick0 ? '<span class="badge">!</span>' : ''}</button>`).join('')}</div>
+      ${pick0 === 'hus' ? rooms : pick0 === 'bat' ? boats : race}`,
     )
+    b.querySelectorAll<HTMLElement>('[data-tab]').forEach((el) => (el.onclick = () => (sfx.click(), this.frida(el.dataset.tab as 'bat' | 'hus' | 'regatta'))))
     b.querySelectorAll<HTMLElement>('[data-room]').forEach((el) => (el.onclick = () => this.buildRoom(el.dataset.room as RoomId)))
     b.querySelectorAll<HTMLElement>('[data-boat]').forEach((el) => (el.onclick = () => this.buyBoat(Number(el.dataset.boat))))
     const rb = b.querySelector<HTMLElement>('[data-a=race]')
@@ -1443,13 +1485,19 @@ export class Vardo {
     if (kind === 'photo' && idle) return this.fluke()
   }
 
+  /** Brita's word in a sheet: her face on land, her voice on the radio at sea */
+  private britaHead(line: string) {
+    if (this.host.view !== 'sea') return this.host.placeHead('brita', line)
+    return `<div class="who">${iconImg('radio', 72)}<p><b>Brita på VHF-en:</b> «${esc(line)}»</p></div>`
+  }
+
   private rankSheet() {
     const va = this.va!
     const rk = rankOf(va.xp)
     const next = rankOf(va.xp + rk.need - rk.into)
     this.ui.sheet(
       'Rykte',
-      `${this.host.placeHead('brita', 'Folk på kaia snakker. Jo mer du gjør, jo mer tillit får du.')}
+      `${this.britaHead('Folk på kaia snakker. Jo mer du gjør, jo mer tillit får du.')}
       <p><b>Rang ${rk.level}: ${esc(rk.title)}</b></p>
       <div class="progress"><i style="width:${(rk.into / rk.need) * 100}%"></i></div>
       <p class="muted">${rk.into} av ${rk.need} XP til rang ${rk.level + 1}: ${esc(next.title)}.</p>
@@ -1471,7 +1519,7 @@ export class Vardo {
       const right = here ? '<span class="muted">Her</span>' : ok ? `<button class="btn" data-sail="${g}">Stevn ut</button>` : `<span class="muted">Krever ${VA_BOATS[gr.boat].type.toLowerCase()}</span>`
       return `<div class="row"><div class="info"><b>${esc(gr.name)}</b><small>${esc(gr.text)}${!here && ok ? ` ${hours ? `${hours} ${hours === 1 ? 'time' : 'timer'} unna.` : 'Rett ved.'}` : ''}${gear ? ` Ute: ${gear}.` : ''}</small></div>${right}</div>`
     }).join('')
-    const b = this.ui.sheet('Sjøkartet', `${this.host.placeHead('brita', 'Følg med på været. Havtåka kommer fort her ute.')}${rows}`)
+    const b = this.ui.sheet('Sjøkartet', `${this.britaHead('Følg med på været. Havtåka kommer fort her ute.')}${rows}`)
     b.querySelectorAll<HTMLElement>('[data-sail]').forEach((el) => (el.onclick = () => this.sail(el.dataset.sail as GroundId)))
   }
 
@@ -1642,21 +1690,13 @@ export class Vardo {
       f.va_crabSorted = true
       this.ui.toast(`${out.kept.length - over} krabber i lasterommet${over ? `, ${over} fikk ikke plass` : ''}.`, 'crab')
       if (out.fine) {
-        // a fine you cannot pay in full is not forgiven silently: Brita says how it goes
-        const paid = Math.min(s.money, out.fine)
-        s.money -= paid
-        va.fines += out.wrong
-        this.host.save()
-        await this.talk([
-          { who: 'brita', text: pick(BRITA_FINE) },
-          { who: null, text: `Brita tar ${out.wrong === 1 ? 'krabben' : 'krabbene'} og skriver en bot på ${kr(out.fine)}.` },
-          ...(paid < out.fine
-            ? [{ who: 'brita' as const, text: paid ? `Du har bare ${kr(paid)}. Jeg tar det og stryker resten. Denne gangen.` : 'Du har ikke en krone. Jeg stryker boten. Denne gangen.' }]
-            : []),
-        ])
+        // Brita is on land: she finds the crabs when you come in, and the fine waits for her
+        const due = va.fineDue ?? { n: 0, kr: 0 }
+        va.fineDue = { n: due.n + out.wrong, kr: due.kr + out.fine }
+        sfx.lose()
       }
       this.host.save()
-      if (first) this.ui.toast('Brita vil snakke med deg om krabbene.', 'house')
+      if (first || out.fine) this.ui.toast(out.fine ? out.wrong === 1 ? 'Én krabbe i kassa skulle vært sluppet ut. Brita ser den når du kommer inn.' : `${out.wrong} krabber i kassa skulle vært sluppet ut. Brita ser dem når du kommer inn.` : 'Brita vil snakke med deg om krabbene.', 'house')
     })
   }
 

@@ -11,7 +11,7 @@ import { SailRace } from './sailRace'
 import { LINE, textC as textCentre, wrap as wrapText } from './font'
 
 export { CrabSort, NetHaul, PhotoHunt, SailRace }
-export { crabSprite, isSnowCrab } from './crabSort'
+export { crabKind, crabSprite, isSnowCrab } from './crabSort'
 export { flukeSprite } from './photoHunt'
 export { text, textC, textW, wrap } from './font'
 

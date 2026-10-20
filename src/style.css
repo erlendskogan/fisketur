@@ -1001,6 +1001,16 @@ body.mini #hud2 {
   opacity: 0.6;
 }
 
+.tabsw {
+  gap: 4px;
+}
+
+.tabsw .btn {
+  padding: 6px 0;
+  font-size: 14px;
+  overflow-wrap: normal;
+}
+
 .tabs5 {
   flex-wrap: wrap;
   gap: 6px;

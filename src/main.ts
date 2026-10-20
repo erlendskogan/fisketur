@@ -45,6 +45,8 @@ import {
   FLY_HOME_HI,
   BOAT_HOME_LO,
   BOAT_HOME_VA,
+  FLY_FROM_VA,
+  FLY_TO_VA,
   HI_CALF,
   HI_ENDING,
   HI_FIRST_SALE,
@@ -408,7 +410,7 @@ class Game implements SeaHost {
     this.hudKey = key
     const night = nightness(s.time) > 0.5
     $('#hud').innerHTML = `
-      <span class="chip money">${iconImg('coin')}${kr(s.money)}</span>
+      <span class="chip money">${iconImg('coin')}${s.money >= 1e6 ? Math.round(s.money).toLocaleString('nb-NO') : kr(s.money)}</span>
       <button class="chip" data-hud="bucket">${iconImg('bucket')}${s.bucket.length}/${gearValue(s, 'bucket')}</button>
       <span class="grow"></span>
       ${depth >= 0 ? `<span class="chip depth">${depth} m<small>/ ${gearValue(s, 'line')}</small></span>` : ''}
@@ -1133,6 +1135,7 @@ class Game implements SeaHost {
             : here === 'vardo'
               ? this.placeHead('brita', VA_TICKET_LINES[Math.floor(Math.random() * VA_TICKET_LINES.length)])
               : '<p>Hurtigruten ligger ved kaia med lysene tent. Den går sørover hver kveld, og det går fly videre fra Bodø.</p>'
+    const abroad = here === 'alaska' || here === 'hawaii'
     const why: Record<WorldId, string> = {
       alaska: f.ak_moved
         ? 'Astrid og Ray venter i Petersburg. Ternen og utstyret ditt ligger der du forlot dem.'
@@ -1146,9 +1149,11 @@ class Game implements SeaHost {
         : 'Bestefar, Astrid og Pus blir med. Måken blir hjemme, men kronene dine gjelder i Lofoten også.',
       vardo: f.va_moved
         ? 'Signes hus venter i Vardø, og Nadja har kaffe på.'
-        : 'Hurtigruten går helt øst til Vardø. Pus blir med, og kronene dine gjelder der også.',
+        : abroad
+          ? 'Tre fly og en buss: via Oslo og Kirkenes, og et lite propellfly helt øst til Vardø. Pus blir med.'
+          : 'Hurtigruten går helt øst til Vardø. Pus blir med, og kronene dine gjelder der også.',
     }
-    const label: Record<WorldId, string> = { alaska: 'Reis til Alaska', norge: 'Reis hjem til Skjærvik', hawaii: 'Fly til Hawaii', lofoten: 'Ta Hurtigruten til Lofoten', vardo: 'Ta Hurtigruten til Vardø' }
+    const label: Record<WorldId, string> = { alaska: 'Reis til Alaska', norge: 'Reis hjem til Skjærvik', hawaii: 'Fly til Hawaii', lofoten: abroad ? 'Reis til Lofoten' : 'Ta Hurtigruten til Lofoten', vardo: abroad ? 'Fly til Vardø' : 'Ta Hurtigruten til Vardø' }
     const list = this.destinations()
     // a sea chart with the places you have lived and the way the song went
     const coords: Record<WorldId, [number, number]> = { norge: [66.4, 12.6], alaska: [56.8, -132.9], hawaii: [19.7, -155.1], lofoten: [68.4, 15.2], vardo: [70.37, 31.11] }
@@ -1205,11 +1210,13 @@ class Game implements SeaHost {
       this.hudKey = ''
       this.save()
     })
-    if (from === 'vardo') await this.ui.talk(VA_FROM)
+    // Alaska and Hawaii are a long way from any Hurtigruten quay
+    const flying = (w: WorldId) => w === 'alaska' || w === 'hawaii'
+    if (from === 'vardo') await this.ui.talk(flying(to) ? FLY_FROM_VA : VA_FROM)
     if (to === 'alaska') await this.ui.talk(firstAk ? AK_TRAVEL : BACK_TO_ALASKA)
     else if (to === 'hawaii') await this.ui.talk(firstHi ? HI_TRAVEL : BACK_TO_HAWAII)
     else if (to === 'lofoten') await this.ui.talk(firstLo ? LO_TRAVEL : TO_LOFOTEN_AGAIN)
-    else if (to === 'vardo') await this.ui.talk(firstVa ? VA_TRAVEL : VA_TO_AGAIN)
+    else if (to === 'vardo') await this.ui.talk(flying(from) ? [...FLY_TO_VA, ...(firstVa ? VA_TRAVEL.slice(4) : VA_TO_AGAIN.slice(1))] : firstVa ? VA_TRAVEL : VA_TO_AGAIN)
     else {
       await this.ui.talk(from === 'hawaii' ? FLY_HOME_HI : from === 'lofoten' ? BOAT_HOME_LO : from === 'vardo' ? BOAT_HOME_VA : FLY_HOME)
       f.welcomedHome = false
@@ -1736,11 +1743,10 @@ class Game implements SeaHost {
   /** Once you have lived in more than one place, the book has a chapter for each */
   worldTabs(w: WorldId) {
     const f = this.s.flags
+    const ids = (['norge', 'alaska', 'hawaii', 'lofoten', 'vardo'] as WorldId[]).filter((id) => (id !== 'hawaii' || f.hi_moved) && (id !== 'lofoten' || f.lo_moved) && (id !== 'vardo' || f.va_moved))
+    // five places only fit a phone in a smaller type, without breaking Henningsvær in two
     return f.ak_moved
-      ? `<div class="tabs3">${(['norge', 'alaska', 'hawaii', 'lofoten', 'vardo'] as WorldId[])
-          .filter((id) => (id !== 'hawaii' || f.hi_moved) && (id !== 'lofoten' || f.lo_moved) && (id !== 'vardo' || f.va_moved))
-          .map((id) => `<button class="btn ${id === w ? '' : 'plain'}" data-w="${id}">${WORLDS[id].place}</button>`)
-          .join('')}</div>`
+      ? `<div class="tabs3${ids.length > 4 ? ' tabsw' : ''}">${ids.map((id) => `<button class="btn ${id === w ? '' : 'plain'}" data-w="${id}">${WORLDS[id].place}</button>`).join('')}</div>`
       : ''
   }
 
@@ -1795,7 +1801,7 @@ class Game implements SeaHost {
       `<div class="catch">
         <div class="fishimg"><img class="px" src="${this.fishURL(sp, true)}" alt=""></div>
         <h3>${esc(sp.name)}</h3>
-        ${isNew ? '<span class="stamp">NY I FISKEBOKA</span> ' : ''}${record ? '<span class="stamp gold">NY REKORD</span> ' : ''}${perfect ? '<span class="stamp gold">PERFEKT</span>' : ''}
+        ${sp.legend ? '<span class="stamp gold">LEGENDE</span> ' : ''}${isNew ? '<span class="stamp">NY I FISKEBOKA</span> ' : ''}${record ? '<span class="stamp gold">NY REKORD</span> ' : ''}${perfect ? '<span class="stamp gold">PERFEKT</span>' : ''}
         <div class="facts"><span><small>Lengde</small>${c.cm} cm</span><span><small>Vekt</small>${String(c.kg).replace('.', ',')} kg</span><span><small>Verdi</small>${kr(c.value)}</span></div>
         ${isNew ? `<p class="muted">${esc(sp.text)}</p>` : ''}
         ${bonus ? `<p><b>Skattekiste!</b> Du fant ${kr(bonus)}.</p>` : ''}
