@@ -152,7 +152,7 @@ AdMob-appen heter «Fisketur» (iOS). App-ID-en står i `mobile/app.json`, og ad
 
 Samtykkemeldingen for EØS («Fisketur samtykke», engelsk og norsk, med «Samtykker ikke»-knapp) er publisert i AdMob under **Personvern og meldinger → Europeiske forordninger**. Spillerne kan endre valget under **Dagbok og innstillinger → Personvern og reklame** i appen.
 
-Personvernerklæringen ligger på <https://erlendskogan.github.io/fisketur/personvern.html> (`public/personvern.html`). Bruk den i App Store Connect og i AdMob.
+Personvernerklæringen finnes på engelsk på <https://erlendskogan.github.io/fisketur/privacy.html> (`public/privacy.html`) og på norsk på <https://erlendskogan.github.io/fisketur/personvern.html> (`public/personvern.html`). Bruk den engelske som Privacy Policy URL i App Store Connect. Supportsiden er <https://erlendskogan.github.io/fisketur/support.html> (`public/support.html`). Den er Support URL i App Store Connect. Endrer du hva appen samler inn, oppdater begge personvernsidene og datoen øverst.
 
 I Expo Go finnes ikke AdMob-modulen, så der vises ingen reklameknapper. Bruk et utviklingsbygg (`npm run ios:dev`) for å teste reklamen lokalt.
 

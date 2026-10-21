@@ -1,6 +1,6 @@
 # Fisketur – innsending til App Store (versjon 1.0)
 
-Kartlagt fra repoet `erlendskogan/fisketur` (commit `bc9fcef`, 21. oktober 2026). Ingen kode er endret.
+Kartlagt fra repoet `erlendskogan/fisketur` (commit `bc9fcef`, 21. oktober 2026). Ingen appkode er endret. Personvern- og supportsidene er lagt til i `public/` (punkt 3).
 
 **Slik er dokumentet bygget opp:** Alt som skal limes inn i App Store Connect står på engelsk i egne kodeblokker, med tegnantall. Forklaringene til deg står på norsk. Det jeg ikke kunne finne ut fra koden, er merket `UKJENT – trenger svar fra Eivind` og samlet i spørsmålslisten nederst.
 
@@ -116,140 +116,21 @@ fishing,cozy,pixel,retro,story,norway,norwegian,boat,sea,ocean,fjord,lighthouse,
 
 ## 3. URL-er
 
-| Felt | Forslag | Status |
+| Felt | Verdi | Status |
 |---|---|---|
-| **Privacy Policy URL** | `https://erlendskogan.github.io/fisketur/personvern.html` | Siden finnes i repoet (`public/personvern.html`) og ble publisert av Deploy-workflowen på `bc9fcef` (grønn 21.10.2026). Jeg fikk ikke åpnet den herfra: **(verifiser)** at den åpner i en nettleser. Den er bare på norsk og mangler noen elementer (se under). |
-| **Support URL** | Anbefalt: `https://erlendskogan.github.io/fisketur/support.html` (**finnes ikke ennå**, utkast under). Midlertidig mulig: `https://github.com/erlendskogan/fisketur/issues` (offentlig, svarer 200). | GitHub Issues krever GitHub-konto for å skrive. Apple vil at brukerne lett skal kunne kontakte deg (1.5). Vi anbefaler en side med e-postadresse. |
-| **Marketing URL** (valgfri) | La stå tom, eller `https://erlendskogan.github.io/fisketur/` | Den adressen er den gratis nettversjonen av spillet. Det er lov, men den kan få reviewer til å vurdere appen som en «nettside pakket som app» (4.2). Vi anbefaler å la feltet stå tomt. |
+| **Privacy Policy URL** | `https://erlendskogan.github.io/fisketur/privacy.html` | Engelsk personvernerklæring (`public/privacy.html`). Den publiseres av Deploy-workflowen når PR-en er merget til `main`. Den norske versjonen, `https://erlendskogan.github.io/fisketur/personvern.html`, har samme innhold, og sidene lenker til hverandre. |
+| **Support URL** | `https://erlendskogan.github.io/fisketur/support.html` | `public/support.html`: e-postadresse, lenke til GitHub Issues, vanlige spørsmål på engelsk og norsk, og lenke til personvernerklæringen. Publiseres ved merge. |
+| **Marketing URL** (valgfri) | La stå tom | `https://erlendskogan.github.io/fisketur/` er den gratis nettversjonen av spillet. Det er lov å bruke den, men den kan få reviewer til å vurdere appen som en «nettside pakket som app» (4.2). |
 
-**Personvernerklæringen som ligger ute nå** sier riktig at appen ikke har kontoer, at fremgangen lagres lokalt og at AdMob samler inn data. Den sier også at bare ikke-personaliserte annonser vises og at appen ikke ber om sporing. Dette mangler:
-- hvem som er behandlingsansvarlig (navn) og en e-postadresse (GDPR art. 13, Apple 5.1.1(i)),
-- hvor lenge data lagres og hvordan man sletter dem eller trekker tilbake samtykke,
-- brukerens rettigheter og klagerett til Datatilsynet,
-- en engelsk versjon (reviewer leser engelsk).
+**Personvernsidene** sier hvem som er behandlingsansvarlig (Erlend Holth Skogan) og gir kontaktadressen (ersk0808@gmail.com). De forklarer:
+- hva spillet lagrer lokalt, og hvordan det slettes,
+- hva Google AdMob kan samle inn,
+- at appen bare ber om ikke-personaliserte annonser og ikke sporer,
+- samtykke i EØS, Storbritannia og Sveits, og hvordan man trekker det tilbake,
+- GitHub Pages, barn og lagringstid,
+- rettighetene etter GDPR og klagerett til Datatilsynet.
 
-Utkastet under kan erstatte innholdet i `public/personvern.html` på samme URL. Jeg kan legge det inn hvis du ber om det.
-
-### Utkast: Privacy Policy (engelsk)
-
-```text
-Privacy Policy – Fisketur
-Last updated: <DATE>
-
-WHO WE ARE
-Fisketur is made by UKJENT – trenger svar fra Eivind ("we", "us"), who is the data controller for the app and this website.
-Contact: UKJENT – trenger svar fra Eivind (e-mail address)
-
-IN SHORT
-Fisketur has no user accounts, no sign-in and no servers of our own. Your game progress is stored only on your own device. The iOS app can show optional rewarded ads from Google AdMob, and when an ad is requested, Google collects some information about your device. The web version of the game has no ads.
-
-WHAT THE GAME STORES ON YOUR DEVICE
-The game saves your progress (catches, in-game money, gear, story progress and settings) and, in the iOS app, how many optional ads you have watched today. This information stays on your device and is never sent to us or to anyone else. It is deleted when you delete the app (or clear the website data in your browser for the web version), or when you choose "Start et nytt spill" (Start a new game) in the game's settings.
-
-ADVERTISING IN THE iOS APP (GOOGLE ADMOB)
-You can choose to watch a short ad in return for a reward in the game. Ads are always optional. They are provided by Google AdMob (Google LLC; for users in the EEA and Switzerland, Google Ireland Limited).
-To show ads, measure them, limit how often you see the same ad and prevent fraud, Google's software in the app may collect:
-- your IP address and the approximate location it indicates,
-- device and operating system information (such as device model, OS version and language),
-- device identifiers such as the identifier for vendors. The advertising identifier (IDFA) is not available, because the app never asks for permission to track you,
-- information about the ads shown and how you interacted with them,
-- crash and performance data for the ad software.
-The app requests non-personalized ads only. It does not track you across other companies' apps or websites, and we do not sell personal data. We do not receive any of this information ourselves, apart from aggregated ad statistics from Google.
-How Google uses information from apps that use its services: https://policies.google.com/technologies/partner-sites
-Google Privacy Policy: https://policies.google.com/privacy
-
-CONSENT (EEA, UK AND SWITZERLAND)
-If you are in the EEA, the UK or Switzerland, Google's consent message asks for your choice before ads are requested. Where consent is required, we rely on it. You can change or withdraw your choice at any time in the game under "Dagbok og innstillinger" (Journal and settings) → "Personvern og reklame" (Privacy and ads). Withdrawing consent does not affect processing that took place before.
-
-THE WEB VERSION AND THIS WEBSITE
-The web version of the game and this page are hosted on GitHub Pages. GitHub may process technical information such as your IP address in order to deliver the pages (see the GitHub Privacy Statement). The web version shows no ads and stores your progress only in your browser.
-
-CHILDREN
-Fisketur is suitable for all ages but is not specifically directed at children. We do not knowingly collect personal information from children, and the app requests non-personalized ads only.
-
-HOW LONG DATA IS KEPT
-We do not store any personal data ourselves. Data on your device stays there until you delete it as described above. Google keeps advertising data according to its own policies.
-
-YOUR RIGHTS
-Under the GDPR you have the right to access, correct and delete personal data, to restrict or object to processing, to data portability and to withdraw consent. Because we do not hold personal data about you, requests about advertising data are handled by Google, but you are welcome to contact us and we will help. You can also complain to your data protection authority. In Norway this is Datatilsynet (www.datatilsynet.no).
-
-CHANGES
-If the app changes how it handles data, we will update this page and the date at the top.
-
-CONTACT
-UKJENT – trenger svar fra Eivind (e-mail address)
-```
-
-### Utkast: Personvernerklæring (norsk)
-
-```text
-Personvern i Fisketur
-Sist oppdatert: <DATO>
-
-HVEM VI ER
-Fisketur er laget av UKJENT – trenger svar fra Eivind («vi»). Vi er behandlingsansvarlig for appen og denne nettsiden.
-Kontakt: UKJENT – trenger svar fra Eivind (e-postadresse)
-
-KORT FORTALT
-Fisketur har ingen brukerkontoer, ingen innlogging og ingen egne servere. Fremgangen din lagres bare på din egen enhet. iOS-appen kan vise reklame som du selv velger å se. Reklamen leveres av Google AdMob, og Google samler da inn noen opplysninger om enheten. Nettversjonen av spillet har ingen reklame.
-
-DET SPILLET LAGRER PÅ ENHETEN DIN
-Spillet lagrer fremgangen din (fangst, penger i spillet, utstyr, hvor langt du har kommet i historien og innstillinger). I iOS-appen lagres også hvor mange reklamer du har sett i dag. Opplysningene blir på enheten og sendes ikke til oss eller andre. De slettes når du sletter appen (eller nettstedsdataene i nettleseren for nettversjonen), eller når du velger «Start et nytt spill» i innstillingene.
-
-REKLAME I iOS-APPEN (GOOGLE ADMOB)
-Du kan velge å se en kort reklame for å få en belønning i spillet. Reklamen er alltid frivillig. Den leveres av Google AdMob (Google LLC, og Google Ireland Limited for brukere i EØS og Sveits).
-For å vise og måle reklame, begrense hvor ofte du ser samme annonse og hindre svindel kan Googles programvare i appen samle inn:
-- IP-adressen din og den omtrentlige posisjonen den viser,
-- opplysninger om enheten og operativsystemet (for eksempel modell, versjon og språk),
-- enhets-ID-er som identifikatoren for leverandør. Annonse-ID-en (IDFA) er ikke tilgjengelig, fordi appen aldri ber om lov til å spore deg,
-- hvilke annonser som ble vist og hvordan du brukte dem,
-- krasj- og ytelsesdata for reklameprogramvaren.
-Appen ber bare om ikke-personaliserte annonser. Den sporer deg ikke på tvers av andre selskapers apper og nettsider, og vi selger ikke personopplysninger. Vi får ikke disse opplysningene selv, bare samlet statistikk om reklamen fra Google.
-Slik bruker Google opplysninger fra apper som bruker tjenestene deres: https://policies.google.com/technologies/partner-sites
-Googles personvernerklæring: https://policies.google.com/privacy
-
-SAMTYKKE (EØS, STORBRITANNIA OG SVEITS)
-Er du i EØS, Storbritannia eller Sveits, ber Googles samtykkemelding om valget ditt før det hentes reklame. Der samtykke kreves, er det grunnlaget for behandlingen. Du kan endre eller trekke tilbake samtykket når som helst under «Dagbok og innstillinger» → «Personvern og reklame» i spillet. Det påvirker ikke behandling som skjedde før du trakk det tilbake.
-
-NETTVERSJONEN OG DENNE NETTSIDEN
-Nettversjonen av spillet og denne siden ligger på GitHub Pages. GitHub kan behandle tekniske opplysninger som IP-adressen din for å levere sidene (se GitHubs personvernerklæring). Nettversjonen har ingen reklame og lagrer fremgangen bare i nettleseren din.
-
-BARN
-Fisketur passer for alle aldre, men er ikke laget spesielt for barn. Vi samler ikke bevisst inn personopplysninger om barn, og appen ber bare om ikke-personaliserte annonser.
-
-HVOR LENGE OPPLYSNINGER LAGRES
-Vi lagrer ingen personopplysninger selv. Det som ligger på enheten din, blir der til du sletter det som beskrevet over. Google lagrer reklamedata etter sine egne regler.
-
-DINE RETTIGHETER
-Etter personvernforordningen (GDPR) har du rett til innsyn, retting og sletting, til å begrense eller protestere mot behandling, til dataportabilitet og til å trekke tilbake samtykke. Fordi vi ikke har personopplysninger om deg, er det Google som håndterer forespørsler om reklamedata, men ta gjerne kontakt, så hjelper vi deg. Du kan også klage til Datatilsynet (www.datatilsynet.no).
-
-ENDRINGER
-Endrer appen hvordan den behandler opplysninger, oppdaterer vi denne siden og datoen øverst.
-
-KONTAKT
-UKJENT – trenger svar fra Eivind (e-postadresse)
-```
-
-### Utkast: Support-side (engelsk), foreslått publisert som `public/support.html`
-
-```text
-Fisketur – Support
-
-Fisketur is a cozy pixel-art fishing game for iPhone. The game text is in Norwegian.
-
-Questions, bug reports or feedback?
-E-mail: UKJENT – trenger svar fra Eivind
-or open an issue: https://github.com/erlendskogan/fisketur/issues
-
-Frequently asked questions
-- Where is my progress saved? Only on your iPhone. If you delete the app, your progress is deleted too.
-- How do I start over? Tap the gear icon at the top right → "Start et nytt spill" and tap again to confirm.
-- Do I have to watch ads? No. Ads are optional and give a small bonus in the game, at most three times a day for each kind.
-- How do I change my ad consent (EEA, UK, Switzerland)? Gear icon → "Personvern og reklame".
-- There is no sound. The game follows the iPhone's silent switch. Turn it off, or check "Lyd: på" in the settings.
-
-Privacy policy: https://erlendskogan.github.io/fisketur/personvern.html
-```
+Telefonnummeret står ikke på sidene, fordi e-post holder som kontaktinformasjon. Merk at App Store viser **Eivind Geiran** som selger (individuell Apple-konto), mens sidene oppgir Erlend Holth Skogan som behandlingsansvarlig. Det er greit, men en setning som «Fisketur publiseres på App Store av Eivind Geiran» kan legges til hvis dere vil gjøre koblingen tydelig.
 
 **app-ads.txt (for AdMob-inntekter, ikke for review):** AdMob vil verifisere `app-ads.txt` på rotdomenet til utvikler-nettstedet som står i App Store-oppføringen. AdMob leser Marketing URL, og Support URL hvis Marketing URL mangler **(verifiser i AdMob-hjelpen)**. For `erlendskogan.github.io` må filen ligge på `https://erlendskogan.github.io/app-ads.txt`. Det krever et eget repo, `erlendskogan/erlendskogan.github.io`, fordi `/fisketur/app-ads.txt` ikke telles. Linjen blir (utgiver-ID fra app-ID-en i `app.json`):
 ```text
@@ -403,7 +284,7 @@ Navnet kommer fra Apple-teamet i EAS-loggen («Eivind Geiran (Individual)»). E-
 - *Sign-in required:* **Nei** (fjern haken). Appen har ingen kontoer og ingen innlogging, så det trengs ingen demokonto og ingen `<DEMO_PASSORD>`.
 - Username/Password: la stå tomme.
 
-**Notes** (3319 / 4000 tegn)
+**Notes** (3316 / 4000 tegn)
 ```text
 Fisketur is a single-player fishing game. All in-game text is in Norwegian, so the button names below are given in Norwegian with an English translation.
 
@@ -442,7 +323,7 @@ ACCOUNT DELETION
 Not applicable: the app has no accounts and stores no personal data on any server.
 
 PRIVACY POLICY
-https://erlendskogan.github.io/fisketur/personvern.html
+https://erlendskogan.github.io/fisketur/privacy.html
 
 Thank you for reviewing Fisketur!
 ```
@@ -629,8 +510,8 @@ Det finnes ikke noe simulator- eller UI-testoppsett for iOS i repoet (ingen Deto
 2. **Knappen «Personvern og reklame» gjør ingenting utenfor EØS (2.1).** `showAdPrivacy()` svelger feilen når Google ikke har noe skjema. Reviewer i USA trykker og ingenting skjer. Forslag: vis knappen bare når `AdsConsent.getPrivacyOptionsRequirementStatus()` sier `REQUIRED`, og åpne ellers personvernerklæringen. Det er forklart i Review Notes, så risikoen er lavere.
 3. **Reklamen må passe aldersgrensen (2.5.18).** Sett maks annonseinnhold til G i AdMob (punkt 5).
 4. **Språket (2.3).** Appen er bare på norsk, men binæren ser engelsk ut (`CFBundleDevelopmentRegion` er standard `en`). Beskrivelsen sier at spillet er norsk, så metadataen er ærlig. Sett i tillegg `ios.infoPlist.CFBundleDevelopmentRegion: "nb"` (og eventuelt `CFBundleLocalizations: ["nb"]`) i `app.json`, så App Store viser «Norwegian Bokmål». Det er en kodeendring.
-5. **Personvernerklæringen er ufullstendig og bare på norsk** (punkt 3). Publiser utkastet med navn og e-post.
-6. **Support URL bør ha kontaktinformasjon (1.5).** GitHub Issues krever konto. Publiser support-siden med e-postadresse.
+5. **Personvernerklæringen** manglet navn, e-post og engelsk versjon. **Løst** med `privacy.html` og den oppdaterte `personvern.html`, når PR-en er merget.
+6. **Support URL med kontaktinformasjon (1.5).** **Løst** med `support.html`, når PR-en er merget.
 7. **Web view-app (4.2 Minimum Functionality).** Spillet kjører i en WKWebView. Det er et fullverdig, offline spill med native lagring og native reklame, ikke en nettside, så risikoen er lav. Review Notes forklarer det («does not load a website and does not download code»). Bruk ikke nettversjonen som Marketing URL.
 
 ### Kosmetisk / lav risiko
@@ -656,26 +537,23 @@ Det finnes ikke noe simulator- eller UI-testoppsett for iOS i repoet (ingen Deto
 
 1. Lag et nytt bygg med **reklame: ekte** (`store`-profilen). Bygg 4 har testreklame. Velg **1.0.0 (5)** under *Build*.
 2. Endre versjonen i App Store Connect fra **1.0 til 1.0.0**, så bygget kan velges.
-3. Åpne <https://erlendskogan.github.io/fisketur/personvern.html> i en nettleser og bekreft at siden vises (jeg fikk ikke sjekket det herfra). Lim den inn som **Privacy Policy URL**.
+3. Merg PR-en med personvern- og supportsidene. Når Deploy-workflowen er grønn, åpner du <https://erlendskogan.github.io/fisketur/privacy.html> og <https://erlendskogan.github.io/fisketur/support.html> i en nettleser og sjekker at de vises (jeg får ikke åpnet dem herfra). Lim dem inn som **Privacy Policy URL** og **Support URL**.
 4. Fyll ut **App Privacy** etter tabellen i punkt 4 (Yes, data collected; ingen tracking) og trykk **Publish**.
 5. Svar på **Content Rights** (Yes / Yes) og **aldersgrense-skjemaet** (punkt 5, gir 4+).
-6. Lim inn **Description, Keywords, Promotional Text, Subtitle og Support URL** (punkt 2 og 3). Sett **Copyright** når rettighetshaver er avklart.
+6. Lim inn **Description, Keywords, Promotional Text og Subtitle** (punkt 2). Sett **Copyright** når rettighetshaver er avklart.
 7. Fyll inn **Contact Information** med telefonnummer. Ta bort haken for **Sign-in required** og lim inn **Notes** (punkt 7).
 8. Last opp minst 3 **skjermbilder i 6,9"** (1320 × 2868).
 9. Velg **kategori** (Games: Casual og Simulation), **pris Free** og **land**. Sjekk **DSA trader status** under *Business* hvis appen skal selges i EU.
 
 ## Spørsmål til Eivind
 
-1. Hvilket telefonnummer skal stå i App Review Contact Information?
+1. Hvilket telefonnummer skal stå i App Review Contact Information? Ditt, eller Erlends, og da med Erlend som kontaktperson?
 2. Er eivind.geiran@gmail.com riktig e-post for Apple-reviewere?
 3. Hvem eier rettighetene og skal stå i Copyright: Eivind Geiran, Erlend Skogan eller begge?
-4. Hvilket navn skal stå som behandlingsansvarlig i personvernerklæringen?
-5. Hvilken e-post skal stå offentlig for support og personvern?
-6. Hvilket appnavn er registrert i App Store Connect: «Fisketur» eller noe annet?
-7. Skal appen være tilgjengelig i alle land eller bare i Norge og Norden?
-8. Er du næringsdrivende («trader») etter EUs DSA, eller skal EU-landene velges bort?
-9. Er barn under 13 en uttalt målgruppe? I så fall må AdMob settes til «child-directed», og svarene i punkt 4 og 5 endres.
-10. Har du fått e-post fra Apple med ITMS-advarsler etter bygg 4?
-11. Er AdMob-appen godkjent («Ready»), og er samtykkemeldingen fortsatt publisert?
-12. Skal jeg fikse punktene under «Bør fikses» i koden (personvernlenke i appen, skjule den tomme personvernknappen og norsk språkregion) før du bygger på nytt?
-13. Skal jeg legge personvernutkastet og support-siden inn i `public/`?
+4. Hvilket appnavn er registrert i App Store Connect: «Fisketur» eller noe annet?
+5. Skal appen være tilgjengelig i alle land eller bare i Norge og Norden?
+6. Er du næringsdrivende («trader») etter EUs DSA, eller skal EU-landene velges bort?
+7. Er barn under 13 en uttalt målgruppe? I så fall må AdMob settes til «child-directed», og svarene i punkt 4 og 5 endres.
+8. Har du fått e-post fra Apple med ITMS-advarsler etter bygg 4?
+9. Er AdMob-appen godkjent («Ready»), og er samtykkemeldingen fortsatt publisert?
+10. Skal jeg fikse punktene under «Bør fikses» i koden (personvernlenke i appen, skjule den tomme personvernknappen og norsk språkregion) før du bygger på nytt?
