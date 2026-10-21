@@ -1,7 +1,9 @@
 import { StatusBar } from 'expo-status-bar'
+import { useEffect } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { initialWindowMetrics, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
 
+import { adsAvailable, initAds, showRewardedAd } from './ads'
 import Game from './components/Game'
 import { loadStorage, writeStorage } from './storage'
 
@@ -17,6 +19,8 @@ function Screen() {
   // The game draws edge to edge, behind the notch and home indicator, and pads its own
   // HUD and buttons; it only needs to know how much.
   const insets = useSafeAreaInsets()
+  // asks for ad consent (GDPR) and loads the first reward ad while the game starts
+  useEffect(() => void initAds(), [])
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
@@ -24,6 +28,8 @@ function Screen() {
         insets={{ top: insets.top, bottom: insets.bottom }}
         loadStorage={loadStorage}
         writeStorage={writeStorage}
+        ads={adsAvailable()}
+        showRewardedAd={showRewardedAd}
         dom={{
           style: styles.game,
           contentInsetAdjustmentBehavior: 'never',

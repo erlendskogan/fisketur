@@ -136,6 +136,8 @@ export interface VaHost {
   rewardKey(n: number): number
   worldTabs(w: WorldId): string
   sell(): void
+  adSellButton(): string
+  wireAdSell(b: HTMLElement): void
   refresh(): void
 }
 
@@ -600,12 +602,14 @@ export class Vardo {
       `${this.host.placeHead('nadja', greet)}<div class="stack">
         ${plant}
         <button class="btn green" data-a="sell" ${n ? '' : 'disabled'}>${iconImg('coin')}Selg fangsten<span class="right">${kr(this.saleValue())}</span></button>
+        ${this.host.adSellButton()}
         ${va.hold.length ? `<p class="muted">Kassa: ${s.bucket.length} fisk. Lasterommet: ${va.hold.length} fisk.</p>` : ''}
         <button class="btn" data-a="gear">${iconImg('gear')}Utstyr</button>
         <button class="btn plain" data-a="paint">${iconImg('sea')}Båtmaling</button>
       </div>`,
     )
     b.querySelector<HTMLElement>('[data-a=sell]')!.onclick = () => this.host.sell()
+    this.host.wireAdSell(b)
     b.querySelector<HTMLElement>('[data-a=gear]')!.onclick = () => this.host.openShop('gear')
     b.querySelector<HTMLElement>('[data-a=paint]')!.onclick = () => this.host.openShop('paint')
     this.wirePlant(b)

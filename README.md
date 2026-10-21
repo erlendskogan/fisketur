@@ -14,6 +14,7 @@ mobile/                      iOS-appen (Expo)
   App.tsx                    fullskjerm, safe area, kobler til native lagring
   components/Game.tsx        DOM component ('use dom') som kjører spillet i en web view
   storage.ts                 native lagring (AsyncStorage)
+  ads.ts                     valgfrie belønningsreklamer (AdMob)
   app.json, eas.json         app- og byggoppsett
 ```
 
@@ -109,7 +110,7 @@ I App Store Connect må du fylle ut:
 - beskrivelse og nøkkelord
 - skjermbilder for 6,9"-iPhone
 - URL til personvernerklæring (påkrevd)
-- personvernskjemaet *App Privacy* («Data Not Collected»: spillet lagrer bare lokalt)
+- personvernskjemaet *App Privacy*: spillet lagrer bare lokalt, men AdMob samler inn enhets-ID, grov posisjon og bruksdata for reklame (se Googles veiledning for App Store-personvernskjemaet). Svar *ikke* «Data Not Collected».
 - aldersgrense og kategori (*Games → Casual*)
 
 Velg så bygget og trykk **Add for Review**.
@@ -135,6 +136,26 @@ Om tokenet:
 Vil andre enn kontoeieren se byggene i TestFlight, må de legges til som brukere i App Store Connect og deretter som interne testere (se punkt 5).
 
 Ikke legg sertifikater, `.p8`- eller `.p12`-filer eller API-nøkler i repoet. `mobile/.gitignore` stopper de vanligste. Trenger du nøkler senere (for eksempel for innsending fra CI), legg dem i EAS sine miljøvariabler eller hemmeligheter.
+
+## Reklame
+
+Appen har valgfrie belønningsreklamer (AdMob). Nettsiden har ingen. Spilleren velger selv å se dem, og hver type kan brukes 3 ganger per kalenderdag:
+
+- **Salg:** +50 % på salget når du selger minst 3 fisk (Krambua, Bakke Fisk, Fiskeboden, Mottaket, Pomorbrygga).
+- **Andre sjanse:** slipper en ny art eller en sjelden fisk mens du sveiver, kan du se en reklame og lande den likevel. Gjelder ikke legender, Den gamle, Kongen eller under fiskekonkurransen.
+
+Grensene står øverst i `src/main.ts` (`AD_SALE_BONUS`, `AD_SALE_MIN`, `AD_PER_DAY`). Reklamen spilles i appen (`mobile/ads.ts`), og spillet får bare vite om den ble sett ferdig (`src/platform/ads.ts`). Annonsene ber bare om ikke-personaliserte annonser, så appen trenger ikke å spørre om sporing (ATT). Samtykke etter GDPR går gjennom Googles UMP.
+
+Foreløpig brukes **Googles test-ID-er**, så TestFlight viser testreklamer og tjener ingenting. Slik går du live:
+
+1. Lag en konto på <https://admob.google.com> og legg til appen (iOS, Fisketur).
+2. Lag en ad unit av typen *Rewarded*.
+3. Bytt `iosAppId` i `react-native-google-mobile-ads`-pluginen i `mobile/app.json` til appens app-ID (`ca-app-pub-…~…`).
+4. Sett `REWARDED_UNIT` i `mobile/ads.ts` til ad unit-ID-en (`ca-app-pub-…/…`).
+5. Under **Privacy & messaging** i AdMob: lag en GDPR-melding, så viser appen samtykkeskjemaet i EØS.
+6. Legg ut `app-ads.txt` på utviklernettsiden som er oppgitt i App Store.
+
+I Expo Go finnes ikke AdMob-modulen, så der vises ingen reklameknapper. Bruk et utviklingsbygg (`npm run ios:dev`) for å teste reklamen lokalt.
 
 ## Kjente begrensninger i appen
 

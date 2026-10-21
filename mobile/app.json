@@ -26,6 +26,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#141642"
         }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "iosAppId": "ca-app-pub-3940256099942544~1458507309",
+          "delayAppMeasurementInit": true,
+          "skAdNetworkItems": ["cstr6suwn9.skadnetwork"]
+        }
       ]
     ],
     "extra": {

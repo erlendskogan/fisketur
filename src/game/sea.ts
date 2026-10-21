@@ -45,6 +45,14 @@ export function artFor(sp: Species) {
   return a
 }
 
+/** How big a landed fish turns out; a better lure brings up bigger ones */
+export function rollSize(sp: Species, lure: number) {
+  const t = Math.pow(Math.random(), 1.7 / Math.sqrt(lure))
+  const cm = Math.round(sp.cm[0] + (sp.cm[1] - sp.cm[0]) * t)
+  const kg = +(sp.kg[0] + (sp.kg[1] - sp.kg[0]) * Math.pow(t, 2.2)).toFixed(sp.kg[1] < 2 ? 2 : 1)
+  return { cm, kg }
+}
+
 type FishState = 'swim' | 'approach' | 'nibble' | 'bite' | 'hooked' | 'flee' | 'leap'
 
 interface Fish {
@@ -68,7 +76,8 @@ export type Mode = 'idle' | 'cast' | 'sink' | 'wait' | 'bite' | 'reel' | 'land' 
 export interface SeaHost {
   s: Save
   caught(sp: Species, cm: number, kg: number, perfect: boolean, chest: boolean): void
-  escaped(): void
+  /** The fish got away while you reeled */
+  escaped(sp: Species): void
   letterFound(): void
   hydroPlaced(): void
   hint(text: string): void
@@ -438,12 +447,13 @@ export class Sea {
           this.host.modeChanged()
         } else if (r.result === 'lose') {
           sfx.lose()
-          if (this.hooked) this.flee(this.hooked)
+          const lost = this.hooked
+          if (lost) this.flee(lost)
           this.hooked = null
           this.reel = null
           this.mode = 'wait'
           this.cooldown = 2
-          this.host.escaped()
+          if (lost) this.host.escaped(lost.sp)
           this.host.modeChanged()
         }
         break
@@ -488,9 +498,7 @@ export class Sea {
         this.landing = null
         if (f.sp.id === 'gamle') this.host.gamleCaught()
         else {
-          const t = Math.pow(Math.random(), 1.7 / Math.sqrt(gearValue(this.s, 'lure')))
-          const cm = Math.round(f.sp.cm[0] + (f.sp.cm[1] - f.sp.cm[0]) * t)
-          const kg = +(f.sp.kg[0] + (f.sp.kg[1] - f.sp.kg[0]) * Math.pow(t, 2.2)).toFixed(f.sp.kg[1] < 2 ? 2 : 1)
+          const { cm, kg } = rollSize(f.sp, gearValue(this.s, 'lure'))
           this.host.caught(f.sp, cm, kg, r.perfect, r.chestWon)
         }
       }

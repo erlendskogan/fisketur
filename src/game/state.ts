@@ -51,6 +51,8 @@ export interface Save {
   derbyDay?: Partial<Record<WorldId, number>>
   /** Vardø: the house, the boats, the nets and everything else that chapter keeps */
   va?: VardoState
+  /** iOS app: reward ads watched today (real calendar day), for the daily limit */
+  ads?: { date: string; sell: number; second: number }
 }
 
 /** The things that belong to one place */

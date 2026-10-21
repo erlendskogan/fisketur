@@ -6,6 +6,7 @@ import { useEffect } from 'react'
 import type { DOMProps } from 'expo/dom'
 
 import { mountGame } from '../../src/main'
+import { setAdPlayer } from '../../src/platform/ads'
 import { setSaveStore } from '../../src/platform/storage'
 
 // Metro does not copy files referenced by url() in CSS into the app, so the font the web
@@ -30,6 +31,10 @@ type Props = {
   /** Native storage (mobile/storage.ts); these run in the app, not in the web view */
   loadStorage: () => Promise<Record<string, string>>
   writeStorage: (key: string, value: string | null) => Promise<void>
+  /** Whether this build can show reward ads (not in Expo Go) */
+  ads: boolean
+  /** Native AdMob (mobile/ads.ts): true when the ad was watched to the end */
+  showRewardedAd: () => Promise<boolean>
 }
 
 /** The game reads its save synchronously, so fetch it all from the app before starting */
@@ -67,6 +72,7 @@ export default function Game(props: Props) {
     mounted = true
     // the page already has user-scalable=no; this also stops iOS pinch gestures
     document.addEventListener('gesturestart', (e) => e.preventDefault())
+    if (props.ads) setAdPlayer({ show: props.showRewardedAd })
     Promise.all([loadFont(), connectNativeStorage(props)]).then(() => mountGame())
   }, [])
   return null

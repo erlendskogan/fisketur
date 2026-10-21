@@ -23,7 +23,7 @@ import {
   type WorldId,
 } from './game/data'
 import { Harbor, type SpotId } from './game/harbor'
-import { artFor, LETTER_DEPTHS, Sea, type SeaHost } from './game/sea'
+import { artFor, LETTER_DEPTHS, rollSize, Sea, type SeaHost } from './game/sea'
 import { activeQuests, bookCount, bucketValue, fresh, gearValue, load, needsMet, persist, questsOpen, switchWorld, wipe, type Save } from './game/state'
 import {
   AFTER_AK_ENDING,
@@ -95,6 +95,7 @@ import { HYDRO_DEPTHS } from './game/alaska'
 import { BUOY_DEPTHS, POND_FISH, POND_NEED } from './game/hawaii'
 import { HJELL_NEED } from './game/lofoten'
 import { $, esc, face, icon, iconImg, kr, UI } from './ui/ui'
+import { adsOn, playAd } from './platform/ads'
 import { weatherAt } from './game/weather'
 import { Vardo, type View } from './game/vardo/controller'
 import { VA_FIRST_SALE, VA_FROM, VA_INVITE, VA_TICKET_LINES, VA_TO_AGAIN, VA_TRAVEL } from './game/vardo/story'
@@ -104,6 +105,15 @@ const DAY_SECONDS = 540
 /** What the big jobs cost: Arne's dam, Tūtū's pond wall and the family rorbu */
 const WALL_COST = 800
 const RORBU_COST = 5000
+
+/**
+ * Reward ads (iOS app only), each at most three times a day: half as much again for a sale
+ * of at least three fish, or landing a new or rare fish that got away. Enough to be worth
+ * half a minute, small next to what a day of fishing brings in.
+ */
+const AD_SALE_BONUS = 0.5
+const AD_SALE_MIN = 3
+const AD_PER_DAY = 3
 
 class Game implements SeaHost {
   s: Save = load()
@@ -718,8 +728,84 @@ class Game implements SeaHost {
     this.ui.toast(this.hi ? 'Sangbøya er ute! Gå til Selma og lytt.' : 'Hydrofonen sitter! Gå til Selma og lytt.', 'sea')
   }
 
-  escaped() {
-    this.ui.toast('Den slapp! Prøv igjen.')
+  escaped(sp: Species) {
+    const s = this.s
+    const isNew = !s.book[sp.id]
+    const derby = s.derby && s.derby.world === s.world && !s.derby.done
+    if (!(isNew || sp.rare) || sp.special || sp.legend || derby || !this.adsLeft('second') || this.ui.busy) {
+      this.ui.toast('Den slapp! Prøv igjen.')
+      return
+    }
+    const b = this.ui.sheet(
+      'Den slapp!',
+      `<div class="catch">
+        <div class="fishimg"><img class="px" src="${this.fishURL(sp, !isNew)}" alt=""></div>
+        <p>${isNew ? 'Det var en art du ikke har i fiskeboka ennå.' : `${esc(sp.name)} er sjelden. Den biter ikke hver dag.`}</p>
+        <p class="muted">Se en kort reklame, så lander du den likevel. ${this.adsLeft('second')} igjen i dag.</p>
+      </div>
+      <div class="two"><button class="btn plain" data-a="no">La den gå</button><button class="btn green" data-a="ad">Se reklame</button></div>`,
+    )
+    b.querySelector<HTMLElement>('[data-a=no]')!.onclick = () => this.ui.closeSheet()
+    const ad = b.querySelector<HTMLButtonElement>('[data-a=ad]')!
+    ad.onclick = async () => {
+      ad.disabled = true
+      const watched = await this.watchAd('second')
+      this.ui.closeSheet()
+      if (!watched) return this.ui.toast('Reklamen ble ikke vist ferdig. Den slapp.')
+      sfx.catch()
+      const { cm, kg } = rollSize(sp, gearValue(s, 'lure'))
+      this.caught(sp, cm, kg, false, false)
+    }
+  }
+
+  // ---------- reward ads ----------
+
+  /** How many more ads of this kind today; 0 on the web, where there are none */
+  adsLeft(kind: 'sell' | 'second') {
+    if (!adsOn()) return 0
+    const today = new Date().toLocaleDateString('sv')
+    const a = this.s.ads?.date === today ? this.s.ads : { date: today, sell: 0, second: 0 }
+    return Math.max(0, AD_PER_DAY - a[kind])
+  }
+
+  /** Plays an ad with the game's sound off; true when it was watched to the end */
+  async watchAd(kind: 'sell' | 'second') {
+    if (!this.adsLeft(kind)) return false
+    setSound(false)
+    const watched = await playAd()
+    setSound(this.s.sound)
+    // iOS interrupts the web view's audio while the ad plays
+    initAudio()
+    this.last = performance.now()
+    if (watched) {
+      const today = new Date().toLocaleDateString('sv')
+      const a = this.s.ads?.date === today ? this.s.ads : { date: today, sell: 0, second: 0 }
+      a[kind]++
+      this.s.ads = a
+      this.save()
+    }
+    return watched
+  }
+
+  /** The sale-with-an-ad button for the shop, when there is enough fish to make it worth it */
+  adSellButton(): string {
+    const n = this.s.bucket.length + (this.vd ? (this.s.va?.hold.length ?? 0) : 0)
+    const left = this.adsLeft('sell')
+    if (n < AD_SALE_MIN || !left) return ''
+    const value = this.vd ? this.vardo.saleValue() : bucketValue(this.s)
+    return `<button class="btn" data-a="sellad">${iconImg('coin')}Reklame: +50 %<span class="right">+${kr(value * AD_SALE_BONUS)}</span></button>
+      <p class="muted">Valgfritt. ${left} igjen i dag.</p>`
+  }
+
+  wireAdSell(b: HTMLElement): void {
+    const el = b.querySelector<HTMLButtonElement>('[data-a=sellad]')
+    if (!el) return
+    el.onclick = async () => {
+      el.disabled = true
+      if (await this.watchAd('sell')) return this.sell(true)
+      this.ui.toast('Reklamen ble ikke vist ferdig, så det ble ingen bonus.')
+      el.disabled = false
+    }
   }
 
   async letterFound() {
@@ -1435,11 +1521,13 @@ class Game implements SeaHost {
           ${fix ? `<button class="btn green" data-a="fix" ${s.money >= RORBU_COST ? '' : 'disabled'}>${iconImg('house')}Sett i stand rorbua<span class="right">${kr(RORBU_COST)}</span></button>` : ''}
           ${wall ? `<button class="btn green" data-a="wall" ${s.money >= WALL_COST ? '' : 'disabled'}>${iconImg('house')}Bygg opp muren<span class="right">${kr(WALL_COST)}</span></button>` : ''}
           <button class="btn green" data-a="sell" ${s.bucket.length ? '' : 'disabled'}>${iconImg('coin')}Selg fangsten<span class="right">${kr(bucketValue(s))}</span></button>
+          ${this.adSellButton()}
           <button class="btn" data-a="gear">${iconImg('gear')}Utstyr</button>
           <button class="btn plain" data-a="paint">${iconImg('sea')}Båtmaling</button>
         </div>`,
       )
       b.querySelector<HTMLElement>('[data-a=sell]')!.onclick = () => this.sell()
+      this.wireAdSell(b)
       b.querySelector<HTMLElement>('[data-a=gear]')!.onclick = () => this.openShop('gear')
       b.querySelector<HTMLElement>('[data-a=paint]')!.onclick = () => this.openShop('paint')
       const fx = b.querySelector<HTMLElement>('[data-a=fix]')
@@ -1583,21 +1671,23 @@ class Game implements SeaHost {
     b.querySelector<HTMLElement>('[data-a=back]')!.onclick = () => this.openShop()
   }
 
-  async sell() {
+  /** `bonus`: an ad was watched for this sale, so it pays half as much again */
+  async sell(bonus = false) {
     const s = this.s
     // in Vardø the hold from the nets and pots is sold along with the box
     const kgs = s.bucket.reduce((n, c) => n + c.kg, 0)
     const hold = this.vardo.sellHold()
     const total = bucketValue(s) + hold.kr
     if (!total) return
-    s.money += total
-    s.stats.sold += total
+    const extra = bonus ? Math.round(total * AD_SALE_BONUS) : 0
+    s.money += total + extra
+    s.stats.sold += total + extra
     const n = s.bucket.length + hold.n
     s.bucket = []
     sfx.coin()
     this.progress('sell', { kr: total })
     if (this.vd) this.vardo.onSell(total, kgs + hold.kg)
-    this.ui.toast(`Solgte ${n} fisk for ${kr(total)}`, 'coin')
+    this.ui.toast(extra ? `Solgte ${n} fisk for ${kr(total)} + ${kr(extra)} i bonus` : `Solgte ${n} fisk for ${kr(total)}`, 'coin')
     this.save()
     const first = this.ak ? 'ak_sold1' : this.hi ? 'hi_sold1' : this.lo ? 'lo_sold1' : this.vd ? 'va_sold1' : 'sold1'
     if (!s.flags[first]) {
