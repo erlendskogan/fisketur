@@ -6,6 +6,12 @@ name: TestFlight
 
 on:
   workflow_dispatch:
+    inputs:
+      reklame:
+        description: 'Reklame: «test» for testing, «ekte» bare for bygget som skal til App Store'
+        type: choice
+        options: [test, ekte]
+        default: test
 
 permissions:
   contents: read
@@ -34,6 +40,7 @@ jobs:
       # Signing certificates and the App Store Connect API key are stored on EAS,
       # so the Expo token is the only secret. Waits until the build is uploaded to TestFlight.
       - name: Build on EAS and submit to TestFlight
-        run: npx --yes eas-cli@latest build --platform ios --profile production --non-interactive --auto-submit
+        # «ekte» builds the store profile (eas.json), the only one that shows real AdMob ads
+        run: npx --yes eas-cli@latest build --platform ios --profile ${{ inputs.reklame == 'ekte' && 'store' || 'production' }} --non-interactive --auto-submit-with-profile=production
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

@@ -146,14 +146,11 @@ Appen har valgfrie belønningsreklamer (AdMob). Nettsiden har ingen. Spilleren v
 
 Grensene står øverst i `src/main.ts` (`AD_SALE_BONUS`, `AD_SALE_MIN`, `AD_PER_DAY`). Reklamen spilles i appen (`mobile/ads.ts`), og spillet får bare vite om den ble sett ferdig (`src/platform/ads.ts`). Annonsene ber bare om ikke-personaliserte annonser, så appen trenger ikke å spørre om sporing (ATT). Samtykke etter GDPR går gjennom Googles UMP.
 
-Foreløpig brukes **Googles test-ID-er**, så TestFlight viser testreklamer og tjener ingenting. Slik går du live:
+AdMob-appen heter «Fisketur» (iOS). App-ID-en står i `mobile/app.json`, og ad unit-en «Belonning» står i `mobile/ads.ts`.
 
-1. Lag en konto på <https://admob.google.com> og legg til appen (iOS, Fisketur).
-2. Lag en ad unit av typen *Rewarded*.
-3. Bytt `iosAppId` i `react-native-google-mobile-ads`-pluginen i `mobile/app.json` til appens app-ID (`ca-app-pub-…~…`).
-4. Sett `REWARDED_UNIT` i `mobile/ads.ts` til ad unit-ID-en (`ca-app-pub-…/…`).
-5. Under **Privacy & messaging** i AdMob: lag en GDPR-melding, så viser appen samtykkeskjemaet i EØS.
-6. Legg ut `app-ads.txt` på utviklernettsiden som er oppgitt i App Store.
+**Test eller ekte reklame:** vanlige bygg (også TestFlight) viser Googles testreklame. Ser du på eller trykker på dine egne ekte annonser, regnes det som ugyldig trafikk, og AdMob kan stenge kontoen. Bare bygget som skal til App Store skal ha ekte reklame. Start da TestFlight-workflowen med **reklame: ekte**. Det bygger EAS-profilen `store`, som setter `EXPO_PUBLIC_ADS_LIVE=1`. Vil du teste ekte annonser på egen telefon, legg den inn som testenhet i AdMob under **Innstillinger → Testenheter**.
+
+Personvernerklæringen ligger på <https://erlendskogan.github.io/fisketur/personvern.html> (`public/personvern.html`). Bruk den i App Store Connect og i AdMob.
 
 I Expo Go finnes ikke AdMob-modulen, så der vises ingen reklameknapper. Bruk et utviklingsbygg (`npm run ios:dev`) for å teste reklamen lokalt.
 

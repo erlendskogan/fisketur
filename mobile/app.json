@@ -30,7 +30,7 @@
       [
         "react-native-google-mobile-ads",
         {
-          "iosAppId": "ca-app-pub-3940256099942544~1458507309",
+          "iosAppId": "ca-app-pub-3475938586108487~7350261920",
           "delayAppMeasurementInit": true,
           "skAdNetworkItems": ["cstr6suwn9.skadnetwork"]
         }

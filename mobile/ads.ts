@@ -2,13 +2,14 @@
 // The game only ever asks "show one, did they watch it?"; loading, consent and the
 // AdMob SDK stay here. Expo Go has no AdMob module, so there the game simply gets no ads.
 //
-// Until the app has its own AdMob account these are Google's test ids: TestFlight builds
-// show test ads and earn nothing. To go live, put the app's ad unit id in REWARDED_UNIT
-// and its app id in the react-native-google-mobile-ads plugin in app.json.
+// Real ads only in builds made with the "store" profile (eas.json), which sets
+// EXPO_PUBLIC_ADS_LIVE. Every other build, TestFlight included, gets Google's test ads:
+// watching your own real ads counts as invalid traffic and can close the AdMob account.
 
 type Ads = typeof import('react-native-google-mobile-ads')
 
-const REWARDED_UNIT: string | null = null
+const LIVE = process.env.EXPO_PUBLIC_ADS_LIVE === '1'
+const REWARDED_UNIT = 'ca-app-pub-3475938586108487/7952897153'
 
 let ads: Ads | null = null
 try {
@@ -40,7 +41,7 @@ function start() {
 /** Keep one ad loaded so the button can play it at once */
 function preload() {
   if (!ads || ad) return
-  ad = ads.RewardedAd.createForAdRequest(REWARDED_UNIT ?? ads.TestIds.REWARDED, { requestNonPersonalizedAdsOnly: true })
+  ad = ads.RewardedAd.createForAdRequest(LIVE ? REWARDED_UNIT : ads.TestIds.REWARDED, { requestNonPersonalizedAdsOnly: true })
   const a = ad
   a.addAdEventListener(ads.AdEventType.ERROR, () => {
     // try again later; a failed ad is never shown
