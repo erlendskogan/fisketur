@@ -4,6 +4,8 @@
 export interface AdPlayer {
   /** Plays one reward ad; true when it was watched to the end */
   show(): Promise<boolean>
+  /** Google's form where the player can change their ad consent (required in the EEA) */
+  privacy(): Promise<void>
 }
 
 let player: AdPlayer | null = null
@@ -12,6 +14,14 @@ export const adsOn = () => !!player
 
 export function setAdPlayer(p: AdPlayer) {
   player = p
+}
+
+export async function adPrivacy() {
+  try {
+    await player?.privacy()
+  } catch {
+    /* no form to show */
+  }
 }
 
 export async function playAd() {

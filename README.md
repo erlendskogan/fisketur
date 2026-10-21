@@ -150,6 +150,8 @@ AdMob-appen heter «Fisketur» (iOS). App-ID-en står i `mobile/app.json`, og ad
 
 **Test eller ekte reklame:** vanlige bygg (også TestFlight) viser Googles testreklame. Ser du på eller trykker på dine egne ekte annonser, regnes det som ugyldig trafikk, og AdMob kan stenge kontoen. Bare bygget som skal til App Store skal ha ekte reklame. Start da TestFlight-workflowen med **reklame: ekte**. Det bygger EAS-profilen `store`, som setter `EXPO_PUBLIC_ADS_LIVE=1`. Vil du teste ekte annonser på egen telefon, legg den inn som testenhet i AdMob under **Innstillinger → Testenheter**.
 
+Samtykkemeldingen for EØS («Fisketur samtykke», engelsk og norsk, med «Samtykker ikke»-knapp) er publisert i AdMob under **Personvern og meldinger → Europeiske forordninger**. Spillerne kan endre valget under **Dagbok og innstillinger → Personvern og reklame** i appen.
+
 Personvernerklæringen ligger på <https://erlendskogan.github.io/fisketur/personvern.html> (`public/personvern.html`). Bruk den i App Store Connect og i AdMob.
 
 I Expo Go finnes ikke AdMob-modulen, så der vises ingen reklameknapper. Bruk et utviklingsbygg (`npm run ios:dev`) for å teste reklamen lokalt.

@@ -35,6 +35,8 @@ type Props = {
   ads: boolean
   /** Native AdMob (mobile/ads.ts): true when the ad was watched to the end */
   showRewardedAd: () => Promise<boolean>
+  /** Google's consent form, so the player can change their mind */
+  showAdPrivacy: () => Promise<void>
 }
 
 /** The game reads its save synchronously, so fetch it all from the app before starting */
@@ -72,7 +74,7 @@ export default function Game(props: Props) {
     mounted = true
     // the page already has user-scalable=no; this also stops iOS pinch gestures
     document.addEventListener('gesturestart', (e) => e.preventDefault())
-    if (props.ads) setAdPlayer({ show: props.showRewardedAd })
+    if (props.ads) setAdPlayer({ show: props.showRewardedAd, privacy: props.showAdPrivacy })
     Promise.all([loadFont(), connectNativeStorage(props)]).then(() => mountGame())
   }, [])
   return null

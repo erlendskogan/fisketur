@@ -95,7 +95,7 @@ import { HYDRO_DEPTHS } from './game/alaska'
 import { BUOY_DEPTHS, POND_FISH, POND_NEED } from './game/hawaii'
 import { HJELL_NEED } from './game/lofoten'
 import { $, esc, face, icon, iconImg, kr, UI } from './ui/ui'
-import { adsOn, playAd } from './platform/ads'
+import { adPrivacy, adsOn, playAd } from './platform/ads'
 import { weatherAt } from './game/weather'
 import { Vardo, type View } from './game/vardo/controller'
 import { VA_FIRST_SALE, VA_FROM, VA_INVITE, VA_TICKET_LINES, VA_TO_AGAIN, VA_TRAVEL } from './game/vardo/story'
@@ -2013,6 +2013,7 @@ class Game implements SeaHost {
       ${journal}
       <div class="stack" style="margin-top:12px">
         <button class="btn plain" data-a="sound">Lyd: ${s.sound ? 'på' : 'av'}</button>
+        ${adsOn() ? '<button class="btn plain" data-a="privacy">Personvern og reklame</button>' : ''}
         <button class="btn red" data-a="reset">Start et nytt spill</button>
       </div>
       <p class="muted" style="margin-top:16px">Fisketur. Spillet lagres automatisk på denne telefonen.</p>`,
@@ -2023,6 +2024,8 @@ class Game implements SeaHost {
       this.save()
       this.openSettings()
     }
+    const pv = b.querySelector<HTMLElement>('[data-a=privacy]')
+    if (pv) pv.onclick = () => adPrivacy()
     const r = b.querySelector<HTMLElement>('[data-a=reset]')!
     let armed = false
     r.onclick = () => {

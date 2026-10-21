@@ -88,3 +88,13 @@ export async function showRewardedAd(): Promise<boolean> {
     else offs.push(a.addAdEventListener(m.RewardedAdEventType.LOADED, play))
   })
 }
+
+/** Google's consent form again, from the game's settings */
+export async function showAdPrivacy() {
+  if (!ads || !(await start())) return
+  try {
+    await ads.AdsConsent.showPrivacyOptionsForm()
+  } catch {
+    /* outside the EEA there is no form */
+  }
+}

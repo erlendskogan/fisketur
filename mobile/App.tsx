@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { initialWindowMetrics, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { adsAvailable, initAds, showRewardedAd } from './ads'
+import { adsAvailable, initAds, showAdPrivacy, showRewardedAd } from './ads'
 import Game from './components/Game'
 import { loadStorage, writeStorage } from './storage'
 
@@ -30,6 +30,7 @@ function Screen() {
         writeStorage={writeStorage}
         ads={adsAvailable()}
         showRewardedAd={showRewardedAd}
+        showAdPrivacy={showAdPrivacy}
         dom={{
           style: styles.game,
           contentInsetAdjustmentBehavior: 'never',
