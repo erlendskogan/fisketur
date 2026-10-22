@@ -51,7 +51,7 @@ async function dusk(name) {
   await t.overlay(`<div class="lift"></div><div class="shade-top"></div>${cap('', 12, 'tw', 'tw1')}${cap('', 29, 'tw', 'tw2')}`)
   await t.perFrame(TYPE([
     ['tw1', 'Bestefar har blitt glemsk.', 150],
-    ['tw2', 'Fyret har vært mørkt\ni et helt år.', 1500],
+    ['tw2', 'Fyret har vært\nmørkt i et helt år.', 1500],
   ]))
   await t.film(4.4)
   return t.finish()

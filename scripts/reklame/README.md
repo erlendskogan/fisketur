@@ -5,8 +5,8 @@ Tre reklamefilmer i mobilformat (1080 × 1920, 30 bilder/s, H.264 og AAC) laget 
 | Fil | Retning | Lengde |
 |---|---|---|
 | `1-dypet.mp4` | Gameplay-krok: snøret går 850 meter ned, en sildekonge biter, du sveiver den inn og får «Ny art!» | ca. 20 s |
-| `2-fyret.mp4` | Historien: bestefar er glemsk, du finner brevet hans i dypet, han husker løftet sitt og fyret blir tent | ca. 28 s |
-| `3-reisen.mp4` | Montasje klippet i takt med refrenget: Skjærvik, Alaska, Hawaii, Lofoten og Vardø, fiskeboka og to sjeldne fangster | ca. 26 s |
+| `2-fyret.mp4` | Historien: bestefar er glemsk, du finner brevet hans i dypet, han husker løftet sitt, og fyret blir tent | ca. 30 s |
+| `3-reisen.mp4` | Montasje klippet i takt med refrenget: Skjærvik, Alaska, Hawaii, Lofoten og Vardø, fiskeboka og to sjeldne fangster | ca. 27 s |
 
 Hver video har også et stillbilde (`.jpg`) som kan brukes som forsidebilde.
 

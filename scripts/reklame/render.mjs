@@ -44,7 +44,7 @@ function lufs(file) {
  * The clips back to back, the take sound (effects and ambience) over the soundtrack from
  * `musicFrom` seconds, mixed at fixed loudness targets and normalised to −14 LUFS.
  */
-async function compose(name, clips, musicFrom) {
+async function compose(name, clips, musicFrom, cover = 0.5) {
   mkdirSync(DEST, { recursive: true })
   const total = clips.reduce((n, c) => n + c.seconds, 0)
   const vlist = join(OUT, `${name}.videos.txt`)
@@ -76,7 +76,7 @@ async function compose(name, clips, musicFrom) {
     '-movflags', '+faststart', '-shortest', out,
   ])
   // a still for the ad platforms' cover picker
-  await run('ffmpeg', ['-y', '-loglevel', 'error', '-ss', '0.5', '-i', out, '-frames:v', '1', join(DEST, `${name}.jpg`)])
+  await run('ffmpeg', ['-y', '-loglevel', 'error', '-ss', String(cover), '-i', out, '-frames:v', '1', join(DEST, `${name}.jpg`)])
   console.log(`${out}: ${total.toFixed(2)} s`)
 }
 
@@ -90,7 +90,7 @@ if (want(1)) {
 }
 if (want(2)) {
   const { clips, lit } = await ad2('ad2')
-  await compose('2-fyret', clips, Math.max(0, SONG.verse2 - lit))
+  await compose('2-fyret', clips, Math.max(0, SONG.verse2 - lit), 3.6)
 }
 if (want(3)) {
   const { clips } = await ad3('ad3')
