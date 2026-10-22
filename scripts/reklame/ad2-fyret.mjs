@@ -32,20 +32,28 @@ const base = (extra) =>
     ...extra,
   })
 
+/** Page-side typewriter: each [id, text, start ms] types itself into its caption */
+const TYPE = (lines) => `
+  window.__tw0 ??= vt
+  for (const [id, text, at] of ${JSON.stringify(lines)}) {
+    const el = document.getElementById(id)
+    const n = Math.max(0, Math.min(text.length, Math.floor((vt - window.__tw0 - at) / 38)))
+    if (el && el.textContent.length !== n) el.textContent = text.slice(0, n)
+  }
+`
+
 /** 1: the harbour at dusk in the rain, the lighthouse dark */
 async function dusk(name) {
-  const t = await take(name, { seed: 21, audioSeconds: 12, save: base({ time: 0.775 }) })
-  await style(t, TALK_UP + CLEAN)
+  const t = await take(name, { seed: 21, audioSeconds: 12, save: base({ time: 0.755 }) })
+  await style(t, TALK_UP + CLEAN + `#rk .tw{animation:none;white-space:pre-line}`)
   await t.eval(() => (window.__dev.wx.rain = 1))
   await boot(t, 'harbor')
-  await t.eval(() => {
-    window.__game.ui.talk([{ text: 'Bestefar har blitt glemsk.' }, { text: 'Fyret i Skjærvik har vært mørkt i et helt år.' }])
-  })
-  await t.skip(0.25)
-  await t.overlay('<div class="lift"></div>')
-  await t.film(1.9)
-  await nextLine(t)
-  await t.film(2.7)
+  await t.overlay(`<div class="lift"></div><div class="shade-top"></div>${cap('', 12, 'tw', 'tw1')}${cap('', 29, 'tw', 'tw2')}`)
+  await t.perFrame(TYPE([
+    ['tw1', 'Bestefar har blitt glemsk.', 150],
+    ['tw2', 'Fyret har vært mørkt\ni et helt år.', 1500],
+  ]))
+  await t.film(4.4)
   return t.finish()
 }
 
@@ -55,7 +63,7 @@ async function letter(name) {
   await style(t, TALK_UP)
   await boot(t, 'sea')
   const act = await actPos(t)
-  await t.overlay(`<div class="lift"></div>${cap('For lenge siden senket<br>han brev i havet …', 14, 'in-fade')}`)
+  await t.overlay(`<div class="lift"></div>${cap('Han senket brev<br>i havet …', 14, 'in-fade')}`)
   await t.film(1.2)
   await t.down(act.x, act.y)
   await t.film(4, { speed: 3, until: 'g.sea.lure.y > 1072' })

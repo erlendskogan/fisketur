@@ -60,7 +60,7 @@ export async function ad3(name = 'ad3') {
       before: (t) => t.overlay(cap('Fem steder.<br><span class="y">194 arter.</span>', 11, 'big')),
     }),
   )
-  clips.push(await postcard(`${name}-2`, { world: 'alaska', view: 'harbor', from: 0.25, to: 0.31, place: 'PETERSBURG', country: 'ALASKA', half: 2, at: 2 }))
+  clips.push(await postcard(`${name}-2`, { world: 'alaska', view: 'harbor', from: 0.4, to: 0.46, place: 'PETERSBURG', country: 'ALASKA', half: 2, at: 2 }))
   clips.push(
     await postcard(`${name}-3`, {
       world: 'hawaii',
@@ -104,7 +104,7 @@ async function book(name, at) {
     g.openBook()
   })
   await t.skip(0.4)
-  await t.overlay(cap('Fyll fiskeboka', 6, 'in-slide'))
+  await t.overlay(cap('Fyll fiskeboka', 4, 'in-slide'))
   const sec = span(at, at + 2)
   await t.perFrame(`
     const b = document.querySelector('#sheet .panel-body')
@@ -127,6 +127,8 @@ async function card(name, world, id, at) {
     const sp = window.__species[id]
     window.__game.catchCard(sp, { cm: sp.cm[1], kg: sp.kg[1], value: Math.round(sp.value * 1.3) }, true, true, 0)
   }, id)
+  // the card is already up when the cut lands
+  await t.skip(0.6)
   await t.overlay(at % 2 ? '' : cap('Jakt på de <span class="y">sjeldne</span>', 6, 'in-slide'))
   await t.film(span(at, at + 1))
   return t.finish()
