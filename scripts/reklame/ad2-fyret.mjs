@@ -18,7 +18,7 @@ const nextLine = (t) => t.eval(() => document.getElementById('talk').dispatchEve
 /** Start the game and wait out the title, in the harbour or at sea */
 async function boot(t, view) {
   await t.eval((view) => window.__game.go(view), view)
-  await t.down(180, 300)
+  await t.down(216, 360)
   await t.up()
   await t.skip(1)
 }

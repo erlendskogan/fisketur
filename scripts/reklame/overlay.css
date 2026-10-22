@@ -1,8 +1,14 @@
 /* The ad layer on top of the game: captions, touch marker and end card, in the game's own style */
 
+/* laid out on a 360 × 640 stage and scaled up to the 432 × 768 page */
 #rk {
   position: fixed;
-  inset: 0;
+  left: 0;
+  top: 0;
+  width: 360px;
+  height: 640px;
+  transform: scale(1.2);
+  transform-origin: 0 0;
   z-index: 100000;
   pointer-events: none;
   font-family: 'Jersey 10', monospace;

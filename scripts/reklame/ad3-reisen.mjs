@@ -33,7 +33,7 @@ async function postcard(name, { world, view, from, to, place, country, half, at 
     window.__dev.wx.fog = 0
     window.__dev.wx.rain = 0
   }, view)
-  await t.down(180, 300)
+  await t.down(216, 360)
   await t.up()
   await t.skip(1)
   const sec = span(at, at + half)
@@ -93,7 +93,7 @@ export async function ad3(name = 'ad3') {
 async function book(name, at) {
   const t = await take(name, { seed: 40, audioSeconds: 8, save: save({ world: 'hawaii', time: 0.5 }) })
   await style(t, CLEAN + NO_HUD)
-  await t.down(180, 300)
+  await t.down(216, 360)
   await t.up()
   await t.skip(1)
   await t.eval(() => {
@@ -120,7 +120,7 @@ async function card(name, world, id, at) {
   const t = await take(name, { seed: 50 + at, audioSeconds: 6, save: save({ world, time: world === 'vardo' ? 0.9 : 0.7 }) })
   await style(t, CLEAN + NO_HUD)
   await t.eval(() => window.__game.go('sea'))
-  await t.down(180, 300)
+  await t.down(216, 360)
   await t.up()
   await t.skip(1)
   await t.eval((id) => {
@@ -136,7 +136,7 @@ async function end(name, at) {
   const t = await take(name, { seed: 60, audioSeconds: 8, save: save({ world: 'lofoten', time: 0.99 }) })
   await style(t, CLEAN)
   await t.eval(() => window.__game.go('harbor'))
-  await t.down(180, 300)
+  await t.down(216, 360)
   await t.up()
   await t.skip(1)
   await t.overlay(END('Fra fjorden i Norge til<br>Alaska og Hawaii'))

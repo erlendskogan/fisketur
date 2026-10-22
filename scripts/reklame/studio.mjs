@@ -16,9 +16,10 @@ const URL = process.env.URL || 'http://localhost:5173/'
 const CHROME = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
 
 export const FPS = 30
-/** CSS pixels; the page renders at 3× for 1080 × 1920 */
-export const VW = 360
-export const VH = 640
+/** CSS pixels of a large iPhone; the page renders at 2.5× for 1080 × 1920 */
+export const VW = 432
+export const VH = 768
+const DPR = 1080 / VW
 
 const OVERLAY_CSS = readFileSync(join(HERE, 'overlay.css'), 'utf8')
 
@@ -36,10 +37,10 @@ export async function closeBrowser() {
  * One continuous take. `save` is written to localStorage before the game boots.
  * audioMode: 'sfx' keeps sound effects and ambience but not the music, 'music' only the music.
  */
-export async function take(name, { save, seed = 7, audioSeconds = 40, audioMode = 'sfx', safeTop = 40, safeBot = 22 } = {}) {
+export async function take(name, { save, seed = 7, audioSeconds = 40, audioMode = 'sfx', safeTop = 47, safeBot = 24 } = {}) {
   mkdirSync(OUT, { recursive: true })
   const b = await getBrowser()
-  const ctx = await b.newContext({ viewport: { width: VW, height: VH }, deviceScaleFactor: 3, isMobile: true, hasTouch: true })
+  const ctx = await b.newContext({ viewport: { width: VW, height: VH }, deviceScaleFactor: DPR, isMobile: true, hasTouch: true })
   const page = await ctx.newPage()
   page.on('pageerror', (e) => console.error(`[${name}] pageerror`, e.message))
   page.on('console', (m) => m.type() === 'error' && console.error(`[${name}]`, m.text()))
@@ -136,7 +137,7 @@ export async function take(name, { save, seed = 7, audioSeconds = 40, audioMode 
           { k, ms: 1000 / FPS, until },
         )
         if (each) await each(i)
-        const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, clip: { x: 0, y: 0, width: VW, height: VH, scale: 3 } })
+        const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', optimizeForSpeed: true, clip: { x: 0, y: 0, width: VW, height: VH, scale: DPR } })
         const buf = Buffer.from(data, 'base64')
         if (!ff) encoder()
         if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once('drain', r))
@@ -215,7 +216,7 @@ async function followClock(raw, out, clock) {
     return `${f},apad=whole_dur=${(g.n * T).toFixed(6)},atrim=end=${(g.n * T).toFixed(6)}[s${i}]`
   })
   const graph = `${parts.join(';')};${segs.map((_, i) => `[s${i}]`).join('')}concat=n=${segs.length}:v=0:a=1[a]`
-  await run('ffmpeg', ['-y', '-loglevel', 'error', '-i', raw, '-filter_complex', graph, '-map', '[a]', '-c:a', 'pcm_s16le', out])
+  await run('ffmpeg', ['-y', '-loglevel', 'error', '-i', raw, '-filter_complex', graph, '-map', '[a]', '-c:a', 'pcm_f32le', out])
 }
 
 export function run(cmd, args) {
@@ -225,9 +226,9 @@ export function run(cmd, args) {
   })
 }
 
-/** 16-bit stereo WAV, padded with silence at the start so it lines up with the game's clock */
+/** 32-bit float stereo WAV, padded with silence at the start so it lines up with the game's clock */
 function writeWav(path, pcm, rate, lead) {
-  const pad = Buffer.alloc(Math.round(lead * rate) * 4)
+  const pad = Buffer.alloc(Math.round(lead * rate) * 8)
   const data = Buffer.concat([pad, pcm])
   const h = Buffer.alloc(44)
   h.write('RIFF', 0)
@@ -235,12 +236,12 @@ function writeWav(path, pcm, rate, lead) {
   h.write('WAVE', 8)
   h.write('fmt ', 12)
   h.writeUInt32LE(16, 16)
-  h.writeUInt16LE(1, 20)
+  h.writeUInt16LE(3, 20)
   h.writeUInt16LE(2, 22)
   h.writeUInt32LE(rate, 24)
-  h.writeUInt32LE(rate * 4, 28)
-  h.writeUInt16LE(4, 32)
-  h.writeUInt16LE(16, 34)
+  h.writeUInt32LE(rate * 8, 28)
+  h.writeUInt16LE(8, 32)
+  h.writeUInt16LE(32, 34)
   h.write('data', 36)
   h.writeUInt32LE(data.length, 40)
   writeFileSync(path, Buffer.concat([h, data]))

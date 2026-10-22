@@ -178,7 +178,7 @@
         }
       syncAnimations()
     },
-    /** Finish the audio and hand it over as 16-bit stereo PCM in base64, with its start time */
+    /** Finish the audio and hand it over as 32-bit float stereo PCM in base64, with its start time */
     async audio() {
       if (!audio.ctx) return null
       if (!audio.finished) {
@@ -189,10 +189,10 @@
       const buf = await audio.done
       const L = buf.getChannelData(0)
       const R = buf.getChannelData(1)
-      const out = new Int16Array(L.length * 2)
+      const out = new Float32Array(L.length * 2)
       for (let i = 0; i < L.length; i++) {
-        out[i * 2] = Math.max(-1, Math.min(1, L[i])) * 32767
-        out[i * 2 + 1] = Math.max(-1, Math.min(1, R[i])) * 32767
+        out[i * 2] = L[i]
+        out[i * 2 + 1] = R[i]
       }
       const bytes = new Uint8Array(out.buffer)
       let s = ''

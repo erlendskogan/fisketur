@@ -45,7 +45,7 @@ export async function ad1(name = 'ad1') {
     }),
   })
   // straight to the boat, past the title
-  await t.down(180, 300)
+  await t.down(216, 360)
   await t.up()
   await t.skip(1.2)
   const act = await actPos(t)
@@ -82,7 +82,7 @@ export async function ad1(name = 'ad1') {
   await t.tap(act.x, act.y, 0.15)
 
   // reel it in
-  await t.perFrame(REEL_PILOT(180, Math.round(act.y)))
+  await t.perFrame(REEL_PILOT(act.x, act.y))
   await t.film(0.5)
   await fadeOut(t, '.cap')
   await t.film(0.25)

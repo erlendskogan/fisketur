@@ -27,7 +27,7 @@ async function soundtrack() {
   const path = join(OUT, 'soundtrack.wav')
   if (existsSync(path)) return path
   const t = await take('soundtrack', { audioMode: 'music', audioSeconds: 96, save: save({}) })
-  await t.down(180, 300)
+  await t.down(216, 360)
   await t.up()
   await t.skip(96)
   return t.rawAudio(path)
@@ -52,13 +52,13 @@ async function compose(name, clips, musicFrom) {
   writeFileSync(vlist, clips.map((c) => `file '${c.video}'`).join('\n'))
   writeFileSync(alist, clips.map((c) => `file '${c.audio}'`).join('\n'))
   const sfx = join(OUT, `${name}.sfx.wav`)
-  await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', alist, '-c:a', 'pcm_s16le', sfx])
+  await run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', alist, '-c:a', 'pcm_f32le', sfx])
   const music = join(OUT, `${name}.music.wav`)
   const fadeAt = Math.max(0, total - 1.4)
   await run('ffmpeg', [
     '-y', '-loglevel', 'error', '-i', await soundtrack(),
     '-af', `atrim=start=${musicFrom.toFixed(4)}:duration=${total.toFixed(4)},asetpts=PTS-STARTPTS,afade=t=in:d=0.25,afade=t=out:st=${fadeAt.toFixed(3)}:d=1.4`,
-    '-c:a', 'pcm_s16le', music,
+    '-c:a', 'pcm_f32le', music,
   ])
   // the music carries the ad; the game's own sounds sit just under it
   const gm = -17 - lufs(music)
@@ -68,7 +68,7 @@ async function compose(name, clips, musicFrom) {
     '-y', '-loglevel', 'error',
     '-f', 'concat', '-safe', '0', '-i', vlist,
     '-i', sfx, '-i', music,
-    '-filter_complex', `[1:a]volume=${gs.toFixed(2)}dB[s];[2:a]volume=${gm.toFixed(2)}dB[m];[s][m]amix=inputs=2:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[a]`,
+    '-filter_complex', `[1:a]volume=${gs.toFixed(2)}dB[s];[2:a]volume=${gm.toFixed(2)}dB[m];[s][m]amix=inputs=2:normalize=0,loudnorm=I=-14:TP=-2:LRA=11,aresample=48000[a]`,
     '-map', '0:v', '-map', '[a]',
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.2', '-r', '30',
     '-x264-params', 'keyint=60:min-keyint=30',
